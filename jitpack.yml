@@ -1,0 +1,11 @@
+jdk:
+  - openjdk17
+
+install:
+  - cd android && ./gradlew :EdgeAI:publishToMavenLocal
+
+build:
+  script: cd android && ./gradlew :EdgeAI:assembleRelease
+
+env:
+  GRADLE_OPTS: "-Xmx2048m -Dfile.encoding=UTF-8" 

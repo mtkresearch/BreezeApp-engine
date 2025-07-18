@@ -1,0 +1,45 @@
+name: Validate EdgeAI
+
+on:
+  push:
+    paths:
+      - 'android/EdgeAI/**'
+      - '.github/workflows/edgeai-validate.yml'
+  pull_request:
+    paths:
+      - 'android/EdgeAI/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: Cache Gradle packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+            
+      - name: Build EdgeAI
+        run: ./gradlew :EdgeAI:assembleRelease
+        working-directory: android
+        
+      - name: Test EdgeAI
+        run: ./gradlew :EdgeAI:testDebugUnitTest
+        working-directory: android
+        
+      - name: Validate AIDL compilation
+        run: ./gradlew :EdgeAI:compileDebugAidl :EdgeAI:compileReleaseAidl 
+        working-directory: android 
