@@ -1,16 +1,16 @@
-# Quick Start Guide
+# 快速開始指南
 
-## 🚀 Get Started in 5 Minutes
+## 🚀 5 分鐘內開始使用
 
-### For App Developers
+### 給 App 開發者
 
-#### 1. Install BreezeApp Engine
+#### 1. 安裝 BreezeApp Engine
 ```bash
-# Install the engine APK
+# 安裝引擎 APK
 adb install breeze-app-engine.apk
 ```
 
-#### 2. Add to Your Project
+#### 2. 加入您的專案
 ```kotlin
 // build.gradle (app level)
 dependencies {
@@ -18,7 +18,7 @@ dependencies {
 }
 ```
 
-#### 3. Basic Chat Implementation
+#### 3. 基本聊天實作
 ```kotlin
 class MainActivity : AppCompatActivity() {
     private var aiService: IBreezeAppEngineService? = null
@@ -27,10 +27,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         
-        // Bind to AI service
+        // 綁定 AI 服務
         bindAIService()
         
-        // Send a chat message
+        // 發送聊天訊息
         sendButton.setOnClickListener {
             sendChatMessage(inputText.text.toString())
         }
@@ -48,31 +48,31 @@ class MainActivity : AppCompatActivity() {
         aiService?.sendChatRequest(UUID.randomUUID().toString(), request)
     }
     
-    // See API_REFERENCE.md for complete implementation
+    // 完整實作請參考 API_REFERENCE.md
 }
 ```
 
-### For AI Engineers
+### 給 AI 工程師
 
-#### 1. Create Your Runner
+#### 1. 建立您的 Runner
 ```kotlin
 class MyCustomRunner : BaseRunner {
     override fun load(config: ModelConfig): Boolean {
-        // Load your AI model
+        // 載入您的 AI 模型
         return true
     }
     
     override fun run(input: InferenceRequest): InferenceResult {
-        // Process the request
+        // 處理請求
         return InferenceResult.success(mapOf("text" to "Hello!"))
     }
     
     override fun getCapabilities() = listOf(CapabilityType.LLM)
-    // ... implement other methods
+    // ... 實作其他方法
 }
 ```
 
-#### 2. Register Your Runner
+#### 2. 註冊您的 Runner
 ```json
 // assets/runner_config.json
 {
@@ -86,17 +86,8 @@ class MyCustomRunner : BaseRunner {
 }
 ```
 
-## 📚 Next Steps
+## 📚 下一步
 
-- **App Developers**: Read [API_REFERENCE.md](API_REFERENCE.md)
-- **AI Engineers**: Read [RUNNER_DEVELOPMENT.md](RUNNER_DEVELOPMENT.md)
-- **Contributors**: Read [CONTRIBUTING.md](CONTRIBUTING.md)
-- **Architecture**: Read [ARCHITECTURE_GUIDELINES.md](ARCHITECTURE_GUIDELINES.md)
-
-## 🎯 Examples
-
-Check out the `/examples` folder for:
-- Simple chat app
-- Voice assistant implementation
-- Custom runner examples
-- Integration patterns
+- **AI 工程師**：閱讀 [RUNNER_DEVELOPMENT_zh.md](./RUNNER_DEVELOPMENT_zh.md)
+- **貢獻者**：閱讀 [CONTRIBUTING_zh.md](./CONTRIBUTING_zh.md)
+- **架構**：閱讀 [ARCHITECTURE_zh.md](./ARCHITECTURE_zh.md)

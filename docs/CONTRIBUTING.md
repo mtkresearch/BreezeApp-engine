@@ -8,14 +8,14 @@
 3. **Write unit tests**
 4. **Update documentation**
 
-See [RUNNER_DEVELOPMENT.md](RUNNER_DEVELOPMENT.md) for detailed guide.
+See [RUNNER_DEVELOPMENT.md](./RUNNER_DEVELOPMENT.md) for detailed guide.
 
 ### For App Developers (Using the Engine)
 1. **Add AIDL dependency**
 2. **Bind to BreezeAppEngineService**
 3. **Handle AIResponse callbacks**
 
-See [API_REFERENCE.md](API_REFERENCE.md) for complete API documentation.
+See [API_REFERENCE.md](./API_REFERENCE.md) for complete API documentation.
 
 ## 🏗️ Architecture Principles
 
@@ -83,7 +83,6 @@ src/androidTest/java/    # Integration tests
 
 ## 📞 Getting Help
 
-- **Architecture Questions**: Check [ARCHITECTURE_GUIDELINES.md](ARCHITECTURE_GUIDELINES.md)
-- **API Usage**: See [API_REFERENCE.md](API_REFERENCE.md)
-- **Runner Development**: Read [RUNNER_DEVELOPMENT.md](RUNNER_DEVELOPMENT.md)
+- **Architecture Questions**: Check [ARCHITECTURE.md](./ARCHITECTURE.md)
+- **Runner Development**: Read [RUNNER_DEVELOPMENT.md](./RUNNER_DEVELOPMENT.md)
 - **Issues**: Use GitHub Issues with appropriate labels

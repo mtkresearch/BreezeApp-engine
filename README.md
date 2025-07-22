@@ -1,8 +1,10 @@
-# 🤖 Welcome to BreezeApp V2!
+English | [繁體中文](./docs/i18n/README_zh.md)
+
+# 🤖 Welcome to BreezeApp Engine!
 
 Ready to build the future of on-device AI on Android? You're in the right place!
 
-BreezeApp V2 is a next-generation framework for creating powerful, modular, and extensible AI-driven experiences. It's built with a focus on type safety, modern Android practices, and a great developer experience.
+BreezeApp Engine is a next-generation framework for creating powerful, modular, and extensible AI-driven experiences. It's built with a focus on type safety, modern Android practices, and a great developer experience.
 
 ## 📁 Project Structure
 
@@ -14,6 +16,19 @@ BreezeApp-engine/
 │   ├── build.gradle.kts       # Root build script
 │   ├── settings.gradle.kts    # Project settings
 │   └── jitpack.yml           # JitPack configuration
+├── docs/                      # Documentation
+│   ├── QUICK_START.md         # Quick start guide
+│   ├── CONTRIBUTING.md        # Contribution guidelines
+│   ├── ARCHITECTURE.md        # Architecture guidelines
+│   ├── RUNNER_DEVELOPMENT.md  # Runner development guide
+│   ├── internal/              # Internal development docs
+│   └── i18n/                  # Internationalization
+│       ├── README_zh.md       # Chinese README
+│       ├── QUICK_START_zh.md  # Chinese quick start
+│       ├── CONTRIBUTING_zh.md # Chinese contributing
+│       ├── ARCHITECTURE_zh.md # Chinese architecture
+│       ├── RUNNER_DEVELOPMENT_zh.md # Chinese runner guide
+│       └── internal/          # Chinese internal docs
 ├── README.md                  # This file
 ├── LICENSE                    # License file
 └── .github/                   # GitHub workflows
@@ -57,7 +72,7 @@ Now that you understand the big picture, here's how you can dive in based on you
 
 Excellent! Your journey is about consuming the API.
 
-1. **Start Here:** Begin with the **[android/breeze-app-engine/README.md](./android/breeze-app-engine/README.md)**. It's a fully-functional example app that shows you how to connect to the service and use its features.
+1. **Start Here:** Begin with the **[Quick Start Guide](./docs/QUICK_START.md)**. It's a comprehensive guide that shows you how to connect to the service and use its features.
 2. **Learn the API:** Then, review the **[android/EdgeAI/README.md](./android/EdgeAI/README.md)** to understand the `AIRequest` and `AIResponse` models you'll be using.
 3. **JitPack Integration:** Check out **[android/EdgeAI/docs/USAGE_GUIDE.md](./android/EdgeAI/docs/USAGE_GUIDE.md)** for how to integrate EdgeAI via JitPack.
 
@@ -69,8 +84,8 @@ Excellent! Your journey is about consuming the API.
 
 Fantastic! Your path is focused on implementing runners.
 
-1. **Start Here:** The **[android/breeze-app-engine/README.md](./android/breeze-app-engine/README.md)** is your main entry point. It explains the internal architecture of the routing engine.
-2. **Build Your First Runner:** Then, follow our detailed **[🧩 Runner Development Guide](./android/breeze-app-engine/docs/RUNNER_DEVELOPMENT.md)**. It will walk you through creating, testing, and registering a new runner from scratch.
+1. **Start Here:** The **[Architecture Guide](./docs/ARCHITECTURE.md)** is your main entry point. It explains the internal architecture of the routing engine.
+2. **Build Your First Runner:** Then, follow our detailed **[🧩 Runner Development Guide](./docs/RUNNER_DEVELOPMENT.md)**. It will walk you through creating, testing, and registering a new runner from scratch.
 
 ---
 
@@ -95,7 +110,7 @@ Perfect! Here's what you need to know:
 
 Whether you're fixing a bug, improving the docs, or adding a revolutionary new runner, we welcome your contributions!
 
-* **Contribution Guidelines:** Please read our main **[CONTRIBUTING.md](../CONTRIBUTING.md)**.
+* **Contribution Guidelines:** Please read our **[Contributing Guide](./docs/CONTRIBUTING.md)**.
 * **Have Questions?** Don't hesitate to open an issue! We're happy to help.
 
 ---
@@ -106,7 +121,7 @@ The EdgeAI module is available via JitPack for easy integration:
 
 ```kotlin
 // Add to your app's build.gradle.kts
-implementation("com.github.mtkresearch:BreezeApp-engine:edgeai-v0.1.0")
+implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
 ```
 
 For detailed usage instructions, see **[android/EdgeAI/docs/USAGE_GUIDE.md](./android/EdgeAI/docs/USAGE_GUIDE.md)**.

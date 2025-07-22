@@ -6,16 +6,16 @@
 ```
 ┌─────────────────────────────────────────┐
 │                UI Layer                 │
-│  Activities, ViewModels (MVVM)         │
+│  Activities, ViewModels (MVVM)          │
 ├─────────────────────────────────────────┤
 │            Application Layer            │
-│  Use Cases, Service Coordinators       │
+│  Use Cases, Service Coordinators        │
 ├─────────────────────────────────────────┤
 │              Domain Layer               │
-│  Entities, Interfaces, Business Rules  │
+│  Entities, Interfaces, Business Rules   │
 ├─────────────────────────────────────────┤
 │           Infrastructure Layer          │
-│  Repositories, External APIs, Storage  │
+│  Repositories, External APIs, Storage   │
 └─────────────────────────────────────────┘
 ```
 

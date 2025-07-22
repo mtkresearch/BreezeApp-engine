@@ -1,294 +1,156 @@
-# 📱 EdgeAI Library 使用指南
+# Usage Guide
 
-> **版本**：edgeai-v0.1.2  
-> **維護者**：mtkresearch 團隊
+[← Back to README](../README.md) |  [API Reference →](./API_REFERENCE.md)
+
+> **Advanced usage guide**: Configuration, permissions, advanced API usage, and common questions.
 
 ---
 
-## 🚀 快速開始
+## Configuration
 
-### 1. 添加 JitPack 倉庫
-
-在您的 `settings.gradle.kts` 或 `build.gradle` 中添加：
+### Custom Parameters
 
 ```kotlin
-// settings.gradle.kts
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = uri("https://jitpack.io") }  // 添加這行
-    }
-}
+// Advanced chat request with custom parameters
+val request = chatRequest(
+    prompt = "Write a short story",
+    maxTokens = 500,
+    temperature = 0.7f,
+    topP = 0.9f,
+    stream = true  // Enable streaming for real-time responses
+)
 ```
 
-或者如果您使用舊版 Gradle：
-
-```groovy
-// build.gradle
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://jitpack.io' }  // 添加這行
-    }
-}
-```
-
-### 2. 添加依賴
-
-在您的 app 模組的 `build.gradle.kts` 中：
+### Logging Configuration
 
 ```kotlin
-dependencies {
-    // 使用最新版本（推薦）
-    implementation("com.github.mtkresearch:BreezeApp-engine:edgeai-v0.1.2")
-    
-    // 或者使用最新版本（不指定版本號）
-    // implementation("com.github.mtkresearch:BreezeApp-engine")
-}
+// Enable detailed logging (development only)
+EdgeAI.setLogLevel(LogLevel.DEBUG)
+
+// Disable logging for production
+EdgeAI.setLogLevel(LogLevel.ERROR)
 ```
 
 ---
 
-## 📋 基本使用
+## Permissions
 
-### 初始化 EdgeAI
-
-```kotlin
-import com.mtkresearch.breezeapp.edgeai.EdgeAI
-
-class MainActivity : AppCompatActivity() {
-    private lateinit var edgeAI: EdgeAI
-    
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        
-        // 初始化 EdgeAI
-        edgeAI = EdgeAI.Builder(this)
-            .setApiKey("your-api-key")  // 可選
-            .setTimeout(30000)          // 30秒超時
-            .build()
-    }
-}
-```
-
-### 發送聊天請求
-
-```kotlin
-// 創建聊天請求
-val chatRequest = ChatRequest.Builder()
-    .setMessage("Hello, how are you?")
-    .setModel("gpt-3.5-turbo")
-    .build()
-
-// 發送請求
-edgeAI.sendChatRequest("request-123", chatRequest) { response ->
-    when (response) {
-        is AIResponse.Success -> {
-            val result = response.data
-            Log.d("EdgeAI", "Response: ${result.message}")
-        }
-        is AIResponse.Error -> {
-            Log.e("EdgeAI", "Error: ${response.error}")
-        }
-    }
-}
-```
-
-### 語音轉文字 (ASR)
-
-```kotlin
-val asrRequest = ASRRequest.Builder()
-    .setAudioData(audioBytes)
-    .setLanguage("en-US")
-    .build()
-
-edgeAI.sendASRRequest("asr-request-123", asrRequest) { response ->
-    when (response) {
-        is AIResponse.Success -> {
-            val transcription = response.data.text
-            Log.d("EdgeAI", "Transcription: $transcription")
-        }
-        is AIResponse.Error -> {
-            Log.e("EdgeAI", "ASR Error: ${response.error}")
-        }
-    }
-}
-```
-
-### 文字轉語音 (TTS)
-
-```kotlin
-val ttsRequest = TTSRequest.Builder()
-    .setText("Hello, this is a test message")
-    .setVoice("en-US-Standard-A")
-    .build()
-
-edgeAI.sendTTSRequest("tts-request-123", ttsRequest) { response ->
-    when (response) {
-        is AIResponse.Success -> {
-            val audioData = response.data.audioData
-            // 播放音頻
-            playAudio(audioData)
-        }
-        is AIResponse.Error -> {
-            Log.e("EdgeAI", "TTS Error: ${response.error}")
-        }
-    }
-}
-```
-
----
-
-## 🔧 進階配置
-
-### 自定義配置
-
-```kotlin
-val edgeAI = EdgeAI.Builder(this)
-    .setApiKey("your-api-key")
-    .setTimeout(60000)  // 60秒超時
-    .setRetryCount(3)   // 重試3次
-    .setLogLevel(LogLevel.DEBUG)
-    .build()
-```
-
-### 監聽器模式
-
-```kotlin
-// 註冊監聽器
-edgeAI.registerListener(object : IBreezeAppEngineListener {
-    override fun onResponse(response: AIResponse) {
-        when (response) {
-            is AIResponse.Success -> {
-                // 處理成功響應
-                updateUI(response.data)
-            }
-            is AIResponse.Error -> {
-                // 處理錯誤
-                showError(response.error)
-            }
-        }
-    }
-})
-
-// 取消註冊
-edgeAI.unregisterListener(listener)
-```
-
-### 取消請求
-
-```kotlin
-// 發送請求
-edgeAI.sendChatRequest("request-123", chatRequest) { response ->
-    // 處理響應
-}
-
-// 取消請求
-val cancelled = edgeAI.cancelRequest("request-123")
-if (cancelled) {
-    Log.d("EdgeAI", "Request cancelled successfully")
-}
-```
-
----
-
-## 🛠 錯誤處理
-
-### 常見錯誤類型
-
-```kotlin
-edgeAI.sendChatRequest("request-123", chatRequest) { response ->
-    when (response) {
-        is AIResponse.Success -> {
-            // 成功處理
-        }
-        is AIResponse.Error -> {
-            when (response.error) {
-                is NetworkError -> {
-                    // 網絡錯誤
-                    showNetworkError()
-                }
-                is TimeoutError -> {
-                    // 超時錯誤
-                    showTimeoutError()
-                }
-                is AuthenticationError -> {
-                    // 認證錯誤
-                    showAuthError()
-                }
-                else -> {
-                    // 其他錯誤
-                    showGenericError(response.error.message)
-                }
-            }
-        }
-    }
-}
-```
-
----
-
-## 📱 權限要求
-
-在您的 `AndroidManifest.xml` 中添加必要的權限：
+Add these permissions to your `AndroidManifest.xml`:
 
 ```xml
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-<uses-permission android:name="android.permission.RECORD_AUDIO" />  <!-- 如果需要語音功能 -->
+<!-- Required for AIDL communication -->
+<uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
+
+<!-- Optional: For audio features -->
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 ```
 
 ---
 
-## 🔍 調試與日誌
+## Advanced API Usage
 
-### 啟用調試模式
+### Streaming Responses
 
 ```kotlin
-val edgeAI = EdgeAI.Builder(this)
-    .setLogLevel(LogLevel.DEBUG)
-    .build()
+EdgeAI.chat(request).collect { response ->
+    when (response) {
+        is ChatResponse.Stream -> {
+            // Real-time streaming response
+            val content = response.delta?.content ?: ""
+            updateUI(content)
+        }
+        is ChatResponse.Final -> {
+            // Final complete response
+            val fullContent = response.choices.firstOrNull()?.message?.content
+            updateUI(fullContent)
+        }
+    }
+}
 ```
 
-### 查看日誌
+### Cancelling Requests
 
-```bash
-adb logcat | grep "EdgeAI"
+```kotlin
+val job = launch {
+    EdgeAI.chat(request).collect { response ->
+        // Handle response
+    }
+}
+
+// Cancel the request
+job.cancel()
+```
+
+### Using Listeners (Alternative to Flow)
+
+```kotlin
+EdgeAI.chat(request, object : ChatListener {
+    override fun onStream(delta: ChatChoice) {
+        // Handle streaming response
+    }
+    
+    override fun onComplete(response: ChatResponse) {
+        // Handle final response
+    }
+    
+    override fun onError(error: EdgeAIException) {
+        // Handle error
+    }
+})
 ```
 
 ---
 
-## 📚 API 參考
+## Common Questions (FAQ)
 
-### 主要類別
+### Q: Why does initialization fail?
+**A**: Check that BreezeApp Engine is installed and running. See [Error Handling](./ERROR_HANDLING.md) for details.
 
-- `EdgeAI` - 主要客戶端類別
-- `ChatRequest` - 聊天請求
-- `ASRRequest` - 語音識別請求
-- `TTSRequest` - 文字轉語音請求
-- `AIResponse` - 響應封裝類別
+### Q: How to handle network errors?
+**A**: EdgeAI works offline, but check for service connection issues. See [Error Handling](./ERROR_HANDLING.md).
 
-### 配置選項
+### Q: Can I use multiple requests simultaneously?
+**A**: Yes, but manage resources carefully. See [Best Practices](./BEST_PRACTICES.md).
 
-- `setApiKey()` - 設置 API 金鑰
-- `setTimeout()` - 設置請求超時時間
-- `setRetryCount()` - 設置重試次數
-- `setLogLevel()` - 設置日誌級別
+### Q: How to optimize performance?
+**A**: Use appropriate timeouts, manage lifecycle, and avoid blocking operations. See [Best Practices](./BEST_PRACTICES.md).
 
 ---
 
-## 🤝 支援
+## Error Handling
 
-如果您遇到問題或有建議，請：
+For detailed error handling strategies, see **[Error Handling](./ERROR_HANDLING.md)**.
 
-1. 檢查 [GitHub Issues](https://github.com/mtkresearch/BreezeApp-engine/issues)
-2. 查看 [JitPack 狀態](https://jitpack.io/#mtkresearch/BreezeApp-engine)
-3. 聯繫 mtkresearch 團隊
+Common patterns:
+
+```kotlin
+EdgeAI.chat(request)
+    .catch { error ->
+        when (error) {
+            is ServiceConnectionException -> {
+                // Handle service not available
+            }
+            is InvalidRequestException -> {
+                // Handle invalid parameters
+            }
+            is TimeoutException -> {
+                // Handle timeout
+            }
+            else -> {
+                // Handle other errors
+            }
+        }
+    }
+    .collect { response ->
+        // Handle success
+    }
+```
 
 ---
 
-© 2025 mtkresearch - EdgeAI Library v0.1.2 
+## Next Steps
+
+- **[API Reference](./API_REFERENCE.md)**: Complete API documentation
+- **[Error Handling](./ERROR_HANDLING.md)**: Detailed error handling strategies
+- **[Best Practices](./BEST_PRACTICES.md)**: Production-ready implementation tips 

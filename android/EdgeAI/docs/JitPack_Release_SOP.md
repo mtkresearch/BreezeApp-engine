@@ -1,35 +1,35 @@
-# 📦 EdgeAI Library 發佈至 JitPack SOP
+# 📦 EdgeAI Library JitPack Release SOP
 
-> **維護責任人**：mtkresearch 團隊  
-> **目的**：讓 EdgeAI 模組可由其他應用透過 JitPack 導入，並確保僅有 mtkresearch 成員能執行版本發佈
+> **Maintainer**: mtkresearch team  
+> **Purpose**: Enable EdgeAI module to be imported by other applications via JitPack, and ensure only mtkresearch members can execute version releases
 
 ---
 
-## 📁 專案結構
+## 📁 Project Structure
 
-當前 BreezeApp-engine 專案結構：
+Current BreezeApp-engine project structure:
 
 ```
 BreezeApp-engine/
 ├── EdgeAI/
-│   ├── build.gradle.kts         <-- 包含 maven-publish 設定
+│   ├── build.gradle.kts         <-- Contains maven-publish configuration
 │   ├── src/main/AndroidManifest.xml
 │   └── docs/
-│       └── JitPack_Release_SOP.md  <-- 本文件
+│       └── JitPack_Release_SOP.md  <-- This file
 ├── breeze-app-engine/
-├── build.gradle.kts             <-- root build script
-├── settings.gradle.kts          <-- 包含 EdgeAI module
-├── gradlew                      <-- gradle wrapper
+├── build.gradle.kts             <-- Root build script
+├── settings.gradle.kts          <-- Contains EdgeAI module
+├── gradlew                      <-- Gradle wrapper
 ├── gradle/wrapper/
 │   ├── gradle-wrapper.properties
 │   └── gradle-wrapper.jar
-├── jitpack.yml                  <-- JitPack 配置
+├── jitpack.yml                  <-- JitPack configuration
 └── README.md
 ```
 
 ---
 
-## 🔧 EdgeAI Module 設定
+## 🔧 EdgeAI Module Configuration
 
 ### `EdgeAI/build.gradle.kts`
 
@@ -42,8 +42,8 @@ plugins {
     id("maven-publish")
 }
 
-group = "com.github.mtkresearch" // JitPack 專用，保持不變
-version = "edgeai-v0.1.0" // 版本號，必須與 Git Tag 相同
+group = "com.github.mtkresearch" // JitPack specific, keep unchanged
+version = "edgeai-v0.1.0" // Version number, must match Git Tag
 
 afterEvaluate {
     publishing {
@@ -52,7 +52,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId = "com.github.mtkresearch"
                 artifactId = "EdgeAI"
-                version = "edgeai-v0.1.0" // 必須與上方 version 一致
+                version = "edgeai-v0.1.0" // Must match the version above
             }
         }
     }
@@ -75,7 +75,7 @@ android {
 
 ---
 
-## 📜 `jitpack.yml` 設定
+## 📜 `jitpack.yml` Configuration
 
 ```yaml
 jdk:
@@ -93,22 +93,22 @@ env:
 
 ---
 
-## 🚀 發佈流程（mtkresearch 專用）
+## 🚀 Release Process (mtkresearch only)
 
-### ✅ 步驟 1：更新版本號
-打開 `EdgeAI/build.gradle.kts`：
+### ✅ Step 1: Update Version Number
+Open `EdgeAI/build.gradle.kts`:
 ```kotlin
-version = "edgeai-v0.1.1"  // 遞增版本號
+version = "edgeai-v0.1.1"  // Increment version number
 ```
 
-同時更新 `publishing` 區塊中的版本：
+Also update the version in the `publishing` block:
 ```kotlin
-version = "edgeai-v0.1.1" // 必須與上方 version 一致
+version = "edgeai-v0.1.1" // Must match the version above
 ```
 
 ---
 
-### ✅ 步驟 2：提交變更
+### ✅ Step 2: Commit Changes
 ```bash
 git add EdgeAI/build.gradle.kts
 git commit -m "Release EdgeAI edgeai-v0.1.1"
@@ -117,7 +117,7 @@ git push origin main
 
 ---
 
-### ✅ 步驟 3：打 Git Tag
+### ✅ Step 3: Create Git Tag
 ```bash
 git tag edgeai-v0.1.1
 git push origin edgeai-v0.1.1
@@ -125,18 +125,18 @@ git push origin edgeai-v0.1.1
 
 ---
 
-### ✅ 步驟 4：驗證 JitPack 成功
+### ✅ Step 4: Verify JitPack Success
 
-到以下網址確認 build 狀態為綠色（成功）：
+Go to the following URL to confirm the build status is green (success):
 ```
 https://jitpack.io/#mtkresearch/BreezeApp-engine/edgeai-v0.1.1
 ```
 
 ---
 
-## 🔗 外部專案引用 EdgeAI
+## 🔗 External Projects Importing EdgeAI
 
-### 指定版本號（推薦）
+### Specify Version Number (Recommended)
 ```kotlin
 repositories {
     maven { url = uri("https://jitpack.io") }
@@ -147,7 +147,7 @@ dependencies {
 }
 ```
 
-### 使用最新版本（不指定版本號）
+### Use Latest Version (No Version Specified)
 ```kotlin
 repositories {
     maven { url = uri("https://jitpack.io") }
@@ -158,35 +158,35 @@ dependencies {
 }
 ```
 
-> 📌 **注意**：當不指定版本號時，JitPack 會自動使用最新的 tag 版本
+> 📌 **Note**: When no version is specified, JitPack will automatically use the latest tag version
 
 ---
 
-## 🚫 權限與社群規範
+## 🚫 Permissions and Community Guidelines
 
-| 行為 | 權限 | 備註 |
-|------|------|------|
-| 修改 EdgeAI 程式碼 | ✅ 所有人 | 可提 PR |
-| 發佈 EdgeAI 新版本 | 🚫 限 mtkresearch | 僅由內部人員操作 tag |
-| 合併包含 `version` 或 `tag` 的 PR | ❌ 禁止 | 將進行 revert |
-
----
-
-## 🛠 常見錯誤排查
-
-| 問題 | 錯誤訊息 | 解法 |
-|------|----------|------|
-| 缺少 Gradle wrapper | `./gradlew: No such file or directory` | 確保 repo 有 `gradlew` + `gradle-wrapper.properties` |
-| module 找不到 | `Could not find :EdgeAI:` | 確保 `settings.gradle.kts` 有 `include(":EdgeAI")` |
-| 無法辨識版本 | `version not found` | 確保 Git tag 格式正確、與 `version` 一致 |
-| 無法解析依賴 | `Failed to resolve: EdgeAI` | 檢查是否使用了正確版本（非 SNAPSHOT） |
-| AIDL 編譯錯誤 | `Couldn't find import` | 確保 AIDL 文件名與接口名一致 |
+| Action | Permission | Notes |
+|--------|------------|-------|
+| Modify EdgeAI code | ✅ Everyone | Can submit PR |
+| Release new EdgeAI version | 🚫 mtkresearch only | Only internal members can operate tags |
+| Merge PR containing `version` or `tag` | ❌ Forbidden | Will be reverted |
 
 ---
 
-## ✅ 推薦 GitHub Actions 檢查
+## 🛠 Common Error Troubleshooting
 
-可以在 `.github/workflows/edgeai-validate.yml` 加入：
+| Problem | Error Message | Solution |
+|---------|---------------|----------|
+| Missing Gradle wrapper | `./gradlew: No such file or directory` | Ensure repo has `gradlew` + `gradle-wrapper.properties` |
+| Module not found | `Could not find :EdgeAI:` | Ensure `settings.gradle.kts` has `include(":EdgeAI")` |
+| Version not recognized | `version not found` | Ensure Git tag format is correct and matches `version` |
+| Dependency resolution failed | `Failed to resolve: EdgeAI` | Check if correct version is used (not SNAPSHOT) |
+| AIDL compilation error | `Couldn't find import` | Ensure AIDL filename matches interface name |
+
+---
+
+## ✅ Recommended GitHub Actions Check
+
+You can add the following to `.github/workflows/edgeai-validate.yml`:
 
 ```yaml
 name: Validate EdgeAI
@@ -213,9 +213,9 @@ jobs:
 
 ---
 
-## 📌 附錄：版本命名建議
+## 📌 Appendix: Version Naming Recommendations
 
-請統一使用以下命名格式發佈：
+Please use the following naming format for releases:
 
 ```
 edgeai-v0.1.0
@@ -227,10 +227,10 @@ edgeai-v0.2.0
 
 ---
 
-## 🧪 發佈快速指令
+## 🧪 Quick Release Commands
 
 ```bash
-# 1. 編輯版本號
+# 1. Edit version number
 vim EdgeAI/build.gradle.kts
 
 # 2. Commit & Push
@@ -244,20 +244,20 @@ git push origin edgeai-v0.1.1
 
 ---
 
-## 🔍 驗證發佈成功
+## 🔍 Verify Release Success
 
-1. **檢查 JitPack 狀態**：
+1. **Check JitPack Status**:
    ```
    https://jitpack.io/#mtkresearch/BreezeApp-engine/edgeai-v0.1.1
    ```
 
-2. **測試依賴引用**：
-   在測試專案中加入：
+2. **Test Dependency Import**:
+   Add to test project:
    ```kotlin
    implementation("com.github.mtkresearch:BreezeApp-engine:edgeai-v0.1.1")
    ```
 
-3. **確認功能正常**：
+3. **Confirm Functionality**:
    ```kotlin
    import com.mtkresearch.breezeapp.edgeai.EdgeAI
    ```

@@ -1,28 +1,28 @@
-# API Reference
+# API 參考
 
-[← Back to README](../README.md) | [Best Practices →](./BEST_PRACTICES.md)
+[← 回到 README](./README_zh.md) | [最佳實踐 →](./BEST_PRACTICES_zh.md)
 
-> **Complete API documentation**: Parameters, return types, and code examples for all EdgeAI APIs.
+> **完整的 API 文件**：所有 EdgeAI API 的參數、回傳類型和程式碼範例。
 
 ---
 
-## Chat API
+## 聊天 API
 
 ### `EdgeAI.chat(request: ChatRequest): Flow<ChatResponse>`
 
-**Parameters:**
+**參數：**
 ```kotlin
 data class ChatRequest(
-    val prompt: String,                    // Required: Input text
-    val maxTokens: Int = 2048,            // Optional: Max tokens to generate
-    val temperature: Float = 0.7f,        // Optional: Creativity (0.0-1.0)
-    val topP: Float = 0.9f,              // Optional: Nucleus sampling
-    val stream: Boolean = false,          // Optional: Enable streaming
-    val model: String = "default"         // Optional: Model identifier
+    val prompt: String,                    // 必需：輸入文字
+    val maxTokens: Int = 2048,            // 可選：最大生成 token 數
+    val temperature: Float = 0.7f,        // 可選：創造性（0.0-1.0）
+    val topP: Float = 0.9f,              // 可選：核心採樣
+    val stream: Boolean = false,          // 可選：啟用串流
+    val model: String = "default"         // 可選：模型識別碼
 )
 ```
 
-**Response Types:**
+**回應類型：**
 ```kotlin
 sealed class ChatResponse {
     data class Stream(val delta: ChatChoice?) : ChatResponse()
@@ -40,10 +40,10 @@ data class ChatMessage(
 )
 ```
 
-**Example:**
+**範例：**
 ```kotlin
 val request = chatRequest(
-    prompt = "Explain quantum computing",
+    prompt = "解釋量子計算",
     maxTokens = 500,
     temperature = 0.7f,
     stream = true
@@ -65,22 +65,22 @@ EdgeAI.chat(request).collect { response ->
 
 ---
 
-## Text-to-Speech API
+## 文字轉語音 API
 
 ### `EdgeAI.tts(request: TTSRequest): Flow<TTSResponse>`
 
-**Parameters:**
+**參數：**
 ```kotlin
 data class TTSRequest(
-    val text: String,                     // Required: Text to synthesize
-    val voice: String = "default",        // Optional: Voice identifier
-    val speed: Float = 1.0f,             // Optional: Speech rate
-    val pitch: Float = 1.0f,             // Optional: Voice pitch
-    val volume: Float = 1.0f             // Optional: Audio volume
+    val text: String,                     // 必需：要合成的文字
+    val voice: String = "default",        // 可選：語音識別碼
+    val speed: Float = 1.0f,             // 可選：語音速率
+    val pitch: Float = 1.0f,             // 可選：語音音調
+    val volume: Float = 1.0f             // 可選：音訊音量
 )
 ```
 
-**Response Types:**
+**回應類型：**
 ```kotlin
 sealed class TTSResponse {
     data class Audio(val audioData: ByteArray) : TTSResponse()
@@ -88,10 +88,10 @@ sealed class TTSResponse {
 }
 ```
 
-**Example:**
+**範例：**
 ```kotlin
 val request = ttsRequest(
-    text = "Hello, this is a test message",
+    text = "你好，這是一個測試訊息",
     voice = "en-US-Standard-A",
     speed = 1.0f
 )
@@ -102,7 +102,7 @@ EdgeAI.tts(request).collect { response ->
             playAudio(response.audioData)
         }
         is TTSResponse.Error -> {
-            Log.e("TTS", "Error: ${response.message}")
+            Log.e("TTS", "錯誤：${response.message}")
         }
     }
 }
@@ -110,21 +110,21 @@ EdgeAI.tts(request).collect { response ->
 
 ---
 
-## Speech-to-Text API
+## 語音轉文字 API
 
 ### `EdgeAI.asr(request: ASRRequest): Flow<ASRResponse>`
 
-**Parameters:**
+**參數：**
 ```kotlin
 data class ASRRequest(
-    val audioData: ByteArray,             // Required: Audio bytes
-    val language: String = "en-US",       // Optional: Language code
-    val sampleRate: Int = 16000,          // Optional: Audio sample rate
-    val channels: Int = 1                 // Optional: Audio channels
+    val audioData: ByteArray,             // 必需：音訊位元組
+    val language: String = "en-US",       // 可選：語言代碼
+    val sampleRate: Int = 16000,          // 可選：音訊取樣率
+    val channels: Int = 1                 // 可選：音訊聲道
 )
 ```
 
-**Response Types:**
+**回應類型：**
 ```kotlin
 sealed class ASRResponse {
     data class Text(val transcription: String) : ASRResponse()
@@ -132,7 +132,7 @@ sealed class ASRResponse {
 }
 ```
 
-**Example:**
+**範例：**
 ```kotlin
 val request = asrRequest(
     audioData = audioBytes,
@@ -147,7 +147,7 @@ EdgeAI.asr(request).collect { response ->
             updateUI(transcription)
         }
         is ASRResponse.Error -> {
-            Log.e("ASR", "Error: ${response.message}")
+            Log.e("ASR", "錯誤：${response.message}")
         }
     }
 }
@@ -155,59 +155,59 @@ EdgeAI.asr(request).collect { response ->
 
 ---
 
-## Initialization API
+## 初始化 API
 
 ### `EdgeAI.initializeAndWait(context: Context, timeoutMs: Long = 10000): Unit`
 
-**Parameters:**
-- `context`: Android Context
-- `timeoutMs`: Connection timeout in milliseconds
+**參數：**
+- `context`：Android Context
+- `timeoutMs`：連接超時時間（毫秒）
 
-**Throws:**
-- `ServiceConnectionException`: When BreezeApp Engine is not available
+**拋出：**
+- `ServiceConnectionException`：當 BreezeApp Engine 不可用時
 
-**Example:**
+**範例：**
 ```kotlin
 try {
     EdgeAI.initializeAndWait(context, timeoutMs = 10000)
-    Log.i("EdgeAI", "Initialized successfully")
+    Log.i("EdgeAI", "初始化成功")
 } catch (e: ServiceConnectionException) {
-    Log.e("EdgeAI", "Initialization failed", e)
+    Log.e("EdgeAI", "初始化失敗", e)
 }
 ```
 
 ### `EdgeAI.shutdown(): Unit`
 
-**Example:**
+**範例：**
 ```kotlin
-// Call when app exits
+// 在應用程式退出時呼叫
 EdgeAI.shutdown()
 ```
 
 ---
 
-## Configuration API
+## 配置 API
 
 ### `EdgeAI.setLogLevel(level: LogLevel): Unit`
 
-**LogLevel Options:**
-- `LogLevel.DEBUG`: Detailed logging
-- `LogLevel.INFO`: Information logging
-- `LogLevel.WARN`: Warning logging
-- `LogLevel.ERROR`: Error logging only
+**LogLevel 選項：**
+- `LogLevel.DEBUG`：詳細日誌
+- `LogLevel.INFO`：資訊日誌
+- `LogLevel.WARN`：警告日誌
+- `LogLevel.ERROR`：僅錯誤日誌
 
-**Example:**
+**範例：**
 ```kotlin
-// Enable debug logging (development)
+// 啟用除錯日誌（開發用）
 EdgeAI.setLogLevel(LogLevel.DEBUG)
 
-// Disable logging (production)
+// 停用日誌（生產環境）
 EdgeAI.setLogLevel(LogLevel.ERROR)
 ```
 
 ---
 
-## Exception Types
+## 例外類型
 
 ```kotlin
 sealed class EdgeAIException : Exception() {
@@ -218,4 +218,4 @@ sealed class EdgeAIException : Exception() {
     class AuthenticationException(message: String) : EdgeAIException()
     class UnknownException(message: String) : EdgeAIException()
 }
-```
+``` 

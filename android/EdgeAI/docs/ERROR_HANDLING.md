@@ -1,100 +1,232 @@
-# ❗ EdgeAI SDK Error Handling
+# Error Handling
 
-The EdgeAI SDK provides a detailed exception hierarchy to help you diagnose and handle errors gracefully. All SDK-specific exceptions inherit from the base `EdgeAIException`.
+[← Back to README](../README.md) | [Usage Guide ←](./USAGE_GUIDE.md)
+
+> **Detailed error handling strategies**: Exception types, common causes, and recommended handling approaches.
+
+---
 
 ## Exception Hierarchy
 
+```kotlin
+sealed class EdgeAIException : Exception() {
+    class ServiceConnectionException(message: String) : EdgeAIException()
+    class InvalidRequestException(message: String) : EdgeAIException()
+    class TimeoutException(message: String) : EdgeAIException()
+    class NetworkException(message: String) : EdgeAIException()
+    class AuthenticationException(message: String) : EdgeAIException()
+    class UnknownException(message: String) : EdgeAIException()
+}
 ```
-EdgeAIException
-├── ServiceConnectionException
-├── InvalidInputException
-├── ModelNotFoundException
-├── ModelInferenceException
-├── AudioProcessingException
-└── TimeoutException
+
+---
+
+## Exception Types & Handling
+
+### ServiceConnectionException
+
+**Causes:**
+- BreezeApp Engine not installed
+- BreezeApp Engine service not running
+- AIDL binding failed
+- Permission denied
+
+**Recommended Handling:**
+```kotlin
+try {
+    EdgeAI.initializeAndWait(context, timeoutMs = 10000)
+} catch (e: ServiceConnectionException) {
+    // Show user-friendly message
+    showDialog("Please install BreezeApp Engine from the app store")
+    // Or redirect to download page
+    openAppStore("com.mtkresearch.breezeapp.engine")
+}
 ```
 
-## Exception Details
+### InvalidRequestException
 
-### `ServiceConnectionException`
--   **When it happens**: This is one of the most common errors. It occurs when the SDK fails to establish or maintain a connection with the `BreezeApp Engine` service.
--   **Common Causes**:
-    -   The `BreezeApp Engine` application is not installed on the device.
-    -   The `BreezeApp Engine` service is disabled or has crashed.
-    -   Your application does not have the necessary permissions to query and bind to other services (rare, but possible on custom Android builds).
--   **Suggested Handling**:
-    -   Catch this exception during `EdgeAI.initializeAndWait()`.
-    -   Display a user-friendly dialog or message prompting the user to install or enable the `BreezeApp Engine`. You can even guide them to the Google Play Store.
+**Causes:**
+- Missing required parameters
+- Invalid parameter values
+- Unsupported model/voice
+- Malformed request data
+
+**Recommended Handling:**
+```kotlin
+EdgeAI.chat(request).catch { error ->
+    when (error) {
+        is InvalidRequestException -> {
+            Log.e("EdgeAI", "Invalid request: ${error.message}")
+            // Validate and fix request parameters
+            validateAndRetry(request)
+        }
+    }
+}.collect { response ->
+    // Handle success
+}
+```
+
+### TimeoutException
+
+**Causes:**
+- Network timeout
+- Service response timeout
+- Long-running AI operations
+
+**Recommended Handling:**
+```kotlin
+EdgeAI.chat(request).catch { error ->
+    when (error) {
+        is TimeoutException -> {
+            Log.w("EdgeAI", "Request timed out: ${error.message}")
+            // Show loading indicator and retry
+            showRetryDialog {
+                retryRequest(request)
+            }
+        }
+    }
+}.collect { response ->
+    // Handle success
+}
+```
+
+### NetworkException
+
+**Causes:**
+- Network connectivity issues
+- Service unavailable
+- Connection reset
+
+**Recommended Handling:**
+```kotlin
+EdgeAI.chat(request).catch { error ->
+    when (error) {
+        is NetworkException -> {
+            Log.e("EdgeAI", "Network error: ${error.message}")
+            // Check connectivity and retry
+            if (isNetworkAvailable()) {
+                retryRequest(request)
+            } else {
+                showOfflineMessage()
+            }
+        }
+    }
+}.collect { response ->
+    // Handle success
+}
+```
+
+### AuthenticationException
+
+**Causes:**
+- Invalid API key
+- Expired credentials
+- Unauthorized access
+
+**Recommended Handling:**
+```kotlin
+EdgeAI.chat(request).catch { error ->
+    when (error) {
+        is AuthenticationException -> {
+            Log.e("EdgeAI", "Authentication failed: ${error.message}")
+            // Refresh credentials or show login
+            refreshCredentials()
+        }
+    }
+}.collect { response ->
+    // Handle success
+}
+```
 
 ---
 
-### `InvalidInputException`
--   **When it happens**: The request you sent to the API failed validation checks.
--   **Common Causes**:
-    -   A required field (like `model` or `messages`) is missing.
-    -   A parameter is out of its valid range (e.g., `temperature = 3.0f`).
-    -   The input text for TTS is longer than the 4096-character limit.
--   **Suggested Handling**: This is typically a developer error. Log the detailed error message during development to fix the request creation logic. You should generally not see this in a production environment if your code is correct.
+## Error Recovery Strategies
+
+### Retry with Exponential Backoff
+
+```kotlin
+suspend fun retryWithBackoff(
+    request: ChatRequest,
+    maxRetries: Int = 3
+): ChatResponse {
+    var lastException: EdgeAIException? = null
+    
+    repeat(maxRetries) { attempt ->
+        try {
+            return EdgeAI.chat(request).first()
+        } catch (e: EdgeAIException) {
+            lastException = e
+            if (attempt < maxRetries - 1) {
+                delay(2.0.pow(attempt.toDouble()).toLong() * 1000)
+            }
+        }
+    }
+    
+    throw lastException ?: UnknownException("Max retries exceeded")
+}
+```
+
+### Graceful Degradation
+
+```kotlin
+fun handleChatRequest(request: ChatRequest) {
+    viewModelScope.launch {
+        try {
+            EdgeAI.chat(request).collect { response ->
+                updateUI(response)
+            }
+        } catch (e: ServiceConnectionException) {
+            // Fallback to offline mode or cached responses
+            showOfflineMode()
+        } catch (e: TimeoutException) {
+            // Show partial results or cached content
+            showPartialResults()
+        } catch (e: EdgeAIException) {
+            // Generic error handling
+            showErrorMessage(e.message)
+        }
+    }
+}
+```
 
 ---
 
-### `ModelNotFoundException`
--   **When it happens**: The `model` ID you specified in a request is not available in the `BreezeApp Engine`.
--   **Common Causes**:
-    -   A typo in the model name (e.g., `"breeze-2"` instead of `"breeze2"`).
-    -   The model has not been downloaded or enabled in the `BreezeApp Engine` settings.
--   **Suggested Handling**: Provide a mechanism for the user to select from a list of available models, which could be fetched from the BreezeApp Engine if such an API exists. Otherwise, show an error message indicating the model is unavailable.
+## Debugging Tips
+
+### Enable Detailed Logging
+
+```kotlin
+// Development only
+EdgeAI.setLogLevel(LogLevel.DEBUG)
+
+// Check logs
+adb logcat | grep "EdgeAI"
+```
+
+### Common Debug Scenarios
+
+1. **Initialization Fails**
+   - Check if BreezeApp Engine is installed
+   - Verify service is running: `adb shell ps | grep breezeapp`
+   - Check permissions in AndroidManifest.xml
+
+2. **Requests Timeout**
+   - Increase timeout value
+   - Check device performance
+   - Verify model availability
+
+3. **Invalid Responses**
+   - Validate request parameters
+   - Check model compatibility
+   - Verify response format
 
 ---
 
-### `ModelInferenceException`
--   **When it happens**: An error occurred within the AI model itself during processing.
--   **Common Causes**:
-    -   The model ran out of memory on the device.
-    -   The input was malformed in a way that the model could not handle.
-    -   A rare, unexpected crash within the native inference engine.
--   **Suggested Handling**: This is usually a non-recoverable error for that specific request. Log the error for diagnostics and inform the user that their request could not be completed. You might suggest they try rephrasing their request.
+## Best Practices
 
----
-
-### `AudioProcessingException`
--   **When it happens**: Specific to ASR, this error occurs when the provided audio data is invalid.
--   **Common Causes**:
-    -   The audio file format is unsupported.
-    -   The audio data is corrupted or empty.
--   **Suggested Handling**: Inform the user that the audio file is invalid and ask them to try recording again or using a different file.
-
----
-
-### `TimeoutException`
--   **When it happens**: A response was not received from the `BreezeApp Engine` within the expected time frame.
--   **Common Causes**:
-    -   The device is under very heavy load, and the AI inference is taking too long.
-    -   A deadlock or an unresponsive state within the `BreezeApp Engine` service.
--   **Suggested Handling**: Inform the user that the request timed out and that they can try again. This is often a transient issue.
-
----
-
-### `ResourceLimitException`
--   **When it happens**: The system lacks sufficient resources (CPU, GPU, RAM) to process the request.
--   **Common Causes**:
-    -   Running a large model on a low-memory device.
-    -   Multiple apps consuming resources in the background.
--   **Suggested Handling**: This is a difficult error to recover from. Suggest that the user close other applications or try again later. For developers, this might indicate that a smaller model variant is needed for certain devices.
-
----
-
-### `NotSupportedException`
--   **When it happens**: The request used a parameter or feature that is not supported by the specified model.
--   **Common Causes**:
-    -   Sending a `speed` parameter to a TTS model that does not allow speed adjustments.
-    -   Requesting a specific response format that the model cannot generate.
--   **Suggested Handling**: This is typically a developer error. The client application should be aware of the capabilities of the models it interacts with. Log the error and adjust the request logic.
-
----
-
-### `InternalErrorException`
--   **When it happens**: An unexpected and unrecoverable error occurred within the `BreezeApp Engine` or the underlying inference engine.
--   **Common Causes**:
-    -   This is a catch-all for rare and unforeseen issues.
--   **Suggested Handling**: Log the error with as much detail as possible for debugging. Inform the user that a critical error occurred and that the request could not be completed. 
+1. **Always handle exceptions** - Don't let them crash your app
+2. **Provide user-friendly messages** - Don't show technical error details
+3. **Implement retry logic** - For transient failures
+4. **Use graceful degradation** - Provide fallback options
+5. **Log errors appropriately** - For debugging but not user-facing
+6. **Test error scenarios** - Include error handling in your tests 

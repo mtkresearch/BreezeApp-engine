@@ -1,106 +1,89 @@
-# 🚀 Getting Started with EdgeAI SDK
+# Getting Started
 
-This guide provides a comprehensive walkthrough for setting up the EdgeAI SDK in your Android project and making your first API call.
+[← Back to README](../README.md) | [Usage Guide →](./USAGE_GUIDE.md)
 
-## 1. Prerequisites
+> **Quick start guide for new users**: Install, initialize, make your first API call, and clean up resources.
 
-Before you begin, ensure you have the following:
+---
 
--   An existing Android project with Kotlin support.
--   The **BreezeApp Engine** application installed on your target device or emulator. This is a hard requirement as the EdgeAI SDK communicates with this separate application to perform AI tasks.
+## Installation
 
-## 2. Installation
+### JitPack Dependency
 
-Add the EdgeAI module as a dependency in your app-level `build.gradle.kts` file:
+Add EdgeAI SDK to your `build.gradle.kts`:
 
 ```kotlin
-// In your app's build.gradle.kts
 dependencies {
-    // Other dependencies...
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
+}
+```
+
+### Local Dependency (Development)
+
+If you're developing or modifying EdgeAI SDK:
+
+```kotlin
+dependencies {
     implementation(project(":EdgeAI"))
 }
 ```
-Sync your project with Gradle to apply the changes.
 
-## 3. SDK Initialization
+---
 
-The SDK must be initialized before any other API calls can be made. Initialization establishes a connection with the `BreezeApp Engine` service. The recommended way to do this is using the `initializeAndWait()` suspending function.
+## Prerequisites
 
-### Recommended Approach: Initialize in your ViewModel or a central repository
+Before using EdgeAI SDK, ensure:
 
-It's best practice to tie the SDK's lifecycle to your application's lifecycle. A common pattern is to initialize it within a `ViewModel` that is shared across your app.
+1. **BreezeApp Engine is installed** on the target device
+2. **BreezeApp Engine Service is running** (usually auto-starts with the app)
+3. **Your app has the required permissions** (see [Usage Guide](./USAGE_GUIDE.md#permissions))
+
+---
+
+## Quick Start
+
+### 1. Initialize SDK
 
 ```kotlin
-import android.content.Context
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.mtkresearch.breezeapp.edgeai.EdgeAI
-import com.mtkresearch.breezeapp.edgeai.ServiceConnectionException
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.launch
 
-class MainViewModel(private val context: Context) : ViewModel() {
-
-    private val _isSdkReady = MutableStateFlow(false)
-    val isSdkReady: StateFlow<Boolean> = _isSdkReady
-
-    init {
-        initializeSdk()
-    }
-
-    private fun initializeSdk() {
-        viewModelScope.launch {
-            try {
-                EdgeAI.initializeAndWait(context, timeoutMs = 10000)
-                _isSdkReady.value = true
-                // You can now safely make API calls
-            } catch (e: ServiceConnectionException) {
-                _isSdkReady.value = false
-                // Handle the error, e.g., show a dialog to the user
-                // asking them to install the BreezeApp Engine.
-            }
-        }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        EdgeAI.shutdown() // Important: Clean up resources when the ViewModel is destroyed
+// In a CoroutineScope (e.g., lifecycleScope or viewModelScope)
+launch {
+    try {
+        // Initialize and wait for connection to BreezeApp Engine Service
+        EdgeAI.initializeAndWait(context, timeoutMs = 10000)
+        Log.i("EdgeAI", "SDK connected successfully")
+    } catch (e: ServiceConnectionException) {
+        Log.e("EdgeAI", "Connection failed. Is BreezeApp Engine installed?", e)
+        return@launch
     }
 }
 ```
 
-## 4. Making Your First API Call
-
-Once the SDK is initialized (`isSdkReady` is `true`), you can start making API calls. Here is a simple example of a chat request.
+### 2. Make Your First API Call
 
 ```kotlin
-// Inside your ViewModel, after confirming the SDK is ready
-fun sendSimpleMessage(prompt: String) {
-    if (!isSdkReady.value) {
-        // Handle case where SDK is not ready
-        return
-    }
-    
-    viewModelScope.launch {
-        val request = chatRequest(prompt = prompt)
-        
-        EdgeAI.chat(request)
-            .catch { e ->
-                // Handle API-specific errors
-            }
-            .collect { response ->
-                val content = response.choices.firstOrNull()?.message?.content
-                // Update your UI with the response
-            }
-    }
+// Send a simple chat request
+val request = chatRequest(prompt = "Explain quantum computing in simple terms")
+
+EdgeAI.chat(request).collect { response ->
+    val content = response.choices.firstOrNull()?.message?.content
+    Log.d("EdgeAI", "AI Response: $content")
 }
 ```
 
-## 5. Resource Management
+### 3. Clean Up Resources
 
-It is crucial to release the SDK's resources when your application is closing to prevent memory leaks.
+```kotlin
+// In your Application.onTerminate() or when app exits
+EdgeAI.shutdown()
+```
 
--   **`EdgeAI.shutdown()`**: This method disconnects from the `BreezeApp Engine` service and cleans up all associated resources. Call this in a component whose lifecycle matches your application's, such as the `onCleared()` method of a shared `ViewModel` or `Application.onTerminate()`.
+---
 
-You are now ready to explore the other APIs. Refer to the **[API Reference](./API_REFERENCE.md)** for detailed information on Chat, TTS, and ASR functionalities. 
+## Next Steps
+
+- **[Usage Guide](./USAGE_GUIDE.md)**: Advanced configuration, permissions, error handling, and FAQ
+- **[API Reference](./API_REFERENCE.md)**: Complete API documentation with parameters and examples
+- **[Best Practices](./BEST_PRACTICES.md)**: Lifecycle management and UI integration tips 

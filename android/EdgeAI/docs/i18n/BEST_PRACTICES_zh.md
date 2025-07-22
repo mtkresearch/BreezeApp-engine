@@ -1,14 +1,14 @@
-# Best Practices
+# 最佳實踐
 
-[← Back to README](../README.md)
+[← 回到 README](./README_zh.md)
 
-> **Production-ready implementation tips**: Lifecycle management, state handling, UI/UX recommendations, and performance considerations.
+> **生產環境實作技巧**：生命週期管理、狀態處理、UI/UX 建議和效能考量。
 
 ---
 
-## Lifecycle Management
+## 生命週期管理
 
-### ViewModel Integration
+### ViewModel 整合
 
 ```kotlin
 class ChatViewModel : ViewModel() {
@@ -26,7 +26,7 @@ class ChatViewModel : ViewModel() {
                 _isConnected.value = true
             } catch (e: ServiceConnectionException) {
                 _isConnected.value = false
-                // Handle connection failure
+                // 處理連接失敗
             }
         }
     }
@@ -38,7 +38,7 @@ class ChatViewModel : ViewModel() {
 }
 ```
 
-### Activity/Fragment Integration
+### Activity/Fragment 整合
 
 ```kotlin
 class ChatActivity : AppCompatActivity() {
@@ -47,7 +47,7 @@ class ChatActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Observe connection state
+        // 觀察連接狀態
         lifecycleScope.launch {
             viewModel.isConnected.collect { isConnected ->
                 updateUI(isConnected)
@@ -59,9 +59,9 @@ class ChatActivity : AppCompatActivity() {
 
 ---
 
-## State Management
+## 狀態管理
 
-### Request State Handling
+### 請求狀態處理
 
 ```kotlin
 sealed class ChatState {
@@ -84,14 +84,14 @@ class ChatViewModel : ViewModel() {
                 val response = EdgeAI.chat(request).first()
                 _chatState.value = ChatState.Success(response.choices.firstOrNull()?.message?.content ?: "")
             } catch (e: EdgeAIException) {
-                _chatState.value = ChatState.Error(e.message ?: "Unknown error")
+                _chatState.value = ChatState.Error(e.message ?: "未知錯誤")
             }
         }
     }
 }
 ```
 
-### Conversation History
+### 對話歷史
 
 ```kotlin
 data class ChatMessage(
@@ -113,9 +113,9 @@ class ChatViewModel : ViewModel() {
 
 ---
 
-## UI/UX Recommendations
+## UI/UX 建議
 
-### Loading States
+### 載入狀態
 
 ```kotlin
 @Composable
@@ -131,17 +131,17 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
         is ChatState.Error -> {
             ErrorMessage(message = chatState.message) {
-                // Retry action
+                // 重試動作
             }
         }
         else -> {
-            // Idle state
+            // 閒置狀態
         }
     }
 }
 ```
 
-### Streaming UI Updates
+### 串流 UI 更新
 
 ```kotlin
 @Composable
@@ -149,13 +149,13 @@ fun StreamingChat(viewModel: ChatViewModel) {
     var currentResponse by remember { mutableStateOf("") }
     
     LaunchedEffect(Unit) {
-        viewModel.sendStreamingMessage("Tell me a story").collect { response ->
+        viewModel.sendStreamingMessage("告訴我一個故事").collect { response ->
             when (response) {
                 is ChatResponse.Stream -> {
                     currentResponse += response.delta?.message?.content ?: ""
                 }
                 is ChatResponse.Final -> {
-                    // Final response received
+                    // 收到最終回應
                 }
             }
         }
@@ -165,7 +165,7 @@ fun StreamingChat(viewModel: ChatViewModel) {
 }
 ```
 
-### Error Handling UI
+### 錯誤處理 UI
 
 ```kotlin
 @Composable
@@ -176,16 +176,16 @@ fun ErrorDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Error") },
+        title = { Text("錯誤") },
         text = { Text(error) },
         confirmButton = {
             TextButton(onClick = onRetry) {
-                Text("Retry")
+                Text("重試")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Dismiss")
+                Text("關閉")
             }
         }
     )
@@ -194,37 +194,37 @@ fun ErrorDialog(
 
 ---
 
-## Performance Considerations
+## 效能考量
 
-### Request Optimization
+### 請求優化
 
 ```kotlin
-// Use appropriate timeouts
+// 使用適當的超時時間
 val request = chatRequest(
-    prompt = "Short response",
-    maxTokens = 100,  // Limit response length
+    prompt = "簡短回應",
+    maxTokens = 100,  // 限制回應長度
     temperature = 0.7f
 )
 
-// Cancel long-running requests
+// 取消長時間運行的請求
 val job = viewModelScope.launch {
     EdgeAI.chat(request).collect { response ->
-        // Handle response
+        // 處理回應
     }
 }
 
-// Cancel if user navigates away
+// 如果用戶離開則取消
 job.cancel()
 ```
 
-### Memory Management
+### 記憶體管理
 
 ```kotlin
 class ChatViewModel : ViewModel() {
     private val _responses = MutableStateFlow<List<String>>(emptyList())
     
     fun addResponse(response: String) {
-        // Limit history to prevent memory issues
+        // 限制歷史記錄以防止記憶體問題
         val current = _responses.value
         if (current.size >= 50) {
             _responses.value = current.drop(1) + response
@@ -235,16 +235,16 @@ class ChatViewModel : ViewModel() {
 }
 ```
 
-### Background Processing
+### 背景處理
 
 ```kotlin
-// Use appropriate dispatchers
+// 使用適當的調度器
 viewModelScope.launch(Dispatchers.IO) {
-    // Heavy processing
+    // 重處理
     val result = processLargeRequest()
     
     withContext(Dispatchers.Main) {
-        // Update UI
+        // 更新 UI
         updateUI(result)
     }
 }
@@ -252,9 +252,9 @@ viewModelScope.launch(Dispatchers.IO) {
 
 ---
 
-## Security Best Practices
+## 安全性最佳實踐
 
-### Input Validation
+### 輸入驗證
 
 ```kotlin
 fun validateChatInput(input: String): Boolean {
@@ -265,29 +265,29 @@ fun validateChatInput(input: String): Boolean {
 
 fun sendMessage(input: String) {
     if (!validateChatInput(input)) {
-        showError("Invalid input")
+        showError("無效輸入")
         return
     }
     
-    // Send validated input
+    // 發送驗證過的輸入
     viewModel.sendMessage(input)
 }
 ```
 
-### Error Information
+### 錯誤資訊
 
 ```kotlin
-// Don't expose sensitive information in error messages
+// 不要在錯誤訊息中暴露敏感資訊
 catch (e: EdgeAIException) {
     when (e) {
         is AuthenticationException -> {
-            showError("Authentication failed")
+            showError("認證失敗")
         }
         is ServiceConnectionException -> {
-            showError("Service unavailable")
+            showError("服務不可用")
         }
         else -> {
-            showError("An error occurred")
+            showError("發生錯誤")
         }
     }
 }
@@ -295,34 +295,34 @@ catch (e: EdgeAIException) {
 
 ---
 
-## Testing
+## 測試
 
-### Unit Testing
+### 單元測試
 
 ```kotlin
 @Test
 fun `test chat request success`() = runTest {
-    // Mock EdgeAI responses
+    // 模擬 EdgeAI 回應
     val mockResponse = ChatResponse.Final(listOf(
-        ChatChoice(ChatMessage("Test response"), null)
+        ChatChoice(ChatMessage("測試回應"), null)
     ))
     
-    // Test your ViewModel logic
-    viewModel.sendMessage("Test")
+    // 測試您的 ViewModel 邏輯
+    viewModel.sendMessage("測試")
     
-    assertEquals(ChatState.Success("Test response"), viewModel.chatState.value)
+    assertEquals(ChatState.Success("測試回應"), viewModel.chatState.value)
 }
 ```
 
-### Integration Testing
+### 整合測試
 
 ```kotlin
 @Test
 fun `test EdgeAI integration`() = runTest {
-    // Test with real EdgeAI SDK
+    // 使用真實的 EdgeAI SDK 測試
     EdgeAI.initializeAndWait(context)
     
-    val request = chatRequest(prompt = "Hello")
+    val request = chatRequest(prompt = "你好")
     val response = EdgeAI.chat(request).first()
     
     assertNotNull(response)
@@ -332,9 +332,9 @@ fun `test EdgeAI integration`() = runTest {
 
 ---
 
-## Monitoring & Analytics
+## 監控與分析
 
-### Performance Tracking
+### 效能追蹤
 
 ```kotlin
 fun trackRequestPerformance(request: ChatRequest) {
@@ -347,13 +347,13 @@ fun trackRequestPerformance(request: ChatRequest) {
 }
 ```
 
-### Error Tracking
+### 錯誤追蹤
 
 ```kotlin
 EdgeAI.chat(request).catch { error ->
     analytics.track("chat_request_error", error.javaClass.simpleName)
     throw error
 }.collect { response ->
-    // Handle success
+    // 處理成功
 }
 ``` 
