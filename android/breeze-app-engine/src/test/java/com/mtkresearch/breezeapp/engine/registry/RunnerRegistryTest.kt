@@ -1,8 +1,8 @@
 package com.mtkresearch.breezeapp.engine.registry
 
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.domain.interfaces.BaseRunner
-import com.mtkresearch.breezeapp.engine.domain.interfaces.RunnerInfo
+import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunner
+import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult

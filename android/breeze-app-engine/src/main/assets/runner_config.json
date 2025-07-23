@@ -1,47 +1,80 @@
 {
-  "runners": [
-    {
-      "name": "mtk_llm_runner_v1",
-      "class": "com.mtkresearch.breezeapp.engine.data.runner.MTKLLMRunner",
-      "capabilities": ["LLM"],
-      "priority": 1,
-      "is_real": true,
-      "modelId": "Breeze2-3B-8W16A-250630-npu"
+  "version": "2.0",
+  "defaultStrategy": "MOCK_FIRST",
+  "globalSettings": {
+    "enableHardwareDetection": true,
+    "fallbackToMock": true,
+    "maxInitRetries": 3,
+    "defaultTimeoutMs": 30000
+  },
+  "capabilities": {
+    "LLM": {
+      "defaultRunner": "mtk_llm_runner_v1",
+      "runners": {
+        "mtk_llm_runner_v1": {
+          "class": "com.mtkresearch.breezeapp.engine.data.runner.mtk.MTKLLMRunner",
+          "priority": 1,
+          "type": "HARDWARE",
+          "enabled": true,
+          "requirements": ["MTK_NPU"],
+          "modelId": "Breeze2-3B-8W16A-250630-npu"
+        },
+        "breeze_llm_mock_v1": {
+          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockLLMRunner",
+          "priority": 100,
+          "type": "MOCK",
+          "enabled": true,
+          "alwaysAvailable": true
+        }
+      }
     },
-    {
-      "name": "breeze_llm_mock_v1",
-      "class": "com.mtkresearch.breezeapp.engine.data.runner.MockLLMRunner",
-      "capabilities": ["LLM"],
-      "priority": 100,
-      "is_real": false
+    "ASR": {
+      "defaultRunner": "breeze_asr_mock_v1",
+      "runners": {
+        "breeze_asr_mock_v1": {
+          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockASRRunner",
+          "priority": 100,
+          "type": "MOCK",
+          "enabled": true,
+          "alwaysAvailable": true
+        }
+      }
     },
-    {
-      "name": "breeze_asr_mock_v1",
-      "class": "com.mtkresearch.breezeapp.engine.data.runner.MockASRRunner",
-      "capabilities": ["ASR"],
-      "priority": 100,
-      "is_real": false
+    "TTS": {
+      "defaultRunner": "breeze_tts_mock_v1",
+      "runners": {
+        "breeze_tts_mock_v1": {
+          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockTTSRunner",
+          "priority": 100,
+          "type": "MOCK",
+          "enabled": true,
+          "alwaysAvailable": true
+        }
+      }
     },
-    {
-      "name": "breeze_vlm_mock_v1",
-      "class": "com.mtkresearch.breezeapp.engine.data.runner.MockVLMRunner",
-      "capabilities": ["VLM"],
-      "priority": 100,
-      "is_real": false
+    "VLM": {
+      "defaultRunner": "breeze_vlm_mock_v1",
+      "runners": {
+        "breeze_vlm_mock_v1": {
+          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockVLMRunner",
+          "priority": 100,
+          "type": "MOCK",
+          "enabled": true,
+          "alwaysAvailable": true
+        }
+      }
     },
-    {
-      "name": "breeze_tts_mock_v1",
-      "class": "com.mtkresearch.breezeapp.engine.data.runner.MockTTSRunner",
-      "capabilities": ["TTS"],
-      "priority": 100,
-      "is_real": false
-    },
-    {
-      "name": "breeze_guardian_mock_v1",
-      "class": "com.mtkresearch.breezeapp.engine.data.runner.MockGuardrailRunner",
-      "capabilities": ["GUARDIAN"],
-      "priority": 100,
-      "is_real": false
+    "GUARDIAN": {
+      "defaultRunner": "breeze_guardian_mock_v1",
+      "runners": {
+        "breeze_guardian_mock_v1": {
+          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockGuardrailRunner",
+          "priority": 100,
+          "type": "MOCK",
+          "enabled": true,
+          "alwaysAvailable": true
+        }
+      }
     }
-  ]
-} 
+  }
+}

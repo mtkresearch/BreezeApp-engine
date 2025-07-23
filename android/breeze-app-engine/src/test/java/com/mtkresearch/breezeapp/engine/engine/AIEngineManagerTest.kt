@@ -2,9 +2,9 @@ package com.mtkresearch.breezeapp.engine.engine
 
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.domain.interfaces.BaseRunner
-import com.mtkresearch.breezeapp.engine.domain.interfaces.FlowStreamingRunner
-import com.mtkresearch.breezeapp.engine.domain.interfaces.RunnerInfo
+import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunner
+import com.mtkresearch.breezeapp.engine.data.runner.core.FlowStreamingRunner
+import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.domain.usecase.AIEngineManager
 import com.mtkresearch.breezeapp.engine.domain.usecase.RunnerRegistry

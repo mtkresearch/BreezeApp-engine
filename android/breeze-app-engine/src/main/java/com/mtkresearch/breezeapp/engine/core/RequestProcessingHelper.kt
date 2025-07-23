@@ -1,12 +1,11 @@
 package com.mtkresearch.breezeapp.engine.error
 
 import android.util.Log
+import com.mtkresearch.breezeapp.engine.core.AIEngineManager
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
-import com.mtkresearch.breezeapp.engine.domain.usecase.AIEngineManager
 import com.mtkresearch.breezeapp.engine.core.BreezeAppEngineStatusManager
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger

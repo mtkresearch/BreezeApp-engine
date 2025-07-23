@@ -1,6 +1,6 @@
 package com.mtkresearch.breezeapp.engine.data
 
-import com.mtkresearch.breezeapp.engine.data.manager.*
+import com.mtkresearch.breezeapp.engine.repository.*
 import com.mtkresearch.breezeapp.engine.domain.model.ModelInfo
 import com.mtkresearch.breezeapp.engine.domain.model.ModelFile
 import org.junit.Assert.*

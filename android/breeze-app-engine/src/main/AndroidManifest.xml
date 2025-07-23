@@ -20,6 +20,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
+        <!-- Neuron SDK Libraries for MTK NPU Support -->
         <uses-native-library
             android:name="libapuwareutils_v2.mtk.so"
             android:required="false" />
@@ -43,6 +44,15 @@
         <uses-native-library
             android:name="libcmdl_ndk.mtk.so"
             android:required="false" />
+
+        <uses-native-library
+            android:name="libneuronusdk_adapter.mtk.so"
+            android:required="false" />
+        
+        <uses-native-library
+            android:name="libc++_shared.so"
+            android:required="false" />
+
 
         <!-- Engine Entry Activity - Starts BreezeApp Engine Service -->
         <activity
