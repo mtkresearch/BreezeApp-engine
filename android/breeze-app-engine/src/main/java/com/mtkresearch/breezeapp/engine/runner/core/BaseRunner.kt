@@ -127,6 +127,11 @@ interface BaseRunner {
      * @see RunnerInfo for metadata format
      */
     fun getRunnerInfo(): RunnerInfo
+
+}
+
+interface BaseRunnerCompanion {
+    fun isSupported(): Boolean = true
 }
 
 /**

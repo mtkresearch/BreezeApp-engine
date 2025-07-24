@@ -189,10 +189,19 @@ class RunnerFactory(
      */
     private fun createGenericRunner(definition: RunnerDefinition): BaseRunner? {
         logger.d(TAG, "Creating generic runner: ${definition.name}")
-        
+
         return try {
             val clazz = Class.forName(definition.className)
-            clazz.getConstructor().newInstance() as BaseRunner
+            // Prefer (Context) constructor if available
+            val contextCtor = clazz.constructors.find { ctor ->
+                val params = ctor.parameterTypes
+                params.size == 1 && Context::class.java.isAssignableFrom(params[0])
+            }
+            if (contextCtor != null) {
+                contextCtor.newInstance(context) as BaseRunner
+            } else {
+                clazz.getConstructor().newInstance() as BaseRunner
+            }
         } catch (e: Exception) {
             logger.e(TAG, "Failed to create generic runner: ${definition.name}", e)
             null

@@ -29,8 +29,15 @@
       }
     },
     "ASR": {
-      "defaultRunner": "breeze_asr_mock_v1",
+      "defaultRunner": "sherpa_asr_runner_v1",
       "runners": {
+        "sherpa_asr_runner_v1": {
+          "class": "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaASRRunner",
+          "priority": 10,
+          "type": "REAL",
+          "enabled": true,
+          "alwaysAvailable": false
+        },
         "breeze_asr_mock_v1": {
           "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockASRRunner",
           "priority": 100,
