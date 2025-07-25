@@ -18,15 +18,15 @@ import kotlin.coroutines.resumeWithException
 
 /**
  * EdgeAI SDK - Simplified Architecture (v2.0)
- * 
+ *
  * This version demonstrates the simplified architecture that eliminates
  * the intermediate model layer, providing direct standard API-to-Service communication.
- * 
+ *
  * **Architecture Comparison:**
- * 
+ *
  * OLD (3-layer): Standard API → Internal Models → AIDL → Service
  * NEW (2-layer): Standard API → AIDL → Service (66% less complexity)
- * 
+ *
  * **Performance Benefits:**
  * - 30% faster (eliminates 2 serialization steps)
  * - 50% less memory usage
@@ -34,41 +34,41 @@ import kotlin.coroutines.resumeWithException
  * - 100% unified naming (ChatRequest vs ChatCompletionRequest)
  */
 object EdgeAI {
-    
+
     private const val TAG = "EdgeAI"
     private const val AI_ROUTER_SERVICE_ACTION = "com.mtkresearch.breezeapp.engine.BreezeAppEngineService"
     private const val AI_ROUTER_SERVICE_PACKAGE = "com.mtkresearch.breezeapp.engine"
-    
+
     private var isInitialized = false
     private var service: IBreezeAppEngineService? = null
     private var isBound = false
     private var context: Context? = null
-    
+
     // Track pending requests by their standard API-generated IDs
     private val pendingRequests = ConcurrentHashMap<String, Channel<AIResponse>>()
-    
+
     // Pending initialization completion
     private var initializationCompletion: ((Result<Unit>) -> Unit)? = null
-    
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             Log.d(TAG, "Service connected: $name")
             service = IBreezeAppEngineService.Stub.asInterface(binder)
             isBound = true
-            
+
             // Register our listener
             service?.registerListener(breezeAppEngineListener)
-            
+
             Log.i(TAG, "EdgeAI SDK connected to BreezeApp Engine Service (Simplified v2.0)")
-            
+
             // Complete initialization
             initializationCompletion?.invoke(Result.success(Unit))
             initializationCompletion = null
         }
-        
+
         override fun onServiceDisconnected(name: ComponentName?) {
             Log.d(TAG, "Service disconnected: $name")
-            
+
             // Safe cleanup: Don't call methods on potentially dead binder
             try {
                 service?.unregisterListener(breezeAppEngineListener)
@@ -77,35 +77,35 @@ object EdgeAI {
             } catch (e: Exception) {
                 Log.w(TAG, "Error during listener unregistration: ${e.message}")
             }
-            
+
             service = null
             isBound = false
-            
+
             // Cancel all pending requests
             pendingRequests.values.forEach { channel ->
                 channel.close(ServiceConnectionException("Service disconnected"))
             }
             pendingRequests.clear()
-            
+
             // If initialization was pending, complete it with error
             initializationCompletion?.invoke(Result.failure(ServiceConnectionException("Service disconnected during initialization")))
             initializationCompletion = null
-            
+
             Log.w(TAG, "EdgeAI SDK disconnected from BreezeApp Engine Service")
         }
     }
-    
+
     private val breezeAppEngineListener = object : IBreezeAppEngineListener.Stub() {
         override fun onResponse(response: AIResponse?) {
             response?.let { aiResponse ->
                 Log.d(TAG, "Received response for request: ${aiResponse.requestId}")
-                
+
                 pendingRequests[aiResponse.requestId]?.let { channel ->
                     val result = channel.trySend(aiResponse)
                     if (result.isFailure) {
                         Log.e(TAG, "Failed to send response to channel: ${result.exceptionOrNull()}")
                     }
-                    
+
                     // If this is the final response, close the channel
                     if (aiResponse.isComplete || aiResponse.state == AIResponse.ResponseState.ERROR) {
                         pendingRequests.remove(aiResponse.requestId)
@@ -117,7 +117,7 @@ object EdgeAI {
             }
         }
     }
-    
+
     /**
      * Initialize the EdgeAI SDK with the provided context (simplified version)
      */
@@ -127,30 +127,30 @@ object EdgeAI {
                 continuation.resume(Unit)
                 return@suspendCancellableCoroutine
             }
-            
+
             this.context = context.applicationContext
-            
+
             initializationCompletion = { result ->
                 result.fold(
-                    onSuccess = { 
+                    onSuccess = {
                         isInitialized = true
-                        continuation.resume(Unit) 
+                        continuation.resume(Unit)
                     },
                     onFailure = { continuation.resumeWithException(it) }
                 )
             }
-            
+
             val intent = Intent(AI_ROUTER_SERVICE_ACTION).apply {
                 setPackage(AI_ROUTER_SERVICE_PACKAGE)
             }
-            
+
             val bindResult = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
             if (!bindResult) {
                 initializationCompletion = null
                 continuation.resumeWithException(ServiceConnectionException("Failed to bind to BreezeApp Engine Service"))
                 return@suspendCancellableCoroutine
             }
-            
+
             // Set timeout
             continuation.invokeOnCancellation {
                 if (initializationCompletion != null) {
@@ -160,10 +160,10 @@ object EdgeAI {
             }
         }
     }
-    
+
     /**
      * SIMPLIFIED: Direct chat completion (no intermediate conversion)
-     * 
+     *
      * Performance Benefits:
      * - 30% faster (eliminates 2 serialization steps)
      * - 50% less memory usage
@@ -173,24 +173,24 @@ object EdgeAI {
     fun chat(request: ChatRequest): Flow<ChatResponse> {
         return channelFlow {
             validateConnection()
-            
+
             // Generate request ID for tracking
             val requestId = generateRequestId()
-            
+
             // Create channel for this request
             val responseChannel = Channel<AIResponse>()
             pendingRequests[requestId] = responseChannel
-            
+
             try {
                 // 🚀 NEW SIMPLIFIED API: Direct service call with client-generated requestId
                 service?.sendChatRequest(requestId, request)
-                
+
                 // Process responses
                 for (aiResponse in responseChannel) {
                     val chatResponse = convertAIResponseToChatResponse(aiResponse, request.stream ?: false)
                     send(chatResponse)
                 }
-                
+
             } catch (e: Exception) {
                 pendingRequests.remove(requestId)
                 responseChannel.close()
@@ -201,7 +201,7 @@ object EdgeAI {
             }
         }
     }
-    
+
     /**
      * SIMPLIFIED: Direct TTS request (no intermediate conversion)
      * Returns audio data as a Flow for consistency with other APIs
@@ -209,21 +209,21 @@ object EdgeAI {
     fun tts(request: TTSRequest): Flow<TTSResponse> {
         return channelFlow {
             validateConnection()
-            
+
             val requestId = generateRequestId()
             val responseChannel = Channel<AIResponse>()
             pendingRequests[requestId] = responseChannel
-            
+
             try {
                 // 🚀 Direct service call with client-generated requestId
                 service?.sendTTSRequest(requestId, request)
-                
+
                 // Process responses
                 for (aiResponse in responseChannel) {
                     val ttsResponse = convertAIResponseToTTSResponse(aiResponse)
                     send(ttsResponse)
                 }
-                
+
             } catch (e: Exception) {
                 pendingRequests.remove(requestId)
                 responseChannel.close()
@@ -234,28 +234,28 @@ object EdgeAI {
             }
         }
     }
-    
+
     /**
      * SIMPLIFIED: Direct ASR request (no intermediate conversion)
      */
     fun asr(request: ASRRequest): Flow<ASRResponse> {
         return channelFlow {
             validateConnection()
-            
+
             val requestId = generateRequestId()
             val responseChannel = Channel<AIResponse>()
             pendingRequests[requestId] = responseChannel
-            
+
             try {
                 // 🚀 Direct service call with client-generated requestId
                 service?.sendASRRequest(requestId, request)
-                
+
                 // Process responses
                 for (aiResponse in responseChannel) {
                     val asrResponse = convertAIResponseToASRResponse(aiResponse)
                     send(asrResponse)
                 }
-                
+
             } catch (e: Exception) {
                 pendingRequests.remove(requestId)
                 responseChannel.close()
@@ -266,21 +266,21 @@ object EdgeAI {
             }
         }
     }
-    
+
     // === HELPER METHODS ===
-    
+
     private fun validateConnection() {
         if (!isInitialized) {
             throw ServiceConnectionException("EdgeAI SDK is not initialized. Call EdgeAI.initializeAndWait(context) first.")
         }
-        
+
         if (!isBound || service == null) {
             throw ServiceConnectionException("EdgeAI SDK is not connected to the BreezeApp Engine Service.")
         }
     }
-    
+
     private fun generateRequestId(): String = UUID.randomUUID().toString()
-    
+
     /**
      * Minimal conversion - only from internal AIResponse to standard format
      * (Previously had 3 conversion steps, now only 1)
@@ -302,7 +302,7 @@ object EdgeAI {
                 finishReason = "stop"
             )
         }
-        
+
         return ChatResponse(
             id = aiResponse.requestId,
             `object` = if (isStreaming) "chat.completion.chunk" else "chat.completion",
@@ -314,7 +314,7 @@ object EdgeAI {
             } else null
         )
     }
-    
+
     /**
      * Convert internal AIResponse to ASRResponse
      */
@@ -328,29 +328,36 @@ object EdgeAI {
 
     /**
      * Convert internal AIResponse to TTSResponse
+     * Simplified for engine-side audio playback
      */
     private fun convertAIResponseToTTSResponse(
         aiResponse: AIResponse
     ): TTSResponse {
         return TTSResponse(
-            audioData = aiResponse.audioData ?: byteArrayOf(),
-            format = "mp3"  // Default format - could be enhanced to extract from request context
+            audioData = byteArrayOf(), // Engine 端直接播放，client 不需要 audio 數據
+            format = "engine_playback", // 標示為 engine 端播放
+            sampleRate = aiResponse.sampleRate,
+            channels = aiResponse.channels,
+            bitDepth = aiResponse.bitDepth,
+            chunkIndex = aiResponse.chunkIndex,
+            isLastChunk = aiResponse.isLastChunk,
+            durationMs = aiResponse.durationMs.toLong()
         )
     }
-    
+
     /**
      * Synchronous initialization for simple cases
      */
     fun initialize(context: Context) {
         this.context = context.applicationContext
-        
+
         val intent = Intent(AI_ROUTER_SERVICE_ACTION).apply {
             setPackage(AI_ROUTER_SERVICE_PACKAGE)
         }
-        
+
         context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
-    
+
     /**
      * Shutdown the SDK and clean up resources
      */
@@ -361,19 +368,19 @@ object EdgeAI {
                 ctx.unbindService(serviceConnection)
             }
         }
-        
+
         // Cancel all pending requests
         pendingRequests.values.forEach { channel ->
             channel.close()
         }
         pendingRequests.clear()
-        
+
         service = null
         isBound = false
         isInitialized = false
         context = null
     }
-    
+
     fun isInitialized(): Boolean = isInitialized
     fun isReady(): Boolean = isInitialized && isBound && service != null
 } 

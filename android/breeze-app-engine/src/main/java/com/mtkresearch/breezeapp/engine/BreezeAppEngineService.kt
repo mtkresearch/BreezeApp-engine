@@ -22,6 +22,7 @@ import com.mtkresearch.breezeapp.engine.repository.ModelManager
 import com.mtkresearch.breezeapp.engine.repository.ModelVersionStore
 import com.mtkresearch.breezeapp.engine.util.ModelDownloader
 import com.mtkresearch.breezeapp.engine.core.DownloadModelUseCase
+import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
 
 /**
  * BreezeAppEngineService - Clean Android Service Implementation
@@ -80,6 +81,9 @@ class BreezeAppEngineService : Service() {
         Log.i(TAG, "BreezeAppEngineService onCreate() - Clean Architecture")
         
         try {
+            // Initialize complete global library system (Sherpa + GlobalLibraryTracker)
+            SherpaLibraryManager.initializeCompleteSystem(this)
+            
             initializeComponents()
             startForegroundService()
             registerBroadcastReceiver()

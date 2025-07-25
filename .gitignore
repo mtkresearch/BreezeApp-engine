@@ -1,2 +1,5 @@
 .DS_Store
 .agent.md
+*.aar
+sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/
+vits-mr-20250709/
