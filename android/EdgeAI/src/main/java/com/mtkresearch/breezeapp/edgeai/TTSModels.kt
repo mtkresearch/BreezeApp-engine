@@ -79,7 +79,12 @@ data class TTSResponse(
     /**
      * Sample rate (if available)
      */
-    val sampleRate: Int? = null
+    val sampleRate: Int? = null,
+    // chunk streaming meta
+    val chunkIndex: Int = 0,
+    val isLastChunk: Boolean = true,
+    val channels: Int = 1,
+    val bitDepth: Int = 16
 ) {
     /**
      * Convert audio data to InputStream for playback
