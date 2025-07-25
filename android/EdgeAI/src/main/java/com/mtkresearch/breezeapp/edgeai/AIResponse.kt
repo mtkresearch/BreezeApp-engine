@@ -20,7 +20,15 @@ data class AIResponse(
     val isComplete: Boolean,
     val state: ResponseState,
     val error: String? = null,
-    val audioData: ByteArray? = null  // For TTS responses
+    val audioData: ByteArray? = null,  // For TTS responses
+    // chunk streaming meta
+    val chunkIndex: Int = 0,
+    val isLastChunk: Boolean = true,
+    val format: String = "pcm16",
+    val sampleRate: Int = 16000,
+    val channels: Int = 1,
+    val bitDepth: Int = 16,
+    val durationMs: Int = 0
 ) : Parcelable {
 
     /**
@@ -48,6 +56,13 @@ data class AIResponse(
             if (other.audioData == null) return false
             if (!audioData.contentEquals(other.audioData)) return false
         } else if (other.audioData != null) return false
+        if (chunkIndex != other.chunkIndex) return false
+        if (isLastChunk != other.isLastChunk) return false
+        if (format != other.format) return false
+        if (sampleRate != other.sampleRate) return false
+        if (channels != other.channels) return false
+        if (bitDepth != other.bitDepth) return false
+        if (durationMs != other.durationMs) return false
 
         return true
     }
@@ -59,6 +74,13 @@ data class AIResponse(
         result = 31 * result + state.hashCode()
         result = 31 * result + (error?.hashCode() ?: 0)
         result = 31 * result + (audioData?.contentHashCode() ?: 0)
+        result = 31 * result + chunkIndex
+        result = 31 * result + isLastChunk.hashCode()
+        result = 31 * result + format.hashCode()
+        result = 31 * result + sampleRate
+        result = 31 * result + channels
+        result = 31 * result + bitDepth
+        result = 31 * result + durationMs
         return result
     }
 }
