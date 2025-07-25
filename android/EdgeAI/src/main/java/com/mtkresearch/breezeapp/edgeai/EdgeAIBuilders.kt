@@ -62,7 +62,7 @@ fun ttsRequest(
     model: String = "tts-1",
     voice: String = "alloy",
     speed: Float? = null,
-    format: String = "mp3"
+    format: String = "pcm"
 ): TTSRequest {
     return TTSRequest(
         input = input,

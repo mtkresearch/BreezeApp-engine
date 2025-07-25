@@ -96,7 +96,11 @@ object SherpaLibraryManager {
      * Check if Sherpa library is loaded and ready for use
      */
     fun isLibraryReady(): Boolean {
-        return isLibraryLoaded.get() && GlobalLibraryTracker.isLibraryUsable()
+        val libraryLoaded = isLibraryLoaded.get()
+        val globalUsable = GlobalLibraryTracker.isLibraryUsable()
+        val result = libraryLoaded && globalUsable
+        Log.d(TAG, "Library ready check: sherpaLoaded=$libraryLoaded, globalUsable=$globalUsable, result=$result")
+        return result
     }
     
     /**

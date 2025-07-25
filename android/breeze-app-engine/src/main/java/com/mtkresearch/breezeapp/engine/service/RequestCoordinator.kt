@@ -84,6 +84,7 @@ class RequestCoordinator(
     
     /**
      * Process a TTS request through the AI engine.
+     * Now optimized for engine-side audio playback.
      */
     suspend fun processTTSRequest(requestId: String, request: TTSRequest) {
         Log.d(TAG, "Processing TTS request: $requestId")
@@ -92,17 +93,18 @@ class RequestCoordinator(
             // Convert external request to internal format
             val inferenceRequest = convertTTSRequest(request, requestId)
             
-            // Process through existing RequestProcessingHelper
-            val result = requestProcessingHelper.processNonStreamingRequest(
+            // Always use streaming for TTS to enable real-time engine playback
+            Log.d(TAG, "Processing TTS as streaming for real-time engine playback")
+            requestProcessingHelper.processStreamingRequest(
                 requestId = requestId,
                 inferenceRequest = inferenceRequest,
                 capability = CapabilityType.TTS,
                 requestType = "TTS"
-            )
-            
-            // Convert result to external format and notify clients
-            val response = convertToAIResponse(result, requestId)
-            clientManager.notifyTTSResponse(response)
+            ) { result ->
+                // Convert each streaming result and notify clients
+                val response = convertToAIResponse(result, requestId, isStreaming = true)
+                clientManager.notifyTTSResponse(response)
+            }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing TTS request: $requestId", e)
@@ -263,13 +265,30 @@ class RequestCoordinator(
         isStreaming: Boolean = false
     ): AIResponse {
         return if (result != null && result.error == null) {
+            // 修復：正確提取音頻數據和元數據
+            val audioData = result.outputs["audioData"] as? ByteArray ?: result.outputs["audio"] as? ByteArray
+            val sampleRate = result.metadata["sampleRate"] as? Int ?: 16000
+            val channels = result.metadata["channels"] as? Int ?: 1
+            val bitDepth = result.metadata["bitDepth"] as? Int ?: 16
+            val format = result.metadata["format"] as? String ?: "pcm16"
+            val chunkIndex = result.metadata["chunkIndex"] as? Int ?: 0
+            val isLastChunk = result.metadata["isLastChunk"] as? Boolean ?: true
+            val durationMs = result.metadata["durationMs"] as? Int ?: 0
+            
             AIResponse(
                 requestId = requestId,
                 text = result.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: "",
                 isComplete = !result.partial, // Use result.partial to determine completion
                 state = if (result.partial) AIResponse.ResponseState.STREAMING else AIResponse.ResponseState.COMPLETED,
                 error = null,
-                audioData = result.outputs["audio"] as? ByteArray
+                audioData = audioData,
+                chunkIndex = chunkIndex,
+                isLastChunk = isLastChunk,
+                format = format,
+                sampleRate = sampleRate,
+                channels = channels,
+                bitDepth = bitDepth,
+                durationMs = durationMs
             )
         } else {
             AIResponse(

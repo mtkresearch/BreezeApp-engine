@@ -40,49 +40,6 @@ data class AIResponse(
         COMPLETED,
         ERROR
     }
-    
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as AIResponse
-
-        if (requestId != other.requestId) return false
-        if (text != other.text) return false
-        if (isComplete != other.isComplete) return false
-        if (state != other.state) return false
-        if (error != other.error) return false
-        if (audioData != null) {
-            if (other.audioData == null) return false
-            if (!audioData.contentEquals(other.audioData)) return false
-        } else if (other.audioData != null) return false
-        if (chunkIndex != other.chunkIndex) return false
-        if (isLastChunk != other.isLastChunk) return false
-        if (format != other.format) return false
-        if (sampleRate != other.sampleRate) return false
-        if (channels != other.channels) return false
-        if (bitDepth != other.bitDepth) return false
-        if (durationMs != other.durationMs) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = requestId.hashCode()
-        result = 31 * result + text.hashCode()
-        result = 31 * result + isComplete.hashCode()
-        result = 31 * result + state.hashCode()
-        result = 31 * result + (error?.hashCode() ?: 0)
-        result = 31 * result + (audioData?.contentHashCode() ?: 0)
-        result = 31 * result + chunkIndex
-        result = 31 * result + isLastChunk.hashCode()
-        result = 31 * result + format.hashCode()
-        result = 31 * result + sampleRate
-        result = 31 * result + channels
-        result = 31 * result + bitDepth
-        result = 31 * result + durationMs
-        return result
-    }
 }
 
 /**

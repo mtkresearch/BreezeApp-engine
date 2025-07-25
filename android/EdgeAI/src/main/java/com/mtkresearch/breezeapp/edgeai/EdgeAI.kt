@@ -328,13 +328,20 @@ object EdgeAI {
 
     /**
      * Convert internal AIResponse to TTSResponse
+     * Simplified for engine-side audio playback
      */
     private fun convertAIResponseToTTSResponse(
         aiResponse: AIResponse
     ): TTSResponse {
         return TTSResponse(
-            audioData = aiResponse.audioData ?: byteArrayOf(),
-            format = "mp3"  // Default format - could be enhanced to extract from request context
+            audioData = byteArrayOf(), // Engine 端直接播放，client 不需要 audio 數據
+            format = "engine_playback", // 標示為 engine 端播放
+            sampleRate = aiResponse.sampleRate,
+            channels = aiResponse.channels,
+            bitDepth = aiResponse.bitDepth,
+            chunkIndex = aiResponse.chunkIndex,
+            isLastChunk = aiResponse.isLastChunk,
+            durationMs = aiResponse.durationMs.toLong()
         )
     }
     

@@ -32,7 +32,7 @@ data class TTSRequest(
     val instructions: String? = null,
     
     /**
-     * Output audio format. Supported values: mp3, opus, aac, flac, wav, pcm.
+     * Output audio format. Supported values: mp3, opus, aac, flac, wav, pcm, pcm16.
      * Default: mp3
      */
     val responseFormat: String? = "mp3",
@@ -50,7 +50,7 @@ data class TTSRequest(
         val supportedVoices = listOf("alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse")
         require(voice in supportedVoices) { "Voice must be one of: ${supportedVoices.joinToString()}" }
         
-        val supportedFormats = listOf("mp3", "opus", "aac", "flac", "wav", "pcm")
+        val supportedFormats = listOf("mp3", "opus", "aac", "flac", "wav", "pcm", "pcm16", "engine_playback")
         require(responseFormat == null || responseFormat in supportedFormats) { 
             "Response format must be one of: ${supportedFormats.joinToString()}" 
         }
