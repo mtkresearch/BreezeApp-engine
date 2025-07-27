@@ -82,19 +82,33 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
             if (audioData == null) {
                 return InferenceResult.error(RunnerError.invalidInput("Audio data required for ASR processing"))
             }
+            
+            Log.d(TAG, "Processing ASR with ${audioData.size} bytes of audio data")
+            
             val startTime = System.currentTimeMillis()
             val streamObj = recognizer!!.createStream("")
+            
             // Convert ByteArray (PCM16) to float[] as required by Sherpa
-            val floatSamples = ShortArray(audioData.size / 2) { i ->
-                ((audioData[i * 2 + 1].toInt() shl 8) or (audioData[i * 2].toInt() and 0xFF)).toShort()
-            }.map { it / 32768.0f }.toFloatArray()
+            // PCM16 format: little-endian 16-bit samples
+            val floatSamples = FloatArray(audioData.size / 2) { i ->
+                val sample = ((audioData[i * 2 + 1].toInt() and 0xFF) shl 8) or 
+                           (audioData[i * 2].toInt() and 0xFF)
+                sample / 32768.0f
+            }
+            
+            Log.d(TAG, "Converted ${floatSamples.size} samples for processing")
+            
             streamObj.acceptWaveform(floatSamples, SAMPLE_RATE)
             while (recognizer!!.isReady(streamObj)) {
                 recognizer!!.decode(streamObj)
             }
+            
             val text = recognizer!!.getResult(streamObj).text
             val confidence = 0.95 // Sherpa does not provide confidence, so use a placeholder
             val elapsed = System.currentTimeMillis() - startTime
+            
+            Log.d(TAG, "ASR result: '$text' (${elapsed}ms)")
+            
             streamObj.release()
             InferenceResult.success(
                 outputs = mapOf(InferenceResult.OUTPUT_TEXT to text),
@@ -122,23 +136,39 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
                 emit(InferenceResult.error(RunnerError.invalidInput("Audio data required for ASR processing")))
                 return@flow
             }
+            
+            Log.d(TAG, "Processing streaming ASR with ${audioData.size} bytes of audio data")
+            
             val streamObj = recognizer!!.createStream("")
-            val floatSamples = ShortArray(audioData.size / 2) { i ->
-                ((audioData[i * 2 + 1].toInt() shl 8) or (audioData[i * 2].toInt() and 0xFF)).toShort()
-            }.map { it / 32768.0f }.toFloatArray()
+            
+            // Convert ByteArray (PCM16) to float[] as required by Sherpa
+            // PCM16 format: little-endian 16-bit samples
+            val floatSamples = FloatArray(audioData.size / 2) { i ->
+                val sample = ((audioData[i * 2 + 1].toInt() and 0xFF) shl 8) or 
+                           (audioData[i * 2].toInt() and 0xFF)
+                sample / 32768.0f
+            }
+            
+            Log.d(TAG, "Converted ${floatSamples.size} samples for streaming processing")
+            
             // For streaming, split into chunks (simulate real-time)
             val chunkSize = SAMPLE_RATE / 10 // 100ms chunks
             var offset = 0
             var segmentIdx = 0
             val startTime = System.currentTimeMillis()
+            
             while (offset < floatSamples.size) {
                 val end = (offset + chunkSize).coerceAtMost(floatSamples.size)
                 val chunk = floatSamples.sliceArray(offset until end)
                 streamObj.acceptWaveform(chunk, SAMPLE_RATE)
+                
                 while (recognizer!!.isReady(streamObj)) {
                     recognizer!!.decode(streamObj)
                 }
+                
                 val text = recognizer!!.getResult(streamObj).text
+                Log.d(TAG, "Streaming ASR segment $segmentIdx: '$text'")
+                
                 emit(
                     InferenceResult.success(
                         outputs = mapOf(InferenceResult.OUTPUT_TEXT to text),
@@ -154,9 +184,13 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
                 offset = end
                 segmentIdx++
             }
+            
             // Final result
             val elapsed = System.currentTimeMillis() - startTime
             val finalText = recognizer!!.getResult(streamObj).text
+            
+            Log.d(TAG, "Final ASR result: '$finalText' (${elapsed}ms)")
+            
             emit(
                 InferenceResult.success(
                     outputs = mapOf(InferenceResult.OUTPUT_TEXT to finalText),
