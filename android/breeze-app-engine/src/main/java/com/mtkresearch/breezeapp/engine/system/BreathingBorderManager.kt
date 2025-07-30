@@ -38,6 +38,13 @@ class BreathingBorderManager(private val context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
     
     /**
+     * Check if the overlay is currently visible
+     */
+    fun isOverlayVisible(): Boolean {
+        return isOverlayVisible && overlayView != null
+    }
+    
+    /**
      * Check if SYSTEM_ALERT_WINDOW permission is granted
      */
     fun isPermissionGranted(): Boolean {
@@ -47,6 +54,8 @@ class BreathingBorderManager(private val context: Context) {
     /**
      * Show breathing border for the given service state
      * Must be called on main thread for UI operations
+     * 
+     * Android 15 Compliance: Ensure overlay window is visible before showing border
      */
     fun showBreathingBorder(state: ServiceState) {
         if (!isPermissionGranted()) {
@@ -59,11 +68,41 @@ class BreathingBorderManager(private val context: Context) {
             return
         }
         
+        // Android 15: Ensure overlay window is visible before showing border
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Check if we're in a valid state to show overlay
+            if (!isValidStateForOverlay()) {
+                Log.w(TAG, "Cannot show breathing border: Invalid state for overlay on Android 15+")
+                return
+            }
+        }
+        
         // Ensure UI operations run on main thread
         if (Looper.myLooper() == Looper.getMainLooper()) {
             showBreathingBorderInternal(state)
         } else {
             mainHandler.post { showBreathingBorderInternal(state) }
+        }
+    }
+    
+    /**
+     * Check if current state is valid for showing overlay on Android 15+
+     */
+    private fun isValidStateForOverlay(): Boolean {
+        // On Android 15+, overlay windows must be visible and the app must be in foreground
+        // or running a foreground service
+        return try {
+            // Check if we have a valid window or foreground service
+            val hasValidWindow = overlayView?.windowVisibility == android.view.View.VISIBLE
+            val hasForegroundService = context.getSystemService(android.app.ActivityManager::class.java)
+                ?.getRunningServices(Int.MAX_VALUE)
+                ?.any { it.service.packageName == context.packageName && it.foreground }
+                ?: false
+            
+            hasValidWindow || hasForegroundService
+        } catch (e: Exception) {
+            Log.w(TAG, "Error checking overlay state validity", e)
+            false
         }
     }
     

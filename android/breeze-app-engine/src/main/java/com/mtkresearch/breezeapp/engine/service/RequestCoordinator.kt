@@ -9,6 +9,7 @@ import com.mtkresearch.breezeapp.engine.core.AIEngineManager
 import com.mtkresearch.breezeapp.engine.error.RequestProcessingHelper
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.BreezeAppEngineService
 
 /**
  * RequestCoordinator - Coordinates AI Request Processing
@@ -30,7 +31,8 @@ import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
 class RequestCoordinator(
     private val requestProcessingHelper: RequestProcessingHelper,
     private val engineManager: AIEngineManager,
-    private val clientManager: ClientManager
+    private val clientManager: ClientManager,
+    private val serviceInstance: BreezeAppEngineService? = null
 ) {
     companion object {
         private const val TAG = "RequestCoordinator"
@@ -114,6 +116,7 @@ class RequestCoordinator(
     
     /**
      * Process an ASR request through the AI engine.
+     * Enhanced to support microphone mode for real-time ASR processing.
      */
     suspend fun processASRRequest(requestId: String, request: ASRRequest) {
         Log.d(TAG, "Processing ASR request: $requestId (streaming: ${request.stream})")
@@ -122,9 +125,33 @@ class RequestCoordinator(
             // Convert external request to internal format
             val inferenceRequest = convertASRRequest(request, requestId)
             
-            // FIX: Route ASR requests based on stream parameter as well
-            if (request.stream == true) {
-                // Process as streaming ASR request
+            // Check if this is microphone mode
+            val isMicrophoneMode = inferenceRequest.params["microphone_mode"] as? Boolean ?: false
+            
+            if (isMicrophoneMode) {
+                // Microphone mode always requires streaming
+                Log.d(TAG, "Processing microphone mode ASR request: $requestId")
+                
+                // Update foreground service type to include microphone
+                serviceInstance?.updateForegroundServiceType(true)
+                
+                requestProcessingHelper.processStreamingRequest(
+                    requestId = requestId,
+                    inferenceRequest = inferenceRequest,
+                    capability = CapabilityType.ASR,
+                    requestType = "ASR-Microphone"
+                ) { result ->
+                    // Convert each streaming result and notify clients
+                    val response = convertToAIResponse(result, requestId, isStreaming = true)
+                    clientManager.notifyASRResponse(response)
+                    
+                    // If this is the final result, restore service type
+                    if (!result.partial) {
+                        serviceInstance?.updateForegroundServiceType(false)
+                    }
+                }
+            } else if (request.stream == true) {
+                // Process as streaming ASR request (file-based)
                 Log.d(TAG, "Routing to streaming ASR processing for request: $requestId")
                 requestProcessingHelper.processStreamingRequest(
                     requestId = requestId,
@@ -137,7 +164,7 @@ class RequestCoordinator(
                     clientManager.notifyASRResponse(response)
                 }
             } else {
-                // Process as non-streaming ASR request
+                // Process as non-streaming ASR request (file-based)
                 Log.d(TAG, "Routing to non-streaming ASR processing for request: $requestId")
                 val result = requestProcessingHelper.processNonStreamingRequest(
                     requestId = requestId,
@@ -241,18 +268,66 @@ class RequestCoordinator(
     
     /**
      * Convert external ASRRequest to internal InferenceRequest.
+     * Enhanced to support microphone mode detection and configuration.
      */
     private fun convertASRRequest(request: ASRRequest, requestId: String): InferenceRequest {
-        return InferenceRequest(
-            sessionId = requestId,
-            inputs = mapOf(
-                "audio" to (request.file ?: byteArrayOf())
-            ),
-            params = mapOf(
-                "language" to (request.language ?: "auto"),
-                "stream" to (request.stream ?: false)
+        // Detect microphone mode based on request characteristics
+        val isMicrophoneMode = detectMicrophoneMode(request)
+        
+        return if (isMicrophoneMode) {
+            // Microphone mode: no audio file, streaming enabled
+            Log.d(TAG, "Converting ASR request to microphone mode for request: $requestId")
+            InferenceRequest(
+                sessionId = requestId,
+                inputs = mapOf(
+                    // No audio input for microphone mode - will be captured by engine
+                    InferenceRequest.INPUT_TEXT to "microphone_input"
+                ),
+                params = mapOf(
+                    "language" to (request.language ?: "auto"),
+                    "stream" to true, // Microphone mode is always streaming
+                    "microphone_mode" to true,
+                    "sample_rate" to 16000,
+                    "format" to "pcm16"
+                )
             )
-        )
+        } else {
+            // File mode: traditional audio file processing
+            Log.d(TAG, "Converting ASR request to file mode for request: $requestId")
+            InferenceRequest(
+                sessionId = requestId,
+                inputs = mapOf(
+                    "audio" to (request.file ?: byteArrayOf())
+                ),
+                params = mapOf(
+                    "language" to (request.language ?: "auto"),
+                    "stream" to (request.stream ?: false),
+                    "microphone_mode" to false
+                )
+            )
+        }
+    }
+    
+    /**
+     * Detect if this is a microphone mode request based on request characteristics.
+     * Microphone mode is detected when:
+     * 1. No audio file is provided (file is null or empty)
+     * 2. Stream is enabled (true)
+     * 3. Or explicitly marked as microphone mode in future enhancements
+     */
+    private fun detectMicrophoneMode(request: ASRRequest): Boolean {
+        // Primary detection: no audio file + streaming enabled
+        val hasNoAudioFile = request.file == null || request.file.isEmpty()
+        val isStreaming = request.stream == true
+        
+        // Future enhancement: explicit microphone mode flag
+        // val explicitMicMode = request.microphoneMode == true
+        
+        val isMicrophoneMode = hasNoAudioFile && isStreaming
+        
+        Log.d(TAG, "Microphone mode detection - hasNoAudioFile: $hasNoAudioFile, isStreaming: $isStreaming, result: $isMicrophoneMode")
+        
+        return isMicrophoneMode
     }
     
     /**

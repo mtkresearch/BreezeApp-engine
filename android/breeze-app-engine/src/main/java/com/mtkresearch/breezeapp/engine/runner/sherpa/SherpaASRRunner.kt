@@ -8,8 +8,11 @@ import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.data.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
+import com.mtkresearch.breezeapp.engine.util.AudioUtil
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
 import java.util.concurrent.atomic.AtomicBoolean
 
 
@@ -97,7 +100,18 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
         if (!isLoaded.get()) {
             return InferenceResult.error(RunnerError.modelNotLoaded())
         }
+        
         return try {
+            // Check if this is microphone mode
+            val isMicrophoneMode = input.params["microphone_mode"] as? Boolean ?: false
+            
+            if (isMicrophoneMode) {
+                // For microphone mode, we should use streaming instead
+                Log.w(TAG, "Microphone mode requested in non-streaming context. Consider using runAsFlow() instead.")
+                return InferenceResult.error(RunnerError.invalidInput("Microphone mode requires streaming. Use runAsFlow() instead."))
+            }
+            
+            // Original file-based processing
             val audioData = input.inputs[InferenceRequest.INPUT_AUDIO] as? ByteArray
             if (audioData == null) {
                 return InferenceResult.error(RunnerError.invalidInput("Audio data required for ASR processing"))
@@ -140,26 +154,50 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
             emit(InferenceResult.error(RunnerError.modelNotLoaded()))
             return@flow
         }
+        
         try {
-            val audioData = input.inputs[InferenceRequest.INPUT_AUDIO] as? ByteArray
-            if (audioData == null) {
-                emit(InferenceResult.error(RunnerError.invalidInput("Audio data required for ASR processing")))
-                return@flow
+            // Check if this is microphone mode
+            val isMicrophoneMode = input.params["microphone_mode"] as? Boolean ?: false
+            
+            if (isMicrophoneMode) {
+                Log.i(TAG, "Starting microphone mode ASR processing")
+                
+                // Check microphone permission
+                if (!AudioUtil.hasRecordAudioPermission(context)) {
+                    emit(InferenceResult.error(RunnerError.invalidInput("RECORD_AUDIO permission not granted")))
+                    return@flow
+                }
+                
+                // Process microphone input following Sherpa-onnx official example
+                processMicrophoneAsFlow(input.sessionId ?: "mic-session").collect { result ->
+                    emit(result)
+                }
+            } else {
+                // Original file-based streaming processing
+                val audioData = input.inputs[InferenceRequest.INPUT_AUDIO] as? ByteArray
+                if (audioData == null) {
+                    emit(InferenceResult.error(RunnerError.invalidInput("Audio data required for ASR processing")))
+                    return@flow
+                }
+                
+                Log.d(TAG, "Processing streaming ASR with ${audioData.size} bytes of audio data")
+                
+                val streamObj = recognizer!!.createStream()
+                val floatSamples = convertPcm16ToFloat(audioData)
+                
+                Log.d(TAG, "Converted ${floatSamples.size} samples for streaming processing")
+                
+                // Process samples following the official example's streaming pattern
+                processSamplesAsFlow(streamObj, floatSamples, input.sessionId ?: "file-session").collect { result ->
+                    emit(result)
+                }
+                
+                streamObj.release()
             }
-            
-            Log.d(TAG, "Processing streaming ASR with ${audioData.size} bytes of audio data")
-            
-            val streamObj = recognizer!!.createStream()
-            val floatSamples = convertPcm16ToFloat(audioData)
-            
-            Log.d(TAG, "Converted ${floatSamples.size} samples for streaming processing")
-            
-            // Process samples following the official example's streaming pattern
-            processSamplesAsFlow(streamObj, floatSamples, input.sessionId).collect { result ->
-                emit(result)
-            }
-            
-            streamObj.release()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Normal cancellation - not an error
+            Log.d(TAG, "SherpaASRRunner.runAsFlow cancelled normally")
+            throw e // Re-throw to propagate cancellation
         } catch (e: Exception) {
             Log.e(TAG, "Error in SherpaASRRunner.runAsFlow", e)
             emit(InferenceResult.error(RunnerError.runtimeError(e.message ?: "Unknown error", e)))
@@ -330,6 +368,202 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
     }
 
     /**
+     * Process microphone input as Flow following Sherpa-onnx official example
+     * This method implements the real-time microphone ASR processing
+     * Directly using AudioRecord instead of nested Flow to avoid completion issues
+     */
+    private fun processMicrophoneAsFlow(sessionId: String): Flow<InferenceResult> = flow {
+        Log.i(TAG, "Starting microphone ASR processing")
+        
+        // Check permission first
+        if (!AudioUtil.hasRecordAudioPermission(context)) {
+            Log.e(TAG, "RECORD_AUDIO permission not granted")
+            emit(InferenceResult.error(RunnerError.invalidInput("RECORD_AUDIO permission not granted")))
+            return@flow
+        }
+        
+        // Android 15: Check audio focus requirements
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Add a small delay to allow foreground service to fully establish
+            kotlinx.coroutines.delay(500) // 500ms delay
+            if (!isValidForAudioFocus()) {
+                Log.e(TAG, "Cannot request audio focus: App must be top app or running foreground service")
+                emit(InferenceResult.error(RunnerError.invalidInput("Audio focus not allowed on Android 15+")))
+                return@flow
+            }
+        }
+        
+        // Force update foreground service state to ensure microphone access
+        forceUpdateForegroundServiceState()
+        
+        // Create AudioRecord directly following Sherpa official example
+        val audioRecord = AudioUtil.createAudioRecord(context)
+        if (audioRecord == null) {
+            Log.e(TAG, "Failed to create AudioRecord")
+            emit(InferenceResult.error(RunnerError.runtimeError("Failed to create AudioRecord")))
+            return@flow
+        }
+        
+        Log.i(TAG, "AudioRecord created successfully")
+        
+        if (!AudioUtil.startRecording(audioRecord)) {
+            Log.e(TAG, "Failed to start recording")
+            audioRecord.release()
+            emit(InferenceResult.error(RunnerError.runtimeError("Failed to start recording")))
+            return@flow
+        }
+        
+        Log.i(TAG, "Recording started successfully")
+        
+        val streamObj = recognizer!!.createStream()
+        
+        try {
+            var idx = 0
+            var lastText = ""
+            val startTime = System.currentTimeMillis()
+            
+            // Buffer size for 100ms chunks (same as official example)
+            val interval = 0.1 // 100 ms
+            val bufferSize = (interval * SAMPLE_RATE).toInt()
+            val buffer = ShortArray(bufferSize)
+            
+            Log.i(TAG, "Starting microphone processing loop with buffer size: $bufferSize")
+            
+            // Emit initial status
+            emit(
+                InferenceResult.success(
+                    outputs = mapOf(InferenceResult.OUTPUT_TEXT to "Ready for speech..."),
+                    metadata = mapOf(
+                        InferenceResult.META_SESSION_ID to sessionId,
+                        InferenceResult.META_MODEL_NAME to modelName,
+                        "microphone_mode" to true,
+                        "status" to "ready"
+                    ),
+                    partial = true
+                )
+            )
+            
+            // Main recording loop following Sherpa official example pattern
+            // FIX: Check for cancellation on each iteration
+            while (true) {
+                // Check if Flow has been cancelled
+                val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+                if (job?.isActive == false) {
+                    Log.i(TAG, "Microphone processing cancelled by client")
+                    break
+                }
+                
+                val samplesRead = AudioUtil.readAudioSamples(audioRecord, buffer)
+                
+                if (samplesRead > 0) {
+                    Log.d(TAG, "Read $samplesRead audio samples")
+                    
+                    // Convert to float array for Sherpa processing
+                    val audioChunk = buffer.copyOf(samplesRead)
+                    val floatSamples = AudioUtil.convertPcm16ToFloat(audioChunk)
+                    
+                    // Process audio chunk following official example pattern
+                    streamObj.acceptWaveform(floatSamples, sampleRate = SAMPLE_RATE)
+                    while (recognizer!!.isReady(streamObj)) {
+                        recognizer!!.decode(streamObj)
+                    }
+                    
+                    val isEndpoint = recognizer!!.isEndpoint(streamObj)
+                    var text = recognizer!!.getResult(streamObj).text
+                    
+                    // Handle paraformer tail padding if needed (from official example)
+                    if (isEndpoint && recognizer!!.config.modelConfig.paraformer.encoder.isNotBlank()) {
+                        val tailPaddings = FloatArray((0.8 * SAMPLE_RATE).toInt())
+                        streamObj.acceptWaveform(tailPaddings, sampleRate = SAMPLE_RATE)
+                        while (recognizer!!.isReady(streamObj)) {
+                            recognizer!!.decode(streamObj)
+                        }
+                        text = recognizer!!.getResult(streamObj).text
+                    }
+                    
+                    // Only emit the latest text (not accumulated)
+                    if (text.isNotBlank() && text != lastText) {
+                        emit(
+                            InferenceResult.success(
+                                outputs = mapOf(InferenceResult.OUTPUT_TEXT to text),
+                                metadata = mapOf(
+                                    InferenceResult.META_CONFIDENCE to 0.95f,
+                                    InferenceResult.META_SEGMENT_INDEX to idx,
+                                    InferenceResult.META_SESSION_ID to sessionId,
+                                    InferenceResult.META_MODEL_NAME to modelName,
+                                    "is_endpoint" to isEndpoint,
+                                    "microphone_mode" to true
+                                ),
+                                partial = true
+                            )
+                        )
+                        lastText = text
+                    }
+                    
+                    // Reset stream at endpoint
+                    if (isEndpoint) {
+                        recognizer!!.reset(streamObj)
+                        if (text.isNotBlank()) {
+                            idx += 1
+                        }
+                    }
+                    
+                } else if (samplesRead < 0) {
+                    Log.e(TAG, "Error reading audio samples: $samplesRead")
+                    break
+                } else {
+                    // No samples read, continue
+                    Log.d(TAG, "No audio samples read, continuing...")
+                }
+                
+                // FIX: Add small delay to allow cancellation check
+                kotlinx.coroutines.delay(10) // 10ms delay to prevent tight loop
+            }
+            
+            // Final result after microphone stops
+            val elapsed = System.currentTimeMillis() - startTime
+            val finalText = if (lastText.isBlank()) "No speech detected" else lastText
+            Log.i(TAG, "Emitting final microphone result: $finalText")
+            emit(
+                InferenceResult.success(
+                    outputs = mapOf(InferenceResult.OUTPUT_TEXT to finalText),
+                    metadata = mapOf(
+                        InferenceResult.META_CONFIDENCE to 0.95f,
+                        InferenceResult.META_PROCESSING_TIME_MS to elapsed,
+                        InferenceResult.META_MODEL_NAME to modelName,
+                        InferenceResult.META_SESSION_ID to sessionId,
+                        "microphone_mode" to true,
+                        "final" to true
+                    ),
+                    partial = false
+                )
+            )
+            
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Normal cancellation - not an error
+            Log.d(TAG, "Microphone ASR processing cancelled normally")
+            throw e // Re-throw to propagate cancellation
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in microphone ASR processing", e)
+            emit(InferenceResult.error(RunnerError.runtimeError(e.message ?: "Microphone ASR error", e)))
+        } finally {
+            AudioUtil.stopAndReleaseAudioRecord(audioRecord)
+            streamObj.release()
+            Log.i(TAG, "Microphone ASR processing completed")
+        }
+    }
+
+    /**
+     * Stop microphone recording
+     * This method can be called to stop ongoing microphone ASR processing
+     */
+    fun stopMicrophoneRecording() {
+        Log.i(TAG, "Stopping microphone recording")
+        // The AtomicBoolean in processMicrophoneAsFlow will handle the stopping
+        // This is a placeholder for future enhancement if needed
+    }
+
+    /**
      * Copy data directory from assets to external storage (if needed for HR)
      */
     private fun copyDataDir(dataDir: String): String {
@@ -472,6 +706,120 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
             1000 -> "Bilingual zh-en zipformer (RKNN for RK3588)"
             1001 -> "Bilingual zh-en zipformer small (RKNN for RK3588)"
             else -> "Unknown model type"
+        }
+    }
+    
+    /**
+     * Check if app is in valid state for audio focus on Android 15+
+     */
+    private fun isValidForAudioFocus(): Boolean {
+        return try {
+            val activityManager = context.getSystemService(android.app.ActivityManager::class.java)
+            
+            // Method 1: Check if app is top app
+            val appTasks = activityManager?.getAppTasks()
+            val isTopApp = appTasks?.any { 
+                it.taskInfo?.topActivity?.packageName == context.packageName 
+            } ?: false
+            
+            // Method 2: Check if we have a foreground service (using modern API)
+            val hasForegroundService = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val usageStatsManager = context.getSystemService(android.app.usage.UsageStatsManager::class.java)
+                val currentTime = System.currentTimeMillis()
+                val stats = usageStatsManager?.queryUsageStats(
+                    android.app.usage.UsageStatsManager.INTERVAL_DAILY,
+                    currentTime - 60000, // Last minute
+                    currentTime
+                )
+                stats?.any { it.packageName == context.packageName } ?: false
+            } else {
+                // Fallback for older versions
+                context.getSystemService(android.app.ActivityManager::class.java)
+                    ?.getRunningServices(Int.MAX_VALUE)
+                    ?.any { it.service.packageName == context.packageName && it.foreground }
+                    ?: false
+            }
+            
+            // Method 3: Check if we have SYSTEM_ALERT_WINDOW permission and overlay is visible
+            val hasOverlayPermission = android.provider.Settings.canDrawOverlays(context)
+            val hasVisibleOverlay = hasOverlayPermission && isOverlayVisible()
+            
+            Log.d(TAG, "Audio focus check: isTopApp=$isTopApp, hasForegroundService=$hasForegroundService, hasVisibleOverlay=$hasVisibleOverlay")
+            
+            // On Android 15+, we need either top app OR foreground service with visible overlay
+            val isValid = isTopApp || (hasForegroundService && hasVisibleOverlay)
+            
+            if (!isValid) {
+                Log.w(TAG, "Audio focus not allowed: App must be top app or have foreground service with visible overlay")
+            }
+            
+            isValid
+        } catch (e: Exception) {
+            Log.w(TAG, "Error checking audio focus validity", e)
+            false
+        }
+    }
+    
+    /**
+     * Check if overlay window is currently visible
+     */
+    private fun isOverlayVisible(): Boolean {
+        return try {
+            // Check if we have SYSTEM_ALERT_WINDOW permission and overlay is visible
+            val hasOverlayPermission = android.provider.Settings.canDrawOverlays(context)
+            
+            // For Android 15+, we need to check if our overlay is actually visible
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                // Check if any overlay window is visible for our package
+                val windowManager = context.getSystemService(android.view.WindowManager::class.java)
+                val display = windowManager?.defaultDisplay
+                val displayMetrics = android.util.DisplayMetrics()
+                display?.getMetrics(displayMetrics)
+                
+                // If we have overlay permission and are running foreground service, assume overlay is visible
+                hasOverlayPermission && hasForegroundService()
+            } else {
+                hasOverlayPermission
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error checking overlay visibility", e)
+            false
+        }
+    }
+    
+    /**
+     * Check if we have a foreground service running
+     */
+    private fun hasForegroundService(): Boolean {
+        return try {
+            val activityManager = context.getSystemService(android.app.ActivityManager::class.java)
+            activityManager?.getRunningServices(Int.MAX_VALUE)
+                ?.any { it.service.packageName == context.packageName && it.foreground }
+                ?: false
+        } catch (e: Exception) {
+            Log.w(TAG, "Error checking foreground service", e)
+            false
+        }
+    }
+    
+    /**
+     * Force update foreground service state to ensure microphone access
+     */
+    private fun forceUpdateForegroundServiceState() {
+        try {
+            // Try to bring our service to foreground if needed
+            val intent = android.content.Intent(context, com.mtkresearch.breezeapp.engine.BreezeAppEngineService::class.java)
+            intent.action = "com.mtkresearch.breezeapp.engine.FORCE_FOREGROUND"
+            
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            
+            Log.d(TAG, "Forced foreground service state update for microphone access")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error forcing foreground service state update", e)
         }
     }
 

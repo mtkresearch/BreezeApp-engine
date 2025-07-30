@@ -176,6 +176,7 @@ object EdgeAI {
 
             // Generate request ID for tracking
             val requestId = generateRequestId()
+            lastRequestId = requestId  // Track for cancellation
 
             // Create channel for this request
             val responseChannel = Channel<AIResponse>()
@@ -211,6 +212,7 @@ object EdgeAI {
             validateConnection()
 
             val requestId = generateRequestId()
+            lastRequestId = requestId  // Track for cancellation
             val responseChannel = Channel<AIResponse>()
             pendingRequests[requestId] = responseChannel
 
@@ -243,6 +245,7 @@ object EdgeAI {
             validateConnection()
 
             val requestId = generateRequestId()
+            lastRequestId = requestId  // Track for cancellation
             val responseChannel = Channel<AIResponse>()
             pendingRequests[requestId] = responseChannel
 
@@ -265,6 +268,54 @@ object EdgeAI {
                 }
             }
         }
+    }
+
+    /**
+     * Cancel an active request by its ID.
+     * This is the simplest and most robust way to stop streaming requests.
+     * 
+     * @param requestId The ID of the request to cancel
+     * @return true if the request was successfully cancelled, false otherwise
+     */
+    fun cancelRequest(requestId: String): Boolean {
+        return try {
+            validateConnection()
+            
+            // 1. Cancel the pending request channel
+            pendingRequests[requestId]?.let { channel ->
+                channel.close()
+                pendingRequests.remove(requestId)
+                Log.d(TAG, "Cancelled pending request channel: $requestId")
+            }
+            
+            // 2. Call service to cancel the request on engine side
+            val cancelled = service?.cancelRequest(requestId) ?: false
+            
+            if (cancelled) {
+                Log.d(TAG, "Successfully cancelled request: $requestId")
+            } else {
+                Log.w(TAG, "Failed to cancel request on service side: $requestId")
+            }
+            
+            cancelled
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cancelling request: $requestId", e)
+            false
+        }
+    }
+
+    /**
+     * Get the current request ID for the last initiated request.
+     * Useful for cancellation when the client doesn't track request IDs.
+     */
+    private var lastRequestId: String? = null
+    
+    /**
+     * Cancel the last initiated request.
+     * Convenience method when client doesn't track request IDs.
+     */
+    fun cancelLastRequest(): Boolean {
+        return lastRequestId?.let { cancelRequest(it) } ?: false
     }
 
     // === HELPER METHODS ===

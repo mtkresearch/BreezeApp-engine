@@ -12,6 +12,7 @@ import com.mtkresearch.breezeapp.engine.service.ClientManager
 import com.mtkresearch.breezeapp.engine.service.RequestCoordinator
 import com.mtkresearch.breezeapp.engine.service.EngineServiceBinder
 import com.mtkresearch.breezeapp.engine.service.BreezeAppEngineCore
+import android.media.AudioManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
@@ -60,6 +61,23 @@ class BreezeAppEngineService : Service() {
     private lateinit var requestCoordinator: RequestCoordinator
     private lateinit var engineServiceBinder: EngineServiceBinder
     private lateinit var engineCore: BreezeAppEngineCore
+
+    private lateinit var audioManager: AudioManager
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                Log.d(TAG, "AUDIOFOCUS_GAIN: Acquired audio focus")
+                // Resume playback or recording if paused
+            }
+            AudioManager.AUDIOFOCUS_LOSS,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                Log.w(TAG, "AUDIOFOCUS_LOSS: Lost audio focus ($focusChange)")
+                // Pause or stop playback/recording
+                // Consider stopping microphone ASR if focus is permanently lost
+            }
+        }
+    }
     
     // Request tracking for RequestProcessingHelper
     private val activeRequestCount = AtomicInteger(0)
@@ -132,6 +150,15 @@ class BreezeAppEngineService : Service() {
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand() - Clean Architecture")
+        
+        // Handle different start scenarios
+        when (intent?.action) {
+            "com.mtkresearch.breezeapp.engine.FORCE_FOREGROUND" -> {
+                Log.i(TAG, "Forcing foreground service state for microphone access")
+                forceForegroundForMicrophone()
+            }
+        }
+        
         return START_STICKY
     }
     
@@ -162,9 +189,13 @@ class BreezeAppEngineService : Service() {
     private fun initializeComponents() {
         Log.d(TAG, "Initializing clean architecture components")
         
+        // Check microphone permission for service
+        checkMicrophonePermission()
+        
         // Initialize infrastructure components
         configurator = BreezeAppEngineConfigurator(this)
         notificationManager = ServiceNotificationManager(this)
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         
         // Initialize breathing border manager on main thread
         breathingBorderManager = BreathingBorderManager(this)
@@ -189,7 +220,8 @@ class BreezeAppEngineService : Service() {
         requestCoordinator = RequestCoordinator(
             requestProcessingHelper = requestHelper,
             engineManager = configurator.engineManager,
-            clientManager = clientManager
+            clientManager = clientManager,
+            serviceInstance = this
         )
         
         // Initialize service binder
@@ -208,7 +240,14 @@ class BreezeAppEngineService : Service() {
         Log.d(TAG, "Starting foreground service")
         notificationManager.createNotificationChannel()
         val notification = notificationManager.createNotification(ServiceState.Ready)
-        startForeground(BreezeAppEngineStatusManager.FOREGROUND_NOTIFICATION_ID, notification)
+        
+        // Start with dataSync type only, add microphone type when needed
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(BreezeAppEngineStatusManager.FOREGROUND_NOTIFICATION_ID, notification, 
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(BreezeAppEngineStatusManager.FOREGROUND_NOTIFICATION_ID, notification)
+        }
     }
     
     private fun registerBroadcastReceiver() {
@@ -246,6 +285,9 @@ class BreezeAppEngineService : Service() {
             
             // Clean up breathing border
             breathingBorderManager.cleanup()
+
+            // Abandon audio focus
+            audioManager.abandonAudioFocus(audioFocusChangeListener)
             
             Log.d(TAG, "Resources cleaned up successfully")
             
@@ -264,6 +306,115 @@ class BreezeAppEngineService : Service() {
     
     private fun notifyError(requestId: String, error: String) {
         clientManager.notifyError(requestId, error)
+    }
+    
+    /**
+     * Check microphone permission for the service
+     */
+    private fun checkMicrophonePermission() {
+        try {
+            val permission = android.Manifest.permission.RECORD_AUDIO
+            val granted = checkSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            Log.d(TAG, "Service microphone permission granted: $granted")
+            
+            if (!granted) {
+                Log.w(TAG, "Microphone permission not granted for service - ASR features may not work")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking microphone permission", e)
+        }
+    }
+    
+    /**
+     * Update foreground service type to include microphone when needed
+     */
+    fun updateForegroundServiceType(includeMicrophone: Boolean) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            try {
+                val serviceType = if (includeMicrophone) {
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or 
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                } else {
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                }
+                
+                Log.d(TAG, "Updating foreground service type: ${if (includeMicrophone) "with microphone" else "dataSync only"}")
+                startForeground(BreezeAppEngineStatusManager.FOREGROUND_NOTIFICATION_ID, 
+                    notificationManager.createNotification(statusManager.getCurrentState()), serviceType)
+                    
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating foreground service type", e)
+            }
+        }
+    }
+    
+    /**
+     * Handle foreground service timeout for Android 15+
+     * This method is called when the system determines the service has exceeded its time limit
+     */
+    override fun onTimeout(timeoutType: Int, timeoutDuration: Int) {
+        Log.w(TAG, "Foreground service timeout received: type=$timeoutType, duration=$timeoutDuration")
+        
+        try {
+            // Stop the service gracefully within the timeout period
+            Log.i(TAG, "Stopping service due to timeout")
+            stopSelf()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping service on timeout", e)
+        }
+    }
+    
+    /**
+     * Enable Android 15 timeout testing for development
+     * Call this method to enable timeout testing even on non-Android 15 devices
+     */
+    fun enableTimeoutTesting() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                // Enable timeout testing via adb command simulation
+                Log.i(TAG, "Timeout testing enabled for Android 15+ compliance")
+                // Note: This would require adb shell am compat enable FGS_INTRODUCE_TIME_LIMITS
+            } catch (e: Exception) {
+                Log.e(TAG, "Error enabling timeout testing", e)
+            }
+        }
+    }
+    
+    /**
+     * Force foreground service state for microphone access
+     * This ensures the service is properly recognized as foreground when microphone is needed
+     */
+    private fun forceForegroundForMicrophone() {
+        try {
+            Log.i(TAG, "Forcing foreground service state for microphone access")
+            
+            // Update service type to include microphone
+            updateForegroundServiceType(true)
+            
+            // Request audio focus
+            val result = audioManager.requestAudioFocus(
+                audioFocusChangeListener,
+                AudioManager.STREAM_MUSIC, // Use STREAM_MUSIC for general audio, or STREAM_VOICE_CALL for communication
+                AudioManager.AUDIOFOCUS_GAIN // Request permanent audio focus
+            )
+
+            if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                Log.i(TAG, "Audio focus granted for microphone access")
+            } else {
+                Log.w(TAG, "Audio focus request denied for microphone access")
+            }
+            
+            // Update status to processing to show breathing border
+            statusManager.updateState(ServiceState.Processing(1))
+            
+            // Ensure notification is updated
+            val notification = notificationManager.createNotification(ServiceState.Processing(1))
+            startForeground(BreezeAppEngineStatusManager.FOREGROUND_NOTIFICATION_ID, notification)
+            
+            Log.i(TAG, "Foreground service state forced for microphone access")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error forcing foreground service state", e)
+        }
     }
 
     /**

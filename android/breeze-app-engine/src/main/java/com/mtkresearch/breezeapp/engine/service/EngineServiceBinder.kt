@@ -129,7 +129,19 @@ class EngineServiceBinder(
          */
         override fun cancelRequest(requestId: String?): Boolean {
             Log.d(TAG, "cancelRequest() called: $requestId")
-            return false // Simple implementation for now
+            
+            if (requestId == null) {
+                Log.w(TAG, "cancelRequest received null requestId")
+                return false
+            }
+            
+            return try {
+                // Delegate to request coordinator for actual cancellation
+                requestCoordinator.cancelRequest(requestId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error cancelling request: $requestId", e)
+                false
+            }
         }
         
         /**

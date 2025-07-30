@@ -11,6 +11,8 @@ import androidx.core.content.ContextCompat
 import com.mtkresearch.breezeapp.engine.R
 import com.mtkresearch.breezeapp.engine.core.ServiceNotificationManager
 import com.mtkresearch.breezeapp.engine.system.NotificationPermissionManager
+import android.Manifest
+import android.content.pm.PackageManager
 
 /**
  * BreezeAppEngine Entry Activity - Professional entry point for BreezeApp Engine
@@ -26,6 +28,11 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
     private lateinit var permissionManager: NotificationPermissionManager
     private var serviceStartPending = false
     private var breathingBorderPermissionChecked = false
+    private var microphonePermissionChecked = false
+    
+    companion object {
+        private const val MICROPHONE_PERMISSION_REQUEST_CODE = 1001
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +46,9 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         
         // Check breathing border permission
         checkBreathingBorderPermission()
+        
+        // Check microphone permission
+        checkMicrophonePermission()
 
         // Initialize the premium UI components
         initializePremiumUI()
@@ -102,6 +112,60 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         ).show()
     }
     
+    /**
+     * Check and request microphone permission for ASR functionality
+     */
+    private fun checkMicrophonePermission() {
+        if (microphonePermissionChecked) return
+        
+        microphonePermissionChecked = true
+        
+        when {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> {
+                android.util.Log.d("BreezeAppEngineLauncher", "Microphone permission already granted")
+            }
+            shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) -> {
+                showMicrophonePermissionRationaleDialog()
+            }
+            else -> {
+                requestMicrophonePermission()
+            }
+        }
+    }
+    
+    /**
+     * Shows a dialog explaining why microphone permission is needed.
+     */
+    private fun showMicrophonePermissionRationaleDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Microphone Permission Required")
+            .setMessage("BreezeApp Engine needs microphone permission to:\n\n" +
+                       "• Process real-time speech recognition\n" +
+                       "• Enable voice commands and dictation\n" +
+                       "• Provide hands-free AI interaction\n" +
+                       "• Support microphone mode ASR requests\n\n" +
+                       "This is essential for the speech recognition features.")
+            .setPositiveButton("Grant Permission") { _, _ ->
+                requestMicrophonePermission()
+            }
+            .setNegativeButton("Skip") { _, _ ->
+                android.util.Log.w("BreezeAppEngineLauncher", "User declined microphone permission - ASR features may not work")
+                Toast.makeText(this, "Microphone features will be limited", Toast.LENGTH_SHORT).show()
+            }
+            .setCancelable(false)
+            .show()
+    }
+    
+    /**
+     * Request microphone permission
+     */
+    private fun requestMicrophonePermission() {
+        requestPermissions(
+            arrayOf(Manifest.permission.RECORD_AUDIO),
+            MICROPHONE_PERMISSION_REQUEST_CODE
+        )
+    }
+    
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -109,51 +173,40 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         
-        val permissionGranted = permissionManager.handlePermissionResult(requestCode, permissions, grantResults)
-        
-        if (serviceStartPending) {
-            serviceStartPending = false
-            if (permissionGranted) {
-                Toast.makeText(this, "Notification permission granted! Starting BreezeApp Engine...", Toast.LENGTH_SHORT).show()
-                startBreezeAppEngineService()
-            } else {
-                // Permission denied, show options
-                showPermissionDeniedDialog()
+        when (requestCode) {
+            MICROPHONE_PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    android.util.Log.d("BreezeAppEngineLauncher", "Microphone permission granted")
+                    Toast.makeText(this, "Microphone permission granted", Toast.LENGTH_SHORT).show()
+                } else {
+                    android.util.Log.w("BreezeAppEngineLauncher", "Microphone permission denied")
+                    Toast.makeText(this, "Microphone permission denied - ASR features may not work", Toast.LENGTH_LONG).show()
+                }
+            }
+            else -> {
+                // Handle other permission results
+                permissionManager.handlePermissionResult(requestCode, permissions, grantResults)
             }
         }
     }
     
     /**
-     * Shows dialog when permission is denied, offering alternatives.
-     */
-    private fun showPermissionDeniedDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Notification Permission Denied")
-            .setMessage("The BreezeApp Engine service will still work, but you won't see status updates. You can enable notifications later in Settings.")
-            .setPositiveButton("Open Settings") { _, _ ->
-                val notificationManager = ServiceNotificationManager(this)
-                notificationManager.openNotificationSettings()
-                startBreezeAppEngineService()
-            }
-            .setNegativeButton("Continue Anyway") { _, _ ->
-                startBreezeAppEngineService()
-            }
-            .setCancelable(false)
-            .show()
-    }
-    
-    /**
-     * Check and request breathing border permission
+     * Check and request breathing border permission for overlay display
      */
     private fun checkBreathingBorderPermission() {
         if (breathingBorderPermissionChecked) return
         
+        breathingBorderPermissionChecked = true
+        
         if (!Settings.canDrawOverlays(this)) {
             AlertDialog.Builder(this)
-                .setTitle("Breathing Light Border Permission")
-                .setMessage("BreezeApp Engine can show a subtle breathing light border around the screen to indicate service status while you use other apps.\n\n" +
-                           "This provides ambient awareness without interrupting your activities.")
-                .setPositiveButton("Enable") { _, _ ->
+                .setTitle("Overlay Permission Required")
+                .setMessage("BreezeApp Engine needs overlay permission to:\n\n" +
+                           "• Display breathing light border during processing\n" +
+                           "• Show real-time AI status indicators\n" +
+                           "• Provide visual feedback for active operations\n\n" +
+                           "This enhances the user experience with visual status updates.")
+                .setPositiveButton("Grant Permission") { _, _ ->
                     val intent = Intent(
                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         android.net.Uri.parse("package:$packageName")
@@ -161,13 +214,11 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
                     startActivity(intent)
                 }
                 .setNegativeButton("Skip") { _, _ ->
-                    // Continue without breathing border
+                    android.util.Log.w("BreezeAppEngineLauncher", "User declined overlay permission - breathing border will not work")
                 }
-                .setCancelable(true)
+                .setCancelable(false)
                 .show()
         }
-        
-        breathingBorderPermissionChecked = true
     }
     
     

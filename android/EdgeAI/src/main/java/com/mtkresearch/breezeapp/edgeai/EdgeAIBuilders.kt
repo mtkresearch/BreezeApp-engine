@@ -81,14 +81,16 @@ fun asrRequest(
     model: String = "whisper-1",
     language: String? = null,
     format: String = "json",
-    temperature: Float? = null
+    temperature: Float? = null,
+    stream: Boolean = false
 ): ASRRequest {
     return ASRRequest(
         _file = audioBytes,
         model = model,
         language = language,
         responseFormat = format,
-        temperature = temperature
+        temperature = temperature,
+        stream = stream
     )
 }
 

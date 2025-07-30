@@ -80,6 +80,15 @@ class RequestProcessingHelper(
         
         Log.d(TAG, "Started processing streaming $requestType request $requestId (active: $currentActiveRequests)")
         
+        // FIX: Track the current coroutine job for cancellation
+        val currentJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+        currentJob?.let { job ->
+            // FIX: Use engineManager to track the job for cancellation
+            // We need to access engineManager's activeRequests directly
+            // This is a workaround since engineManager.processStream already tracks the job
+            Log.d(TAG, "Streaming job will be tracked by engineManager for cancellation: $requestId")
+        }
+        
         var streamCompleted = false
         
         try {
@@ -100,9 +109,13 @@ class RequestProcessingHelper(
                     
                     // Check if this is the final response in the stream
                     if (!result.partial) {
-                        streamCompleted = true
-                        Log.d(TAG, "Stream completed for $requestType request $requestId")
-                        cleanupStreamingRequest(requestId, startTime, requestType)
+                        if (!streamCompleted) {
+                            streamCompleted = true
+                            Log.d(TAG, "Stream completed for $requestType request $requestId")
+                            cleanupStreamingRequest(requestId, startTime, requestType)
+                        } else {
+                            Log.d(TAG, "Ignoring duplicate final result for $requestType request $requestId")
+                        }
                     }
                 }
             

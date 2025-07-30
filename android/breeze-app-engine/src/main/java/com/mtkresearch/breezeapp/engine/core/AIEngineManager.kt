@@ -77,6 +77,13 @@ class AIEngineManager(
         preferredRunner: String? = null
     ): InferenceResult {
         val requestId = request.sessionId ?: "request-${System.currentTimeMillis()}"
+        
+        // FIX: Track the current coroutine job for cancellation
+        val currentJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+        currentJob?.let { job ->
+            activeRequests[requestId] = job
+        }
+        
         return try {
             selectAndLoadRunner(capability, preferredRunner).fold(
                 onSuccess = { runner ->
@@ -110,6 +117,13 @@ class AIEngineManager(
         preferredRunner: String? = null
     ): Flow<InferenceResult> = flow {
         val requestId = request.sessionId ?: "stream-${System.currentTimeMillis()}"
+        
+        // FIX: Track the current coroutine job for cancellation
+        val currentJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+        currentJob?.let { job ->
+            activeRequests[requestId] = job
+        }
+        
         try {
             selectAndLoadRunner(capability, preferredRunner).fold(
                 onSuccess = { runner ->
