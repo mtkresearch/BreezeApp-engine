@@ -1,8 +1,11 @@
 package com.mtkresearch.breezeapp.engine.core
 
 import android.app.Service
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
+import com.mtkresearch.breezeapp.engine.system.BreathingBorderManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class BreezeAppEngineStatusManager(
     private val service: Service,
-    private val notificationManager: ServiceNotificationManager
+    private val notificationManager: ServiceNotificationManager,
+    private val breathingBorderManager: BreathingBorderManager? = null
 ) {
     
     companion object {
@@ -35,6 +39,9 @@ class BreezeAppEngineStatusManager(
     // State management following reactive principles
     private val _currentState = MutableStateFlow<ServiceState>(ServiceState.Ready)
     val currentState: StateFlow<ServiceState> = _currentState.asStateFlow()
+    
+    // Main thread handler for UI operations
+    private val mainHandler = Handler(Looper.getMainLooper())
     
     /**
      * Updates the service state and triggers all necessary side effects.
@@ -57,6 +64,9 @@ class BreezeAppEngineStatusManager(
         
         // Update foreground notification
         updateForegroundNotification(newState)
+        
+        // Update breathing border (if available)
+        updateBreathingBorder(newState)
         
         // Log state-specific information
         logStateTransition(previousState, newState)
@@ -114,6 +124,40 @@ class BreezeAppEngineStatusManager(
             previous is ServiceState.Error && new !is ServiceState.Error -> {
                 Log.i(TAG, "Service recovered from error state")
             }
+        }
+    }
+    
+    /**
+     * Updates the breathing border based on service state
+     * Ensures UI operations run on main thread
+     */
+    private fun updateBreathingBorder(state: ServiceState) {
+        breathingBorderManager?.let { manager ->
+            try {
+                // Ensure breathing border operations run on main thread
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    updateBreathingBorderInternal(manager, state)
+                } else {
+                    mainHandler.post { updateBreathingBorderInternal(manager, state) }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error updating breathing border", e)
+            }
+        }
+    }
+    
+    /**
+     * Internal method to update breathing border (must be called on main thread)
+     */
+    private fun updateBreathingBorderInternal(manager: BreathingBorderManager, state: ServiceState) {
+        try {
+            if (state.shouldShowBreathingBorder()) {
+                manager.showBreathingBorder(state)
+            } else {
+                manager.hideBreathingBorder()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error updating breathing border internally", e)
         }
     }
     

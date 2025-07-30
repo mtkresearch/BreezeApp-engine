@@ -187,6 +187,32 @@ sealed class ServiceState {
         is Downloading -> NotificationPriority.DEFAULT
         is Error -> NotificationPriority.HIGH
     }
+    
+    /**
+     * Gets the breathing border color for this service state.
+     * Maps service states to appropriate visual feedback colors.
+     */
+    fun getBreathingBorderColor(): Int = when (this) {
+        is Ready -> android.graphics.Color.CYAN
+        is ReadyWithClients -> android.graphics.Color.CYAN
+        is Processing -> android.graphics.Color.GREEN
+        is ProcessingWithClients -> android.graphics.Color.GREEN
+        is Downloading -> android.graphics.Color.YELLOW
+        is Error -> android.graphics.Color.RED
+    }
+    
+    /**
+     * Determines if breathing border should be shown for this state.
+     * Only show for active states that require user awareness.
+     */
+    fun shouldShowBreathingBorder(): Boolean = when (this) {
+        is Ready -> false // Don't show for idle state
+        is ReadyWithClients -> false // Don't show for idle state
+        is Processing -> true // Show for active processing
+        is ProcessingWithClients -> true // Show for active processing
+        is Downloading -> true // Show for downloads
+        is Error -> true // Show for errors
+    }
 }
 
 /**

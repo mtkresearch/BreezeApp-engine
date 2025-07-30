@@ -25,6 +25,7 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
     
     private lateinit var permissionManager: NotificationPermissionManager
     private var serviceStartPending = false
+    private var breathingBorderPermissionChecked = false
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +36,9 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         
         // Check and request notification permission before starting service
         checkNotificationPermissionAndStartService()
+        
+        // Check breathing border permission
+        checkBreathingBorderPermission()
 
         // Initialize the premium UI components
         initializePremiumUI()
@@ -136,6 +140,34 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
             }
             .setCancelable(false)
             .show()
+    }
+    
+    /**
+     * Check and request breathing border permission
+     */
+    private fun checkBreathingBorderPermission() {
+        if (breathingBorderPermissionChecked) return
+        
+        if (!Settings.canDrawOverlays(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Breathing Light Border Permission")
+                .setMessage("BreezeApp Engine can show a subtle breathing light border around the screen to indicate service status while you use other apps.\n\n" +
+                           "This provides ambient awareness without interrupting your activities.")
+                .setPositiveButton("Enable") { _, _ ->
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")
+                    )
+                    startActivity(intent)
+                }
+                .setNegativeButton("Skip") { _, _ ->
+                    // Continue without breathing border
+                }
+                .setCancelable(true)
+                .show()
+        }
+        
+        breathingBorderPermissionChecked = true
     }
     
     

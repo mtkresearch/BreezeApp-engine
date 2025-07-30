@@ -22,6 +22,8 @@ import com.mtkresearch.breezeapp.engine.repository.ModelManager
 import com.mtkresearch.breezeapp.engine.repository.ModelVersionStore
 import com.mtkresearch.breezeapp.engine.util.ModelDownloader
 import com.mtkresearch.breezeapp.engine.core.DownloadModelUseCase
+import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
+import com.mtkresearch.breezeapp.engine.system.BreathingBorderManager
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
 
 /**
@@ -51,6 +53,7 @@ class BreezeAppEngineService : Service() {
     private lateinit var configurator: BreezeAppEngineConfigurator
     private lateinit var statusManager: BreezeAppEngineStatusManager
     private lateinit var notificationManager: ServiceNotificationManager
+    private lateinit var breathingBorderManager: BreathingBorderManager
     
     // Clean Architecture Components
     private lateinit var clientManager: ClientManager
@@ -162,7 +165,11 @@ class BreezeAppEngineService : Service() {
         // Initialize infrastructure components
         configurator = BreezeAppEngineConfigurator(this)
         notificationManager = ServiceNotificationManager(this)
-        statusManager = BreezeAppEngineStatusManager(this, notificationManager)
+        
+        // Initialize breathing border manager on main thread
+        breathingBorderManager = BreathingBorderManager(this)
+        
+        statusManager = BreezeAppEngineStatusManager(this, notificationManager, breathingBorderManager)
         
         // Initialize clean architecture components
         clientManager = ClientManager()
@@ -200,8 +207,8 @@ class BreezeAppEngineService : Service() {
     private fun startForegroundService() {
         Log.d(TAG, "Starting foreground service")
         notificationManager.createNotificationChannel()
-        val notification = notificationManager.createNotification(com.mtkresearch.breezeapp.engine.domain.model.ServiceState.Ready)
-        startForeground(com.mtkresearch.breezeapp.engine.core.BreezeAppEngineStatusManager.FOREGROUND_NOTIFICATION_ID, notification)
+        val notification = notificationManager.createNotification(ServiceState.Ready)
+        startForeground(BreezeAppEngineStatusManager.FOREGROUND_NOTIFICATION_ID, notification)
     }
     
     private fun registerBroadcastReceiver() {
@@ -236,6 +243,9 @@ class BreezeAppEngineService : Service() {
             
             // Cleanup notification
             notificationManager.clearNotification()
+            
+            // Clean up breathing border
+            breathingBorderManager.cleanup()
             
             Log.d(TAG, "Resources cleaned up successfully")
             
