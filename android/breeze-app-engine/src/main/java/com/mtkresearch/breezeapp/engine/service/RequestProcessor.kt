@@ -1,4 +1,4 @@
-package com.mtkresearch.breezeapp.engine.error
+package com.mtkresearch.breezeapp.engine.service
 
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.core.AIEngineManager
@@ -6,15 +6,25 @@ import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.core.BreezeAppEngineStatusManager
+import com.mtkresearch.breezeapp.engine.core.CancellationManager
 import kotlinx.coroutines.flow.catch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Helper class to centralize request processing logic with robust error handling.
- * Reduces code duplication and ensures consistent behavior across all request types.
+ * Request Processor - Centralized request processing logic
+ * 
+ * This class handles all AI request processing with robust error handling
+ * and cleanup. It was moved from core/RequestProcessingHelper to service/
+ * to better reflect its role in the service layer.
+ * 
+ * Responsibilities:
+ * - Process streaming and non-streaming requests
+ * - Handle request lifecycle and cleanup
+ * - Provide unified error handling
+ * - Track request status and performance
  */
-class RequestProcessingHelper(
+class RequestProcessor(
     private val engineManager: AIEngineManager,
     private val statusManager: BreezeAppEngineStatusManager,
     private val activeRequestCount: AtomicInteger,
@@ -24,7 +34,7 @@ class RequestProcessingHelper(
 ) {
     
     companion object {
-        private const val TAG = "RequestProcessingHelper"
+        private const val TAG = "RequestProcessor"
     }
     
     /**
@@ -39,7 +49,7 @@ class RequestProcessingHelper(
         val startTime = System.currentTimeMillis()
         requestTracker[requestId] = startTime
         val currentActiveRequests = activeRequestCount.incrementAndGet()
-        statusManager.setProcessing(currentActiveRequests)
+        statusManager.updateState(com.mtkresearch.breezeapp.engine.domain.model.ServiceState.Processing(currentActiveRequests))
         
         Log.d(TAG, "Started processing $requestType request $requestId (active: $currentActiveRequests)")
         
@@ -76,17 +86,14 @@ class RequestProcessingHelper(
         val startTime = System.currentTimeMillis()
         requestTracker[requestId] = startTime
         val currentActiveRequests = activeRequestCount.incrementAndGet()
-        statusManager.setProcessing(currentActiveRequests)
+        statusManager.updateState(com.mtkresearch.breezeapp.engine.domain.model.ServiceState.Processing(currentActiveRequests))
         
         Log.d(TAG, "Started processing streaming $requestType request $requestId (active: $currentActiveRequests)")
         
-        // FIX: Track the current coroutine job for cancellation
+        // Use unified cancellation manager to track requests
         val currentJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
         currentJob?.let { job ->
-            // FIX: Use engineManager to track the job for cancellation
-            // We need to access engineManager's activeRequests directly
-            // This is a workaround since engineManager.processStream already tracks the job
-            Log.d(TAG, "Streaming job will be tracked by engineManager for cancellation: $requestId")
+            CancellationManager.getInstance().registerRequest(requestId, job)
         }
         
         var streamCompleted = false
@@ -154,4 +161,4 @@ class RequestProcessingHelper(
         Log.d(TAG, "Completed streaming $requestType request $requestId in ${processingTime}ms (remaining: $remainingRequests)")
         updateStatusAfterRequestCompletion(remainingRequests)
     }
-}
+} 

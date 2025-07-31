@@ -5,7 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
-import com.mtkresearch.breezeapp.engine.system.BreathingBorderManager
+import com.mtkresearch.breezeapp.engine.system.VisualStateManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,9 +23,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * domain models (ServiceState) and infrastructure concerns (notifications).
  */
 class BreezeAppEngineStatusManager(
-    private val service: Service,
-    private val notificationManager: ServiceNotificationManager,
-    private val breathingBorderManager: BreathingBorderManager? = null
+    private val service: Service?,
+    private val visualStateManager: VisualStateManager
 ) {
     
     companion object {
@@ -62,11 +61,8 @@ class BreezeAppEngineStatusManager(
         // Update internal state
         _currentState.value = newState
         
-        // Update foreground notification
-        updateForegroundNotification(newState)
-        
-        // Update breathing border (if available)
-        updateBreathingBorder(newState)
+        // Update visual state (notifications and breathing border)
+        visualStateManager.updateVisualState(newState)
         
         // Log state-specific information
         logStateTransition(previousState, newState)
@@ -83,22 +79,7 @@ class BreezeAppEngineStatusManager(
      */
     fun isActivelyWorking(): Boolean = _currentState.value.isActive()
     
-    /**
-     * Updates the foreground service notification based on current state.
-     * 
-     * @param state Current service state
-     */
-    private fun updateForegroundNotification(state: ServiceState) {
-        try {
-            // For foreground services, we need to update the notification properly
-            val notification = notificationManager.createNotification(state)
-            val systemNotificationManager = service.getSystemService(android.app.NotificationManager::class.java)
-            systemNotificationManager.notify(FOREGROUND_NOTIFICATION_ID, notification)
-            Log.v(TAG, "Foreground notification updated for state: ${state::class.simpleName}")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to update foreground notification", e)
-        }
-    }
+
     
     /**
      * Logs detailed information about state transitions for debugging.
@@ -127,39 +108,7 @@ class BreezeAppEngineStatusManager(
         }
     }
     
-    /**
-     * Updates the breathing border based on service state
-     * Ensures UI operations run on main thread
-     */
-    private fun updateBreathingBorder(state: ServiceState) {
-        breathingBorderManager?.let { manager ->
-            try {
-                // Ensure breathing border operations run on main thread
-                if (Looper.myLooper() == Looper.getMainLooper()) {
-                    updateBreathingBorderInternal(manager, state)
-                } else {
-                    mainHandler.post { updateBreathingBorderInternal(manager, state) }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Error updating breathing border", e)
-            }
-        }
-    }
-    
-    /**
-     * Internal method to update breathing border (must be called on main thread)
-     */
-    private fun updateBreathingBorderInternal(manager: BreathingBorderManager, state: ServiceState) {
-        try {
-            if (state.shouldShowBreathingBorder()) {
-                manager.showBreathingBorder(state)
-            } else {
-                manager.hideBreathingBorder()
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Error updating breathing border internally", e)
-        }
-    }
+
     
     /**
      * Convenience methods for common state updates
@@ -174,6 +123,14 @@ class BreezeAppEngineStatusManager(
     
     fun setError(message: String, isRecoverable: Boolean = true) = 
         updateState(ServiceState.Error(message, isRecoverable))
+    
+    /**
+     * Sets the service instance for components that need it
+     */
+    fun setServiceInstance(service: Service) {
+        // This method is called by ServiceOrchestrator to set the service instance
+        // when it becomes available
+    }
     
     /**
      * Updates status with client count information for enhanced notification.

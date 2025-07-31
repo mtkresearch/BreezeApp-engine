@@ -49,8 +49,8 @@ class AIEngineManager(
     // 讀寫鎖保護配置變更
     private val configLock = ReentrantReadWriteLock()
     
-    // 請求取消支援
-    private val activeRequests = ConcurrentHashMap<String, Job>()
+    // 使用統一的取消管理器
+    private val cancellationManager = CancellationManager.getInstance()
     
     /**
      * 設定預設 Runner 映射
@@ -78,10 +78,10 @@ class AIEngineManager(
     ): InferenceResult {
         val requestId = request.sessionId ?: "request-${System.currentTimeMillis()}"
         
-        // FIX: Track the current coroutine job for cancellation
+        // 使用統一的取消管理器追蹤請求
         val currentJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
         currentJob?.let { job ->
-            activeRequests[requestId] = job
+            cancellationManager.registerRequest(requestId, job)
         }
         
         return try {
@@ -99,8 +99,8 @@ class AIEngineManager(
             logger.e(TAG, "Error processing request", e)
             InferenceResult.error(RunnerError("E101", e.message ?: "Unknown error", true, e))
         } finally {
-            // Clean up completed request from tracking
-            activeRequests.remove(requestId)
+            // 使用統一的取消管理器清理請求
+            cancellationManager.unregisterRequest(requestId)
         }
     }
     
@@ -118,10 +118,10 @@ class AIEngineManager(
     ): Flow<InferenceResult> = flow {
         val requestId = request.sessionId ?: "stream-${System.currentTimeMillis()}"
         
-        // FIX: Track the current coroutine job for cancellation
+        // 使用統一的取消管理器追蹤請求
         val currentJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
         currentJob?.let { job ->
-            activeRequests[requestId] = job
+            cancellationManager.registerRequest(requestId, job)
         }
         
         try {
@@ -146,8 +146,8 @@ class AIEngineManager(
             logger.e(TAG, "Error processing stream request", e)
             emit(InferenceResult.error(RunnerError("E101", e.message ?: "Unknown error", true, e)))
         } finally {
-            // Clean up completed stream request from tracking
-            activeRequests.remove(requestId)
+            // 使用統一的取消管理器清理請求
+            cancellationManager.unregisterRequest(requestId)
         }
     }
     
@@ -157,20 +157,7 @@ class AIEngineManager(
      * @return 是否成功取消
      */
     fun cancelRequest(requestId: String): Boolean {
-        return try {
-            val job = activeRequests.remove(requestId)
-            if (job != null) {
-                job.cancel()
-                logger.d(TAG, "Cancelled request: $requestId")
-                true
-            } else {
-                logger.w(TAG, "Request not found for cancellation: $requestId")
-                false
-            }
-        } catch (e: Exception) {
-            logger.e(TAG, "Error cancelling request: $requestId", e)
-            false
-        }
+        return cancellationManager.cancelRequest(requestId)
     }
     
     /**
@@ -188,6 +175,8 @@ class AIEngineManager(
             activeRunners.clear()
             logger.d(TAG, "Cleaned up all active runners")
         }
+        // 清理取消管理器
+        cancellationManager.cleanup()
     }
     
     /**

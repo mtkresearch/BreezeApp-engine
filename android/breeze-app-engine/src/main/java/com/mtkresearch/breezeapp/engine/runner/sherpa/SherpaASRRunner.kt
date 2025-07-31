@@ -9,6 +9,9 @@ import com.mtkresearch.breezeapp.engine.data.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import com.mtkresearch.breezeapp.engine.util.AudioUtil
+import com.mtkresearch.breezeapp.engine.core.ExceptionHandler
+import com.mtkresearch.breezeapp.engine.core.EngineConstants.Audio.CANCELLATION_CHECK_DELAY_MS
+import com.mtkresearch.breezeapp.engine.core.CancellationManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -194,13 +197,9 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
                 
                 streamObj.release()
             }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            // Normal cancellation - not an error
-            Log.d(TAG, "SherpaASRRunner.runAsFlow cancelled normally")
-            throw e // Re-throw to propagate cancellation
         } catch (e: Exception) {
-            Log.e(TAG, "Error in SherpaASRRunner.runAsFlow", e)
-            emit(InferenceResult.error(RunnerError.runtimeError(e.message ?: "Unknown error", e)))
+            ExceptionHandler.handleFlowException(e, input.sessionId ?: "unknown", "SherpaASRRunner.runAsFlow")
+            emit(ExceptionHandler.handleException(e, input.sessionId ?: "unknown", "SherpaASRRunner.runAsFlow"))
         }
     }
 
@@ -444,9 +443,9 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
             )
             
             // Main recording loop following Sherpa official example pattern
-            // FIX: Check for cancellation on each iteration
+            // 使用統一的取消檢查
             while (true) {
-                // Check if Flow has been cancelled
+                // 簡化的取消檢查，避免suspend function調用
                 val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
                 if (job?.isActive == false) {
                     Log.i(TAG, "Microphone processing cancelled by client")
@@ -516,8 +515,8 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
                     Log.d(TAG, "No audio samples read, continuing...")
                 }
                 
-                // FIX: Add small delay to allow cancellation check
-                kotlinx.coroutines.delay(10) // 10ms delay to prevent tight loop
+                // 使用配置常量
+                kotlinx.coroutines.delay(CANCELLATION_CHECK_DELAY_MS)
             }
             
             // Final result after microphone stops
@@ -539,13 +538,9 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
                 )
             )
             
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            // Normal cancellation - not an error
-            Log.d(TAG, "Microphone ASR processing cancelled normally")
-            throw e // Re-throw to propagate cancellation
         } catch (e: Exception) {
-            Log.e(TAG, "Error in microphone ASR processing", e)
-            emit(InferenceResult.error(RunnerError.runtimeError(e.message ?: "Microphone ASR error", e)))
+            ExceptionHandler.handleFlowException(e, sessionId, "Microphone ASR processing")
+            emit(ExceptionHandler.handleException(e, sessionId, "Microphone ASR processing"))
         } finally {
             AudioUtil.stopAndReleaseAudioRecord(audioRecord)
             streamObj.release()

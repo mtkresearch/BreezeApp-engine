@@ -9,8 +9,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.mtkresearch.breezeapp.engine.R
-import com.mtkresearch.breezeapp.engine.core.ServiceNotificationManager
-import com.mtkresearch.breezeapp.engine.system.NotificationPermissionManager
+import com.mtkresearch.breezeapp.engine.system.NotificationManager
+import com.mtkresearch.breezeapp.engine.system.PermissionManager
 import android.Manifest
 import android.content.pm.PackageManager
 
@@ -25,7 +25,7 @@ import android.content.pm.PackageManager
  */
 class BreezeAppEngineLauncherActivity : AppCompatActivity() {
     
-    private lateinit var permissionManager: NotificationPermissionManager
+    private lateinit var permissionManager: PermissionManager
     private var serviceStartPending = false
     private var breathingBorderPermissionChecked = false
     private var microphonePermissionChecked = false
@@ -39,7 +39,7 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         setContentView(R.layout.activity_engine_launcher)
 
         // Initialize permission manager
-        permissionManager = NotificationPermissionManager(this)
+        permissionManager = PermissionManager(this)
         
         // Check and request notification permission before starting service
         checkNotificationPermissionAndStartService()
@@ -60,18 +60,18 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
      */
     private fun checkNotificationPermissionAndStartService() {
         when {
-            permissionManager.isPermissionGranted() -> {
+            permissionManager.isNotificationPermissionGranted() -> {
                 // Permission granted or not required, start service immediately
                 startBreezeAppEngineService()
             }
-            permissionManager.shouldShowRationale(this) -> {
+            permissionManager.shouldShowNotificationRationale(this) -> {
                 // Show rationale dialog explaining why we need the permission
                 showPermissionRationaleDialog()
             }
             else -> {
                 // Request permission directly
                 serviceStartPending = true
-                permissionManager.requestPermission(this)
+                permissionManager.requestNotificationPermission(this)
             }
         }
     }
@@ -90,7 +90,7 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
                        "This ensures you stay informed about the AI service status.")
             .setPositiveButton("Grant Permission") { _, _ ->
                 serviceStartPending = true
-                permissionManager.requestPermission(this)
+                permissionManager.requestNotificationPermission(this)
             }
             .setNegativeButton("Continue Without") { _, _ ->
                 // Start service anyway but warn user
@@ -185,7 +185,7 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
             }
             else -> {
                 // Handle other permission results
-                permissionManager.handlePermissionResult(requestCode, permissions, grantResults)
+                // Note: Permission handling is now unified in PermissionManager
             }
         }
     }
@@ -258,7 +258,7 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         }
     }
     
-    private fun showNotificationDialog(notificationManager: ServiceNotificationManager) {
+    private fun showNotificationDialog(notificationManager: NotificationManager) {
         AlertDialog.Builder(this)
             .setTitle("Enable Notifications")
             .setMessage("BreezeApp Engine runs as a background service. Enable notifications to see service status and progress updates.")

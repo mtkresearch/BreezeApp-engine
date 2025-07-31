@@ -26,7 +26,7 @@ import com.mtkresearch.breezeapp.engine.R
  * ```
  * 
  * @see BreezeAppEngineStatusManager for state management
- * @see ServiceNotificationManager for notification integration
+ * @see NotificationManager for notification integration
  */
 sealed class ServiceState {
     

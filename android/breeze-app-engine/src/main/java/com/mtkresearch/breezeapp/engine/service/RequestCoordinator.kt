@@ -6,7 +6,7 @@ import com.mtkresearch.breezeapp.edgeai.TTSRequest
 import com.mtkresearch.breezeapp.edgeai.ASRRequest
 import com.mtkresearch.breezeapp.edgeai.AIResponse
 import com.mtkresearch.breezeapp.engine.core.AIEngineManager
-import com.mtkresearch.breezeapp.engine.error.RequestProcessingHelper
+import com.mtkresearch.breezeapp.engine.service.RequestProcessor
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.BreezeAppEngineService
@@ -17,22 +17,22 @@ import com.mtkresearch.breezeapp.engine.BreezeAppEngineService
  * This class coordinates AI request processing, following Single Responsibility Principle.
  * It handles ONLY request coordination concerns:
  * - Converting external requests to internal format
- * - Delegating to existing RequestProcessingHelper
+ * - Delegating to existing RequestProcessor
  * - Converting internal responses to external format
  * - Request cancellation coordination
  * - FIX: Proper routing between streaming and non-streaming requests
  * 
  * ## Architecture Benefits
  * - Single Responsibility: Only request coordination
- * - Reuses Existing: Leverages existing RequestProcessingHelper
+ * - Reuses Existing: Leverages existing RequestProcessor
  * - Clean: No Android Service or client management concerns
  * - Testable: Can be unit tested independently
  */
 class RequestCoordinator(
-    private val requestProcessingHelper: RequestProcessingHelper,
+    private val requestProcessor: RequestProcessor,
     private val engineManager: AIEngineManager,
     private val clientManager: ClientManager,
-    private val serviceInstance: BreezeAppEngineService? = null
+    private var serviceInstance: BreezeAppEngineService? = null
 ) {
     companion object {
         private const val TAG = "RequestCoordinator"
@@ -53,7 +53,7 @@ class RequestCoordinator(
             if (request.stream == true) {
                 // Process as streaming request
                 Log.d(TAG, "Routing to streaming processing for request: $requestId")
-                requestProcessingHelper.processStreamingRequest(
+                requestProcessor.processStreamingRequest(
                     requestId = requestId,
                     inferenceRequest = inferenceRequest,
                     capability = CapabilityType.LLM,
@@ -66,7 +66,7 @@ class RequestCoordinator(
             } else {
                 // Process as non-streaming request
                 Log.d(TAG, "Routing to non-streaming processing for request: $requestId")
-                val result = requestProcessingHelper.processNonStreamingRequest(
+                val result = requestProcessor.processNonStreamingRequest(
                     requestId = requestId,
                     inferenceRequest = inferenceRequest,
                     capability = CapabilityType.LLM,
@@ -97,7 +97,7 @@ class RequestCoordinator(
             
             // Always use streaming for TTS to enable real-time engine playback
             Log.d(TAG, "Processing TTS as streaming for real-time engine playback")
-            requestProcessingHelper.processStreamingRequest(
+            requestProcessor.processStreamingRequest(
                 requestId = requestId,
                 inferenceRequest = inferenceRequest,
                 capability = CapabilityType.TTS,
@@ -135,7 +135,7 @@ class RequestCoordinator(
                 // Update foreground service type to include microphone
                 serviceInstance?.updateForegroundServiceType(true)
                 
-                requestProcessingHelper.processStreamingRequest(
+                requestProcessor.processStreamingRequest(
                     requestId = requestId,
                     inferenceRequest = inferenceRequest,
                     capability = CapabilityType.ASR,
@@ -153,7 +153,7 @@ class RequestCoordinator(
             } else if (request.stream == true) {
                 // Process as streaming ASR request (file-based)
                 Log.d(TAG, "Routing to streaming ASR processing for request: $requestId")
-                requestProcessingHelper.processStreamingRequest(
+                requestProcessor.processStreamingRequest(
                     requestId = requestId,
                     inferenceRequest = inferenceRequest,
                     capability = CapabilityType.ASR,
@@ -166,7 +166,7 @@ class RequestCoordinator(
             } else {
                 // Process as non-streaming ASR request (file-based)
                 Log.d(TAG, "Routing to non-streaming ASR processing for request: $requestId")
-                val result = requestProcessingHelper.processNonStreamingRequest(
+                val result = requestProcessor.processNonStreamingRequest(
                     requestId = requestId,
                     inferenceRequest = inferenceRequest,
                     capability = CapabilityType.ASR,
@@ -182,6 +182,14 @@ class RequestCoordinator(
             Log.e(TAG, "Error processing ASR request: $requestId", e)
             clientManager.notifyError(requestId, "ASR processing failed: ${e.message}")
         }
+    }
+    
+    /**
+     * Sets the service instance for components that need it
+     */
+    fun setServiceInstance(service: BreezeAppEngineService) {
+        this.serviceInstance = service
+        Log.d(TAG, "Service instance set for RequestCoordinator")
     }
     
     /**
@@ -221,7 +229,7 @@ class RequestCoordinator(
             params = emptyMap()
         )
         
-        return requestProcessingHelper.processNonStreamingRequest(
+        return requestProcessor.processNonStreamingRequest(
             requestId = requestId,
             inferenceRequest = inferenceRequest,
             capability = capability,
