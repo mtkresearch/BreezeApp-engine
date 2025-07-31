@@ -119,8 +119,8 @@ git push origin main
 
 ### ✅ Step 3: Create Git Tag
 ```bash
-git tag edgeai-v0.1.1
-git push origin edgeai-v0.1.1
+git tag EdgeAI-v0.1.1
+git push origin EdgeAI-v0.1.1
 ```
 
 ---
@@ -129,7 +129,7 @@ git push origin edgeai-v0.1.1
 
 Go to the following URL to confirm the build status is green (success):
 ```
-https://jitpack.io/#mtkresearch/BreezeApp-engine/edgeai-v0.1.1
+https://jitpack.io/#mtkresearch/BreezeApp-engine/EdgeAI-v0.1.1
 ```
 
 ---
@@ -143,7 +143,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:edgeai-v0.1.1")
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
 }
 ```
 
@@ -154,7 +154,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:edgeai-v0.1.1")
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
 }
 ```
 
@@ -234,12 +234,12 @@ edgeai-v0.2.0
 vim EdgeAI/build.gradle.kts
 
 # 2. Commit & Push
-git commit -am "Release edgeai-v0.1.1"
+git commit -am "Release EdgeAI-v0.1.1"
 git push origin main
 
 # 3. Tag & Push
-git tag edgeai-v0.1.1
-git push origin edgeai-v0.1.1
+git tag EdgeAI-v0.1.1
+git push origin EdgeAI-v0.1.1
 ```
 
 ---
@@ -248,13 +248,13 @@ git push origin edgeai-v0.1.1
 
 1. **Check JitPack Status**:
    ```
-   https://jitpack.io/#mtkresearch/BreezeApp-engine/edgeai-v0.1.1
+   https://jitpack.io/#mtkresearch/BreezeApp-engine/EdgeAI-v0.1.1
    ```
 
 2. **Test Dependency Import**:
    Add to test project:
    ```kotlin
-   implementation("com.github.mtkresearch:BreezeApp-engine:edgeai-v0.1.1")
+   implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
    ```
 
 3. **Confirm Functionality**:
