@@ -6,6 +6,11 @@ Ready to build the future of on-device AI on Android? You're in the right place!
 
 BreezeApp Engine is a next-generation framework for creating powerful, modular, and extensible AI-driven experiences. It's built with a focus on type safety, modern Android practices, and a great developer experience.
 
+### 📦 Latest Versions
+
+- `BreezeApp-engine`: `v0.1.1`
+- `EdgeAI`: `v0.1.4`
+
 ## 📁 Project Structure
 
 ```
