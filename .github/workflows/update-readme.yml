@@ -1,0 +1,41 @@
+name: Update README with Latest Versions
+
+on:
+  push:
+    tags:
+      - '*'
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed to get all tags
+
+      - name: Extract latest tags
+        id: tags
+        run: |
+          latest_breeze=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+          latest_edgeai=$(git tag --list 'EdgeAI-v*' | sort -V | tail -n 1)
+
+          echo "BREEZE_VERSION=${latest_breeze}" >> $GITHUB_ENV
+          echo "EDGEAI_VERSION=${latest_edgeai#EdgeAI-}" >> $GITHUB_ENV
+
+      - name: Update README
+        run: |
+          sed -i "s/{{BREEZEAPP_ENGINE_VERSION}}/${BREEZE_VERSION}/" README.md
+          sed -i "s/{{EDGEAI_VERSION}}/${EDGEAI_VERSION}/" README.md
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: update latest versions in README [skip ci]" || echo "No changes to commit"
+          git push
