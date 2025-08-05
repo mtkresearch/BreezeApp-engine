@@ -36,6 +36,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b temp-update-readme   # create a branch from detached HEAD
+
           git add README.md
           git commit -m "docs: update latest versions in README [skip ci]" || echo "No changes to commit"
-          git push
+          git push origin temp-update-readme:main
