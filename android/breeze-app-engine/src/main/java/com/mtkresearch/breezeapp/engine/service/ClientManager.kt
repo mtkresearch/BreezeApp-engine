@@ -103,6 +103,12 @@ class ClientManager {
      * Notify all registered clients with an ASR response.
      */
     fun notifyASRResponse(response: AIResponse) {
+        try {
+            Log.d(TAG, "ASR notify - requestId=${response.requestId}, isComplete=${response.isComplete}, text.len=${response.text.length}")
+            // Log first 64 chars for debugging encoding issues (safe for CJK)
+            val preview = if (response.text.length > 64) response.text.substring(0, 64) + "…" else response.text
+            Log.d(TAG, "ASR text preview: $preview")
+        } catch (_: Exception) { /* ignore logging errors */ }
         notifyResponse(response)
     }
     

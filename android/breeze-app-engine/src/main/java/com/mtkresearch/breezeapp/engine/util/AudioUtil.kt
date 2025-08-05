@@ -10,6 +10,7 @@ import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.k2fsa.sherpa.onnx.WaveReader
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.util.concurrent.atomic.AtomicBoolean
@@ -300,4 +301,281 @@ object AudioUtil {
      * @return Sample rate in Hz
      */
     fun getAsrSampleRate(): Int = SAMPLE_RATE_ASR
+
+    // ========== WAV Utilities (Diagnostics) ==========
+
+    /**
+     * Simple WAV header parser for PCM 16-bit little-endian files.
+     * Returns null if the input is not a valid PCM WAV.
+     */
+    data class WavInfo(
+        val sampleRate: Int,
+        val channels: Int,
+        val bitsPerSample: Int,
+        val dataOffset: Int,
+        val dataLength: Int
+    )
+
+    /**
+     * Try to parse a WAV header from the provided bytes.
+     */
+    fun tryParseWav(bytes: ByteArray): WavInfo? {
+        if (bytes.size < 44) return null
+
+        // Check RIFF/WAVE
+        if (!(bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() && bytes[2] == 'F'.code.toByte() && bytes[3] == 'F'.code.toByte())) return null
+        if (!(bytes[8] == 'W'.code.toByte() && bytes[9] == 'A'.code.toByte() && bytes[10] == 'V'.code.toByte() && bytes[11] == 'E'.code.toByte())) return null
+
+        var offset = 12
+        var fmtFound = false
+        var dataFound = false
+        var audioFormat = 1
+        var channels = 1
+        var sampleRate = 16000
+        var bitsPerSample = 16
+        var dataOffset = -1
+        var dataLength = -1
+
+        while (offset + 8 <= bytes.size) {
+            val chunkId = String(bytes, offset, 4)
+            val chunkSize = ((bytes[offset + 4].toInt() and 0xFF)) or
+                ((bytes[offset + 5].toInt() and 0xFF) shl 8) or
+                ((bytes[offset + 6].toInt() and 0xFF) shl 16) or
+                ((bytes[offset + 7].toInt() and 0xFF) shl 24)
+            val chunkDataStart = offset + 8
+
+            when (chunkId) {
+                "fmt " -> {
+                    if (chunkDataStart + 16 > bytes.size) return null
+                    audioFormat = ((bytes[chunkDataStart + 0].toInt() and 0xFF)) or ((bytes[chunkDataStart + 1].toInt() and 0xFF) shl 8)
+                    channels = ((bytes[chunkDataStart + 2].toInt() and 0xFF)) or ((bytes[chunkDataStart + 3].toInt() and 0xFF) shl 8)
+                    sampleRate = (bytes[chunkDataStart + 4].toInt() and 0xFF) or
+                        ((bytes[chunkDataStart + 5].toInt() and 0xFF) shl 8) or
+                        ((bytes[chunkDataStart + 6].toInt() and 0xFF) shl 16) or
+                        ((bytes[chunkDataStart + 7].toInt() and 0xFF) shl 24)
+                    bitsPerSample = ((bytes[chunkDataStart + 14].toInt() and 0xFF)) or ((bytes[chunkDataStart + 15].toInt() and 0xFF) shl 8)
+                    fmtFound = true
+                }
+                "data" -> {
+                    dataOffset = chunkDataStart
+                    dataLength = chunkSize
+                    dataFound = true
+                }
+            }
+
+            offset = chunkDataStart + chunkSize
+            if (offset % 2 == 1) offset++ // pad to even
+
+            if (fmtFound && dataFound) break
+        }
+
+        if (!fmtFound || !dataFound) return null
+        if (audioFormat != 1) return null // only PCM
+        if (bitsPerSample != 16) return null // only 16-bit PCM
+        if (dataOffset < 0 || dataLength <= 0) return null
+        if (dataOffset + dataLength > bytes.size) return null
+
+        return WavInfo(sampleRate, channels, bitsPerSample, dataOffset, dataLength)
+    }
+
+    /**
+     * Extract PCM16 ShortArray from either raw PCM16 bytes or WAV bytes.
+     * Returns Pair<pcmShorts, wavInfo?>; wavInfo is null when input is raw PCM.
+     */
+    fun extractPcm16(bytes: ByteArray): Pair<ShortArray, WavInfo?> {
+        val wav = tryParseWav(bytes)
+        return if (wav != null) {
+            val pcmBytes = bytes.copyOfRange(wav.dataOffset, wav.dataOffset + wav.dataLength)
+            val samples = ShortArray(pcmBytes.size / 2)
+            var j = 0
+            for (i in samples.indices) {
+                val lo = pcmBytes[j].toInt() and 0xFF
+                val hi = pcmBytes[j + 1].toInt() and 0xFF
+                samples[i] = ((hi shl 8) or lo).toShort()
+                j += 2
+            }
+            Pair(samples, wav)
+        } else {
+            val samples = ShortArray(bytes.size / 2)
+            var j = 0
+            for (i in samples.indices) {
+                val lo = bytes[j].toInt() and 0xFF
+                val hi = bytes[j + 1].toInt() and 0xFF
+                samples[i] = ((hi shl 8) or lo).toShort()
+                j += 2
+            }
+            Pair(samples, null)
+        }
+    }
+
+    /**
+     * Save PCM16 data to a WAV file.
+     */
+    fun savePcm16AsWav(file: java.io.File, pcm: ShortArray, sampleRate: Int, channels: Int = 1, bitsPerSample: Int = 16) {
+        val byteRate = sampleRate * channels * (bitsPerSample / 8)
+        val dataSize = pcm.size * 2
+        val totalDataLen = 36 + dataSize
+
+        val header = java.nio.ByteBuffer.allocate(44).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        // RIFF
+        header.put('R'.code.toByte()).put('I'.code.toByte()).put('F'.code.toByte()).put('F'.code.toByte())
+        header.putInt(totalDataLen)
+        header.put('W'.code.toByte()).put('A'.code.toByte()).put('V'.code.toByte()).put('E'.code.toByte())
+        // fmt chunk
+        header.put('f'.code.toByte()).put('m'.code.toByte()).put('t'.code.toByte()).put(' '.code.toByte())
+        header.putInt(16) // PCM chunk size
+        header.putShort(1) // PCM format
+        header.putShort(channels.toShort())
+        header.putInt(sampleRate)
+        header.putInt(byteRate)
+        header.putShort((channels * (bitsPerSample / 8)).toShort())
+        header.putShort(bitsPerSample.toShort())
+        // data chunk
+        header.put('d'.code.toByte()).put('a'.code.toByte()).put('t'.code.toByte()).put('a'.code.toByte())
+        header.putInt(dataSize)
+
+        val fos = java.io.BufferedOutputStream(java.io.FileOutputStream(file))
+        try {
+            fos.write(header.array())
+            // write little-endian samples
+            val buffer = java.nio.ByteBuffer.allocate(pcm.size * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            for (s in pcm) buffer.putShort(s)
+            fos.write(buffer.array())
+            fos.flush()
+        } finally {
+            try { fos.close() } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * Save a diagnostics WAV file under app files/diagnostics.
+     * Returns the File if succeeded; null otherwise.
+     */
+    fun saveDiagnosticsWav(context: Context, fileName: String, pcm: ShortArray, sampleRate: Int, channels: Int = 1): java.io.File? {
+        return try {
+            val dir = java.io.File(context.filesDir, "diagnostics")
+            if (!dir.exists()) dir.mkdirs()
+            val file = java.io.File(dir, fileName)
+            savePcm16AsWav(file, pcm, sampleRate, channels)
+            file
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save diagnostics WAV", e)
+            null
+        }
+    }
+
+    /**
+     * Prepare ASR input from raw bytes using Sherpa's WaveReader when possible.
+     * - If bytes look like a WAV, write to a temp file and decode via WaveReader to FloatArray.
+     * - Otherwise, treat as raw PCM16 mono at defaultSampleRate and convert to FloatArray.
+     * Returns Pair<FloatArray samples, Int sampleRate>.
+     */
+    fun prepareAsrFloatSamples(
+        context: Context,
+        sessionId: String,
+        audioBytes: ByteArray,
+        defaultSampleRate: Int = SAMPLE_RATE_ASR,
+        resampleToDefault: Boolean = false,
+        saveDiagnostics: Boolean = false
+    ): Pair<FloatArray, Int> {
+        val isLikelyWav = audioBytes.size >= 12 &&
+            audioBytes[0] == 'R'.code.toByte() && audioBytes[1] == 'I'.code.toByte() &&
+            audioBytes[2] == 'F'.code.toByte() && audioBytes[3] == 'F'.code.toByte() &&
+            audioBytes[8] == 'W'.code.toByte() && audioBytes[9] == 'A'.code.toByte() &&
+            audioBytes[10] == 'V'.code.toByte() && audioBytes[11] == 'E'.code.toByte()
+
+        var result: Pair<FloatArray, Int> = if (isLikelyWav) {
+            // Persist the bytes so WaveReader can read reliably
+            val tmpName = "asr_input_${sessionId}_${System.currentTimeMillis()}.wav"
+            val wavFile = java.io.File(context.cacheDir, tmpName)
+            kotlin.runCatching { wavFile.outputStream().use { it.write(audioBytes) } }
+            try {
+                val waveData = WaveReader.readWave(wavFile.absolutePath)
+                Log.d(TAG, "WaveReader WAV - sr=${waveData.sampleRate}, frames=${waveData.samples.size}")
+                if (saveDiagnostics) {
+                    kotlin.runCatching {
+                        val pcm = floatToPcm16(waveData.samples)
+                        val diagName = "asr_input_wav_${sessionId}_${System.currentTimeMillis()}.wav"
+                        saveDiagnosticsWav(context, diagName, pcm, waveData.sampleRate, 1)
+                    }
+                }
+                Pair(waveData.samples, waveData.sampleRate)
+            } catch (e: Throwable) {
+                Log.w(TAG, "WaveReader failed. Falling back to raw PCM conversion.", e)
+                val (pcmShorts, _) = extractPcm16(audioBytes)
+                val floats = FloatArray(pcmShorts.size) { i -> pcmShorts[i] / 32768.0f }
+                if (saveDiagnostics) {
+                    kotlin.runCatching {
+                        val diagName = "asr_input_pcm_${sessionId}_${System.currentTimeMillis()}.wav"
+                        saveDiagnosticsWav(context, diagName, pcmShorts, defaultSampleRate, 1)
+                    }
+                }
+                Pair(floats, defaultSampleRate)
+            }
+        } else {
+            // Raw PCM16 path
+            val (pcmShorts, _) = extractPcm16(audioBytes)
+            if (saveDiagnostics) {
+                // Save a diagnostics WAV to inspect contents later
+                kotlin.runCatching {
+                    val diagName = "asr_input_pcm_${sessionId}_${System.currentTimeMillis()}.wav"
+                    saveDiagnosticsWav(context, diagName, pcmShorts, defaultSampleRate, 1)
+                }
+            }
+            val floats = FloatArray(pcmShorts.size) { i -> pcmShorts[i] / 32768.0f }
+            Pair(floats, defaultSampleRate)
+        }
+
+        // Ensure target sample rate if requested
+        if (resampleToDefault && result.second != defaultSampleRate) {
+            val (samples, srcRate) = result
+            Log.w(TAG, "ASR input sampleRate=$srcRate; resampling to $defaultSampleRate for model compatibility")
+            val resampled = resampleLinear(samples, srcRate, defaultSampleRate)
+            if (saveDiagnostics) {
+                // Save resampled diagnostics
+                kotlin.runCatching {
+                    val pcm = floatToPcm16(resampled)
+                    val diagName = "asr_input_resampled_${sessionId}_${System.currentTimeMillis()}.wav"
+                    saveDiagnosticsWav(context, diagName, pcm, defaultSampleRate, 1)
+                }
+            }
+            result = Pair(resampled, defaultSampleRate)
+        }
+
+        return result
+    }
+
+    /**
+     * Simple high-quality linear resampler for FloatArray audio.
+     * Preserves endpoints and avoids aliasing for moderate ratios.
+     */
+    fun resampleLinear(input: FloatArray, srcRate: Int, dstRate: Int): FloatArray {
+        if (srcRate == dstRate || input.isEmpty()) return input
+        val ratio = dstRate.toDouble() / srcRate.toDouble()
+        val outLen = kotlin.math.max(1, kotlin.math.floor(input.size * ratio).toInt())
+        val out = FloatArray(outLen)
+        var i = 0
+        while (i < outLen) {
+            val srcPos = i / ratio
+            val idx = srcPos.toInt().coerceIn(0, input.size - 1)
+            val frac = (srcPos - idx).toFloat()
+            val s0 = input[idx]
+            val s1 = if (idx + 1 < input.size) input[idx + 1] else s0
+            out[i] = s0 + (s1 - s0) * frac
+            i++
+        }
+        return out
+    }
+
+    /** Convert FloatArray [-1,1] to PCM16 shorts with clipping. */
+    fun floatToPcm16(input: FloatArray): ShortArray {
+        val out = ShortArray(input.size)
+        for (i in input.indices) {
+            var v = input[i]
+            if (v > 1f) v = 1f
+            if (v < -1f) v = -1f
+            out[i] = (v * 32767.0f).toInt().toShort()
+        }
+        return out
+    }
 }
