@@ -344,4 +344,9 @@ class ServiceOrchestrator(private val context: Context) {
             requestCoordinator.setServiceInstance(service)
         }
     }
+    
+    /**
+     * Get the status manager for download progress updates
+     */
+    fun getStatusManager(): BreezeAppEngineStatusManager = statusManager
 } 

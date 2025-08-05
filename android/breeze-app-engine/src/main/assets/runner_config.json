@@ -29,21 +29,34 @@
       }
     },
     "ASR": {
-      "defaultRunner": "sherpa_asr_runner_v1",
+      "defaultRunner": "sherpa_offline_asr_runner_v1",
       "runners": {
         "sherpa_asr_runner_v1": {
           "class": "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaASRRunner",
+          "priority": 50,
+          "type": "REAL",
+          "enabled": true,
+          "alwaysAvailable": false,
+          "capabilities": ["streaming", "microphone", "file"]
+        },
+        "sherpa_offline_asr_runner_v1": {
+          "class": "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaOfflineASRRunner",
           "priority": 10,
           "type": "REAL",
           "enabled": true,
-          "alwaysAvailable": false
+          "alwaysAvailable": false,
+          "capabilities": ["file", "batch"],
+          "modelConfig": {
+            "modelName": "Breeze-ASR-25-onnx"
+          }
         },
         "breeze_asr_mock_v1": {
           "class": "com.mtkresearch.breezeapp.engine.runner.mock.MockASRRunner",
           "priority": 100,
           "type": "MOCK",
           "enabled": true,
-          "alwaysAvailable": true
+          "alwaysAvailable": true,
+          "capabilities": ["streaming", "microphone", "file", "batch"]
         }
       }
     },

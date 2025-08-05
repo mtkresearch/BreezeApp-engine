@@ -60,6 +60,48 @@
         ] }
       ],
       "entry_point": { "type": "file", "value": "llama3_2-4096-spin.pte" }
+    },
+    {
+      "id": "Breeze-ASR-25-onnx",
+      "runner": "sherpa_offline_asr_runner_v1",
+      "backend": "cpu", 
+      "ramGB": 1,
+      "files": [
+        { "fileName": "breeze-asr-25-half-encoder.int8.onnx", "type": "model", "urls": [
+          "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/breeze-asr-25-half-encoder.int8.onnx"
+        ] },
+        { "fileName": "breeze-asr-25-half-decoder.int8.onnx", "type": "model", "urls": [
+          "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/breeze-asr-25-half-decoder.int8.onnx"
+        ] },
+        { "fileName": "breeze-asr-25-half-tokens.txt", "type": "tokenizer", "urls": [
+          "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/breeze-asr-25-half-tokens.txt"
+        ] }
+      ],
+      "entry_point": { "type": "whisper", "value": "Breeze-ASR-25-onnx" }
+    },
+    {
+      "id": "sherpa-onnx-whisper-base",
+      "runner": "sherpa_offline_asr_runner_v1",
+      "backend": "cpu",
+      "ramGB": 1,
+      "files": [
+        { "fileName": "base-encoder.onnx", "type": "model", "urls": [
+          "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-encoder.onnx"
+        ] },
+        { "fileName": "base-encoder.int8.onnx", "type": "model", "urls": [
+          "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-encoder.int8.onnx"
+        ] },
+        { "fileName": "base-decoder.onnx", "type": "model", "urls": [
+          "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-decoder.onnx"
+        ] },
+        { "fileName": "base-decoder.int8.onnx", "type": "model", "urls": [
+          "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-decoder.int8.onnx"
+        ] },
+        { "fileName": "base-tokens.txt", "type": "tokenizer", "urls": [
+          "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-tokens.txt"
+        ] }
+      ],
+      "entry_point": { "type": "whisper", "value": "sherpa-onnx-whisper-base" }
     }
   ]
 } 

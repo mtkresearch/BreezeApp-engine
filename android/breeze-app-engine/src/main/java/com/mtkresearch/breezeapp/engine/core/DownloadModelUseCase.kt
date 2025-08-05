@@ -2,11 +2,12 @@ package com.mtkresearch.breezeapp.engine.core
 
 import android.content.Context
 import com.mtkresearch.breezeapp.engine.repository.ModelManager
-import com.mtkresearch.breezeapp.engine.repository.ModelVersionStore
-import com.mtkresearch.breezeapp.engine.util.ModelDownloader
 
 /**
  * Use case for orchestrating model download and readiness in BreezeAppEngine.
+ * 
+ * DEPRECATED: Use ModelManagementCenter for new implementations.
+ * This class is maintained for backward compatibility only.
  *
  * Usage:
  *   val useCase = DownloadModelUseCase(context)
@@ -15,26 +16,58 @@ import com.mtkresearch.breezeapp.engine.util.ModelDownloader
  *
  * The listener receives progress, completion, and error callbacks.
  */
+@Deprecated("Use ModelManagementCenter instead", ReplaceWith("ModelManagementCenter.getInstance(context)"))
 class DownloadModelUseCase(private val context: Context) {
+    
+    private val modelManagementCenter = ModelManagementCenter.getInstance(context)
+    
     /**
-     * Ensures the default model (first in fullModelList.json) is present.
-     * If not, triggers download. If already present, immediately calls onCompleted.
+     * Ensures the default LLM model is ready.
+     * For category-specific defaults, use ModelManagementCenter directly.
      *
      * @param listener ModelManager.DownloadListener for progress and completion callbacks.
      */
     fun ensureDefaultModelReady(listener: ModelManager.DownloadListener) {
-        val versionStore = ModelVersionStore(context)
-        val defaultModel = ModelDownloader.listAvailableModels(context).firstOrNull()
-        val alreadyDownloaded = defaultModel?.let { model ->
-            versionStore.getDownloadedModels().any { it.id == model.id }
-        } ?: false
-
-        if (!alreadyDownloaded && defaultModel != null) {
-            ModelDownloader.downloadDefaultModel(context, listener)
-        } else {
-            // If already downloaded, immediately notify completion
-            defaultModel?.let { listener.onCompleted(it.id) }
-        }
+        // Default to LLM category for backward compatibility
+        modelManagementCenter.ensureDefaultModelReady(
+            ModelManagementCenter.ModelCategory.LLM,
+            object : ModelManagementCenter.ModelDownloadListener {
+                override fun onProgress(modelId: String, percent: Int, speed: Long, eta: Long) {
+                    listener.onProgress(modelId, percent, speed, eta)
+                }
+                
+                override fun onCompleted(modelId: String) {
+                    listener.onCompleted(modelId)
+                }
+                
+                override fun onError(modelId: String, error: Throwable, fileName: String?) {
+                    listener.onError(modelId, error, fileName)
+                }
+                
+                override fun onPaused(modelId: String) {
+                    listener.onPaused(modelId)
+                }
+                
+                override fun onResumed(modelId: String) {
+                    listener.onResumed(modelId)
+                }
+                
+                override fun onCancelled(modelId: String) {
+                    listener.onCancelled(modelId)
+                }
+                
+                override fun onFileProgress(
+                    modelId: String, fileName: String, fileIndex: Int, fileCount: Int,
+                    bytesDownloaded: Long, totalBytes: Long, speed: Long, eta: Long
+                ) {
+                    listener.onFileProgress(modelId, fileName, fileIndex, fileCount, bytesDownloaded, totalBytes, speed, eta)
+                }
+                
+                override fun onFileCompleted(modelId: String, fileName: String, fileIndex: Int, fileCount: Int) {
+                    listener.onFileCompleted(modelId, fileName, fileIndex, fileCount)
+                }
+            }
+        )
     }
 
     /**
@@ -44,6 +77,41 @@ class DownloadModelUseCase(private val context: Context) {
      * @param listener ModelManager.DownloadListener for progress and completion callbacks.
      */
     fun downloadModel(modelId: String, listener: ModelManager.DownloadListener) {
-        ModelDownloader.downloadModel(context, modelId, listener)
+        modelManagementCenter.downloadModel(modelId, object : ModelManagementCenter.ModelDownloadListener {
+            override fun onProgress(modelId: String, percent: Int, speed: Long, eta: Long) {
+                listener.onProgress(modelId, percent, speed, eta)
+            }
+            
+            override fun onCompleted(modelId: String) {
+                listener.onCompleted(modelId)
+            }
+            
+            override fun onError(modelId: String, error: Throwable, fileName: String?) {
+                listener.onError(modelId, error, fileName)
+            }
+            
+            override fun onPaused(modelId: String) {
+                listener.onPaused(modelId)
+            }
+            
+            override fun onResumed(modelId: String) {
+                listener.onResumed(modelId)
+            }
+            
+            override fun onCancelled(modelId: String) {
+                listener.onCancelled(modelId)
+            }
+            
+            override fun onFileProgress(
+                modelId: String, fileName: String, fileIndex: Int, fileCount: Int,
+                bytesDownloaded: Long, totalBytes: Long, speed: Long, eta: Long
+            ) {
+                listener.onFileProgress(modelId, fileName, fileIndex, fileCount, bytesDownloaded, totalBytes, speed, eta)
+            }
+            
+            override fun onFileCompleted(modelId: String, fileName: String, fileIndex: Int, fileCount: Int) {
+                listener.onFileCompleted(modelId, fileName, fileIndex, fileCount)
+            }
+        })
     }
 } 
