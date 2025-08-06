@@ -62,8 +62,6 @@ class ModelManagementCenter private constructor(
     private var statusManager: BreezeAppEngineStatusManager? = null
     
     init {
-        // Fix incorrect metadata - remove ASR model if files don't exist
-        versionStore.removeModel("Breeze-ASR-25-onnx")
         refreshModelStates()
     }
     
@@ -389,7 +387,7 @@ class ModelManagementCenter private constructor(
     private fun isDefaultModel(model: ModelInfo, category: ModelCategory): Boolean {
         // Enhanced logic - could read from JSON defaults section
         return when (category) {
-            ModelCategory.ASR -> model.id == "Breeze-ASR-25-onnx"
+            ModelCategory.ASR -> model.id == "Breeze-ASR-25-onnx" // Temporary: using whisper instead of "Breeze-ASR-25-onnx"
             ModelCategory.LLM -> model.id == "Breeze2-3B-8W16A-250630-npu"
             else -> false
         }

@@ -29,11 +29,11 @@
       }
     },
     "ASR": {
-      "defaultRunner": "sherpa_asr_runner_v1",
+      "defaultRunner": "sherpa_offline_asr_runner_v1",
       "runners": {
         "sherpa_asr_runner_v1": {
           "class": "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaASRRunner",
-          "priority": 5,
+          "priority": 50,
           "type": "REAL",
           "enabled": true,
           "alwaysAvailable": false,
@@ -47,10 +47,7 @@
           "alwaysAvailable": false,
           "capabilities": ["file", "batch"],
           "modelConfig": {
-            "modelName": "Breeze-ASR-25-onnx",
-            "parameters": {
-              "model_type": 2
-            }
+            "modelName": "Breeze-ASR-25-onnx"
           }
         },
         "breeze_asr_mock_v1": {

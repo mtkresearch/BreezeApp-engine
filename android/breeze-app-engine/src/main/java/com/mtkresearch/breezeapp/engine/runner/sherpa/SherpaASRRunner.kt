@@ -91,10 +91,7 @@ class SherpaASRRunner(private val context: Context) : BaseRunner, FlowStreamingR
             maxActivePaths = 4,
         )
 
-        recognizer = OnlineRecognizer(
-            assetManager = context.assets,
-            config = recognizerConfig,
-        )
+        recognizer = OnlineRecognizer(config = recognizerConfig)
         
         Log.i(TAG, "Model initialized successfully with type $modelType (${getModelDescription(modelType)})")
     }

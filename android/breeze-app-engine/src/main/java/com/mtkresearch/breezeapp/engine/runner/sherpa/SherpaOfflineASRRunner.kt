@@ -7,6 +7,7 @@ import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -29,7 +30,7 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
     private val isLoaded = AtomicBoolean(false)
     private var recognizer: OfflineRecognizer? = null
     private var modelName: String = ""
-    private var modelType: Int = 0 // Default to paraformer zh (Type 0)
+    private var modelType: Int = 0 // Default to Breeze-ASR-25-onnx (Type 0)
 
     override fun load(config: ModelConfig): Boolean {
         return try {
@@ -57,8 +58,7 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
     private fun initModel() {
         Log.i(TAG, "Initializing offline model with type $modelType")
         
-        // Create offline recognizer with basic configuration
-        // Using minimal configuration similar to the official example
+        // Create offline recognizer with external storage configuration
         val featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80)
         val modelConfig = createOfflineModelConfig(modelType)
         
@@ -73,32 +73,39 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
     }
     
     /**
-     * Create basic offline model configuration for the given type
+     * Create offline model configuration using external storage paths
+     * Models are loaded from context.filesDir/models/ directory (downloaded models)
      */
     private fun createOfflineModelConfig(type: Int): OfflineModelConfig {
+        val modelsDir = context.filesDir.absolutePath + "/models"
+        
         return when (type) {
-            0 -> OfflineModelConfig(
-                paraformer = OfflineParaformerModelConfig(
-                    model = "model.onnx"
-                ),
-                tokens = "tokens.txt",
-                modelType = "paraformer"
-            )
-            2 -> OfflineModelConfig(
-                whisper = OfflineWhisperModelConfig(
-                    encoder = "encoder.onnx",
-                    decoder = "decoder.onnx"
-                ),
-                tokens = "tokens.txt",
-                modelType = "whisper"
-            )
-            else -> OfflineModelConfig(
-                paraformer = OfflineParaformerModelConfig(
-                    model = "model.onnx"
-                ),
-                tokens = "tokens.txt",
-                modelType = "paraformer"
-            )
+            0 -> {
+                val modelDir = "$modelsDir/Breeze-ASR-25-onnx"
+                // Breeze-ASR-25 is Whisper-compatible but with separate .weights files
+                OfflineModelConfig(
+                    whisper = OfflineWhisperModelConfig(
+                        encoder = "$modelDir/breeze-asr-25-half-encoder.int8.onnx",
+                        decoder = "$modelDir/breeze-asr-25-half-decoder.int8.onnx"
+                    ),
+                    tokens = "$modelDir/breeze-asr-25-half-tokens.txt",
+                    modelType = "whisper"
+                )
+            }
+            1 -> {
+                val modelDir = "$modelsDir/sherpa-onnx-whisper-base"
+                OfflineModelConfig(
+                    whisper = OfflineWhisperModelConfig(
+                        encoder = "$modelDir/base-encoder.onnx",
+                        decoder = "$modelDir/base-decoder.onnx"
+                    ),
+                    tokens = "$modelDir/base-tokens.txt",
+                    modelType = "whisper"
+                )
+            }
+            else -> {
+                throw IllegalArgumentException("Unsupported offline model type: $type")
+            }
         }
     }
 
@@ -122,19 +129,29 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
             
             Log.d(TAG, "Converted ${floatSamples.size} samples for offline processing")
             
-            // Create stream and process following official offline example
-            val stream = recognizer!!.createStream()
-            stream.acceptWaveform(floatSamples, sampleRate = SAMPLE_RATE)
-            recognizer!!.decode(stream)
+            // Create stream and process following official offline example with null safety
+            val recognizerInstance = recognizer ?: return InferenceResult.error(
+                RunnerError.runtimeError("Recognizer not initialized", null)
+            )
             
-            val result = recognizer!!.getResult(stream)
+            val stream = recognizerInstance.createStream()
+            if (stream == null) {
+                return InferenceResult.error(RunnerError.runtimeError("Failed to create stream", null))
+            }
+            
+            stream.acceptWaveform(floatSamples, sampleRate = SAMPLE_RATE)
+            recognizerInstance.decode(stream)
+            
+            val result = recognizerInstance.getResult(stream)
             val elapsed = System.currentTimeMillis() - startTime
             
-            Log.d(TAG, "Offline ASR result: '${result.text}' (${elapsed}ms)")
+            Log.d(TAG, "Offline ASR result: '${result?.text ?: ""}' (${elapsed}ms)")
             
             stream.release()
+            
+            val resultText = result?.text ?: ""
             InferenceResult.success(
-                outputs = mapOf(InferenceResult.OUTPUT_TEXT to result.text),
+                outputs = mapOf(InferenceResult.OUTPUT_TEXT to resultText),
                 metadata = mapOf(
                     InferenceResult.META_CONFIDENCE to 0.95f, // Sherpa does not provide confidence
                     InferenceResult.META_PROCESSING_TIME_MS to elapsed,
@@ -182,10 +199,11 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
     }
 
     /**
-     * Parse model type from ModelConfig - using parameters map
-     * Defaults to type 0 (paraformer zh) for offline models
+     * Parse model type from ModelConfig - auto-detect based on model name or parameters
+     * Automatically detects model type based on model ID/name
      */
     private fun parseModelTypeFromConfig(config: ModelConfig): Int {
+        // First try to parse from parameters
         val modelTypeParam = config.parameters["model_type"]
         if (modelTypeParam != null) {
             val type = when (modelTypeParam) {
@@ -199,23 +217,44 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
             }
         }
         
-        // Default fallback to Type 0 (paraformer zh)
-        Log.d(TAG, "Using default offline model type 0 (paraformer zh)")
-        return 0
+        // Check for specific model ID parameter
+        val modelIdParam = config.parameters["model_id"] as? String
+        if (modelIdParam != null) {
+            val detectedType = when {
+                modelIdParam.contains("breeze-asr-25-onnx", ignoreCase = true) -> 0
+                modelIdParam.contains("sherpa-onnx-whisper-base", ignoreCase = true) -> 1
+                else -> -1
+            }
+            if (detectedType != -1) {
+                Log.d(TAG, "Detected offline model type $detectedType from model_id: $modelIdParam")
+                return detectedType
+            }
+        }
+        
+        // Auto-detect based on model name/ID
+        val modelName = config.modelName.lowercase()
+        val detectedType = when {
+            modelName.contains("breeze-asr-25-onnx") -> 0
+            modelName.contains("sherpa-onnx-whisper-base") -> 1
+            else -> 0 // Default to whisper-base instead of Breeze-ASR-25
+        }
+        
+        Log.d(TAG, "Auto-detected offline model type $detectedType for model: ${config.modelName}")
+        return detectedType
     }
 
     /**
      * Check if offline model type is valid/supported
      */
     private fun isValidOfflineModelType(type: Int): Boolean {
-        return type in listOf(0, 2, 5, 6, 15, 21, 24, 25, 31)
+        return type in listOf(0, 1)
     }
 
     /**
      * Get supported offline model types
      */
     fun getSupportedOfflineModelTypes(): List<Int> {
-        return listOf(0, 2, 5, 6, 15, 21, 24, 25, 31)
+        return listOf(0, 1)
     }
 
     /**
@@ -223,15 +262,8 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
      */
     private fun getModelDescription(type: Int): String {
         return when (type) {
-            0 -> "Paraformer zh (2023-09-14)"
-            2 -> "Whisper tiny.en"
-            5 -> "Zipformer multi zh-hans (2023-9-2)"
-            6 -> "NeMo CTC en-citrinet-512"
-            15 -> "SenseVoice zh-en-ja-ko-yue (2024-07-17)"
-            21 -> "Moonshine tiny en int8"
-            24 -> "Fire Red ASR large zh_en (2025-02-16)"
-            25 -> "Dolphin base CTC multi-lang int8 (2025-04-02)"
-            31 -> "Zipformer CTC zh int8 (2025-07-03)"
+            0 -> "Breeze-ASR-25-onnx"
+            1 -> "sherpa-onnx-whisper-base"
             else -> "Unknown offline model type"
         }
     }
