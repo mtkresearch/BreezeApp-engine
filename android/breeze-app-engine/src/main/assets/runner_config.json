@@ -29,11 +29,11 @@
       }
     },
     "ASR": {
-      "defaultRunner": "sherpa_offline_asr_runner_v1",
+      "defaultRunner": "sherpa_asr_runner_v1",
       "runners": {
         "sherpa_asr_runner_v1": {
           "class": "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaASRRunner",
-          "priority": 50,
+          "priority": 10,
           "type": "REAL",
           "enabled": true,
           "alwaysAvailable": false,
