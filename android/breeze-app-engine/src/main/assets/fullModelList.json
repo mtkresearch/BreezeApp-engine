@@ -60,6 +60,30 @@
         ] }
       ],
       "entry_point": { "type": "file", "value": "llama3_2-4096-spin.pte" }
+    },
+    {
+      "id": "Breeze-ASR-25-onnx",
+      "runner": "sherpa_offline_asr_runner_v1",
+      "backend": "cpu", 
+      "ramGB": 1,
+      "files": [
+        { "fileName": "encoder.onnx", "type": "model", "urls": [
+          "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/encoder.onnx"
+        ] },
+        { "fileName": "encoder.weights", "type": "model", "urls": [
+          "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/encoder.weights"
+        ] },
+        { "fileName": "decoder.onnx", "type": "model", "urls": [
+          "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/decoder.onnx"
+        ] },
+        { "fileName": "decoder.weights", "type": "model", "urls": [
+          "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/decoder.weights"
+        ] },
+        { "fileName": "tokens.txt", "type": "tokenizer", "urls": [
+          "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/tokens.txt"
+        ] }
+      ],
+      "entry_point": { "type": "whisper", "value": "Breeze-ASR-25-onnx" }
     }
   ]
 } 

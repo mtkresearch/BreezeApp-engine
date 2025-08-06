@@ -10,10 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
 import android.os.Build
-import com.mtkresearch.breezeapp.engine.repository.ModelManager
-import com.mtkresearch.breezeapp.engine.repository.ModelVersionStore
-import com.mtkresearch.breezeapp.engine.util.ModelDownloader
-import com.mtkresearch.breezeapp.engine.core.DownloadModelUseCase
+import com.mtkresearch.breezeapp.engine.core.ModelManagementCenter
 import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
 
 /**
@@ -145,10 +142,21 @@ class BreezeAppEngineService : Service() {
     }
     
     /**
-     * Returns true if the default model is downloaded and ready for inference.
+     * Returns true if essential models (LLM + ASR) are downloaded and ready for inference.
      * Call this before processing any inference requests.
      */
     fun isModelReadyForInference(): Boolean = isModelReady
+    
+    /**
+     * Check if a specific category of model is ready for inference
+     */
+    fun isCategoryReadyForInference(category: ModelManagementCenter.ModelCategory): Boolean {
+        val modelCenter = ModelManagementCenter.getInstance(this)
+        return modelCenter.getDefaultModel(category)?.status in setOf(
+            ModelManagementCenter.ModelState.Status.DOWNLOADED,
+            ModelManagementCenter.ModelState.Status.READY
+        )
+    }
     
     // === Private Helper Methods ===
     
@@ -251,63 +259,61 @@ class BreezeAppEngineService : Service() {
     }
 
     /**
-     * Ensures the default model is downloaded and ready, with robust logging.
-     * This is called from onCreate and can be reused elsewhere if needed.
+     * Ensures essential models are ready using the new ModelManagementCenter.
+     * Downloads LLM (Breeze2-3B-8W16A-250630-npu) and ASR (Breeze-ASR-25-onnx) models.
      */
     private fun ensureDefaultModelReadyWithLogging() {
-        val downloadUseCase = DownloadModelUseCase(this)
-        val defaultModel = ModelDownloader.listAvailableModels(this).firstOrNull()
-        if (defaultModel == null) {
-            Log.e(TAG, "No default model found in fullModelList.json!")
-            isModelReady = false
-            // Note: Status updates are now handled by ServiceOrchestrator
-        } else {
-            val versionStore = ModelVersionStore(this)
-            val alreadyDownloaded = versionStore.getDownloadedModels().any { it.id == defaultModel.id }
-            if (alreadyDownloaded) {
-                Log.i(TAG, "Default model ${defaultModel.id} already downloaded and ready.")
-                isModelReady = true
-                // Note: Status updates are now handled by ServiceOrchestrator
+        val modelCenter = ModelManagementCenter.getInstance(this)
+        
+        // Set status manager for download progress updates
+        modelCenter.setStatusManager(serviceOrchestrator.getStatusManager())
+        
+        // Download essential categories: LLM and ASR
+        val essentialCategories = listOf(
+            ModelManagementCenter.ModelCategory.LLM,
+            ModelManagementCenter.ModelCategory.ASR
+        )
+        
+        // Log which default models will be used
+        essentialCategories.forEach { category ->
+            val defaultModel = modelCenter.getDefaultModel(category)
+            if (defaultModel != null) {
+                Log.i(TAG, "Default ${category.name} model: ${defaultModel.modelInfo.id}")
+                if (defaultModel.status == ModelManagementCenter.ModelState.Status.DOWNLOADED) {
+                    Log.i(TAG, "${category.name} model ${defaultModel.modelInfo.id} already downloaded")
+                }
             } else {
-                Log.i(TAG, "Default model ${defaultModel.id} not found, starting download...")
-                isModelReady = false
-                // Note: Status updates are now handled by ServiceOrchestrator
-                downloadUseCase.ensureDefaultModelReady(object : ModelManager.DownloadListener {
-                    override fun onCompleted(modelId: String) {
-                        isModelReady = true
-                        // Note: Status updates are now handled by ServiceOrchestrator
-                        Log.i(TAG, "Default model $modelId download completed and is ready for inference.")
-                    }
-                    override fun onError(modelId: String, error: Throwable, fileName: String?) {
-                        isModelReady = false
-                        // Note: Status updates are now handled by ServiceOrchestrator
-                        Log.e(TAG, "Failed to download default model $modelId: ${error.message}")
-                    }
-                    override fun onProgress(modelId: String, percent: Int, speed: Long, eta: Long) {
-                        // Note: Status updates are now handled by ServiceOrchestrator
-                        Log.i(TAG, "Downloading $modelId: $percent% (speed=$speed, eta=$eta)")
-                    }
-                    override fun onFileProgress(
-                        modelId: String, fileName: String, fileIndex: Int, fileCount: Int,
-                        bytesDownloaded: Long, totalBytes: Long, speed: Long, eta: Long
-                    ) {
-                        // Optionally, you can add more detailed progress here
-                        Log.i(TAG, "Downloading $modelId: $fileName [$fileIndex/$fileCount] $bytesDownloaded/$totalBytes")
-                    }
-                    override fun onFileCompleted(modelId: String, fileName: String, fileIndex: Int, fileCount: Int) {
-                        Log.i(TAG, "File completed: $fileName")
-                    }
-                    override fun onPaused(modelId: String) {
-                        Log.i(TAG, "Download paused: $modelId")
-                    }
-                    override fun onResumed(modelId: String) {
-                        Log.i(TAG, "Download resumed: $modelId")
-                    }
-                    override fun onCancelled(modelId: String) {
-                        Log.i(TAG, "Download cancelled: $modelId")
-                    }
-                })
+                Log.w(TAG, "No default model found for category ${category.name}")
             }
         }
+        
+        modelCenter.downloadDefaultModels(essentialCategories, object : ModelManagementCenter.BulkDownloadListener {
+            override fun onModelCompleted(modelId: String, success: Boolean) {
+                if (success) {
+                    Log.i(TAG, "Essential model $modelId download completed and ready.")
+                } else {
+                    Log.e(TAG, "Failed to download essential model $modelId")
+                }
+                
+                // Check if all essential models are ready
+                val allEssentialReady = essentialCategories.all { category ->
+                    val model = modelCenter.getDefaultModel(category)
+                    val ready = model?.status in setOf(
+                        ModelManagementCenter.ModelState.Status.DOWNLOADED,
+                        ModelManagementCenter.ModelState.Status.READY
+                    )
+                    Log.d(TAG, "${category.name} model ready: $ready (${model?.modelInfo?.id})")
+                    ready
+                }
+                
+                isModelReady = allEssentialReady
+                Log.i(TAG, "All essential models ready: $allEssentialReady")
+            }
+            
+            override fun onAllCompleted() {
+                Log.i(TAG, "All essential models (Breeze2 LLM + Breeze-ASR-25-onnx) ready for inference.")
+                isModelReady = true
+            }
+        })
     }
 }
