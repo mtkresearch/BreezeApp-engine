@@ -243,18 +243,34 @@ class RequestCoordinator(
     private fun convertChatRequest(request: ChatRequest, requestId: String): InferenceRequest {
         // Extract the last message as the main input text
         val inputText = request.messages?.lastOrNull()?.content ?: ""
-        
+
+        // Map standard and extended parameters\n        val finalTemperature = request.temperature ?: 1.0f\n        Log.d(TAG, \"TEMPERATURE FIX: Converting ${request.temperature} -> $finalTemperature\")
+        val params = mutableMapOf<String, Any>(
+            InferenceRequest.PARAM_TEMPERATURE to (request.temperature ?: 1.0f).also { temp ->
+                Log.d(TAG, "TEMPERATURE FIX: request.temperature=${request.temperature} -> final=$temp")},
+            "stream" to (request.stream ?: false),
+            "model" to request.model
+        )
+
+        // max tokens (ChatRequest uses maxCompletionTokens)
+        request.maxCompletionTokens?.let { params[InferenceRequest.PARAM_MAX_TOKENS] = it }
+
+        // top_p (if provided)
+        request.topP?.let { params["top_p"] = it }
+
+        // Non-standard fields passed via metadata: top_k, repetition_penalty
+        val metadata = request.metadata
+        val topK = metadata?.get("top_k")?.toIntOrNull()
+        val repetitionPenalty = metadata?.get("repetition_penalty")?.toFloatOrNull()
+        topK?.let { params["top_k"] = it }
+        repetitionPenalty?.let { params["repetition_penalty"] = it }
+
         return InferenceRequest(
             sessionId = requestId,
             inputs = mapOf(
                 InferenceRequest.INPUT_TEXT to inputText
             ),
-            params = mapOf(
-                "temperature" to (request.temperature ?: 0.7f),
-                "max_tokens" to 2048,
-                "stream" to (request.stream ?: false),
-                "model" to request.model
-            )
+            params = params
         )
     }
     

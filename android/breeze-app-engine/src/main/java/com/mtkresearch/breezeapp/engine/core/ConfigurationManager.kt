@@ -2,8 +2,8 @@ package com.mtkresearch.breezeapp.engine.config
 
 import android.content.Context
 import com.mtkresearch.breezeapp.engine.core.Logger
-import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerFactory
-import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerSelectionStrategy
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerFactory
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerSelectionStrategy
 import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
 import kotlinx.serialization.json.Json

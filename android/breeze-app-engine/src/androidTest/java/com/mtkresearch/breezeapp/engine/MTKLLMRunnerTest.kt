@@ -2,8 +2,8 @@ package com.mtkresearch.breezeapp.engine
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.mtkresearch.breezeapp.engine.config.MTKConfig
-import com.mtkresearch.breezeapp.engine.data.runner.mtk.MTKLLMRunner
+import com.mtkresearch.breezeapp.engine.runner.mtk.MTKConfig
+import com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner
 import com.mtkresearch.breezeapp.engine.domain.model.ModelConfig
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*

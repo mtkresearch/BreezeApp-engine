@@ -1,16 +1,14 @@
 package com.mtkresearch.breezeapp.engine.core
 
-import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunner
-import com.mtkresearch.breezeapp.engine.data.runner.core.FlowStreamingRunner
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
+import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.domain.model.ModelConfig
 import com.mtkresearch.breezeapp.engine.domain.model.RunnerError
-import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.util.concurrent.ConcurrentHashMap
@@ -88,6 +86,7 @@ class AIEngineManager(
             selectAndLoadRunner(capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     logger.d(TAG, "Processing request $requestId with runner: ${runner.getRunnerInfo().name}")
+                    logger.d(TAG, "Runtime params for $requestId: ${request.params}")
                     runner.run(request)
                 },
                 onFailure = { error ->
@@ -128,6 +127,7 @@ class AIEngineManager(
             selectAndLoadRunner(capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     logger.d(TAG, "Processing stream request $requestId with runner: ${runner.getRunnerInfo().name}")
+                    logger.d(TAG, "Runtime params for $requestId: ${request.params}")
                     if (runner is FlowStreamingRunner) {
                         runner.runAsFlow(request).collect { emit(it) }
                     } else {

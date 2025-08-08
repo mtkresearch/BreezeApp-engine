@@ -1,7 +1,8 @@
-package com.mtkresearch.breezeapp.engine.data.runner.core
+package com.mtkresearch.breezeapp.engine.runner.core
 
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import kotlinx.coroutines.flow.Flow
 
 /**

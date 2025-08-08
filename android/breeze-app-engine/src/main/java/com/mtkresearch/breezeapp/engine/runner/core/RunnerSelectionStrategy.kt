@@ -1,4 +1,4 @@
-package com.mtkresearch.breezeapp.engine.data.runner.core
+package com.mtkresearch.breezeapp.engine.runner.core
 
 import com.mtkresearch.breezeapp.engine.config.RunnerDefinition
 import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType

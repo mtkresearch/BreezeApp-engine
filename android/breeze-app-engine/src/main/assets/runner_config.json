@@ -12,7 +12,7 @@
       "defaultRunner": "mtk_llm_runner_v1",
       "runners": {
         "mtk_llm_runner_v1": {
-          "class": "com.mtkresearch.breezeapp.engine.data.runner.mtk.MTKLLMRunner",
+          "class": "com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner",
           "priority": 1,
           "type": "HARDWARE",
           "enabled": true,
@@ -20,7 +20,7 @@
           "modelId": "Breeze2-3B-8W16A-250630-npu"
         },
         "breeze_llm_mock_v1": {
-          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockLLMRunner",
+          "class": "com.mtkresearch.breezeapp.engine.runner.mock.MockLLMRunner",
           "priority": 100,
           "type": "MOCK",
           "enabled": true,
@@ -39,7 +39,7 @@
           "alwaysAvailable": false
         },
         "breeze_asr_mock_v1": {
-          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockASRRunner",
+          "class": "com.mtkresearch.breezeapp.engine.runner.mock.MockASRRunner",
           "priority": 100,
           "type": "MOCK",
           "enabled": true,
@@ -58,7 +58,7 @@
           "alwaysAvailable": false
         },
         "breeze_tts_mock_v1": {
-          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockTTSRunner",
+          "class": "com.mtkresearch.breezeapp.engine.runner.mock.MockTTSRunner",
           "priority": 100,
           "type": "MOCK",
           "enabled": true,
@@ -70,7 +70,7 @@
       "defaultRunner": "breeze_vlm_mock_v1",
       "runners": {
         "breeze_vlm_mock_v1": {
-          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockVLMRunner",
+          "class": "com.mtkresearch.breezeapp.engine.runner.mock.MockVLMRunner",
           "priority": 100,
           "type": "MOCK",
           "enabled": true,
@@ -82,7 +82,7 @@
       "defaultRunner": "breeze_guardian_mock_v1",
       "runners": {
         "breeze_guardian_mock_v1": {
-          "class": "com.mtkresearch.breezeapp.engine.data.runner.mock.MockGuardrailRunner",
+          "class": "com.mtkresearch.breezeapp.engine.runner.mock.MockGuardrailRunner",
           "priority": 100,
           "type": "MOCK",
           "enabled": true,

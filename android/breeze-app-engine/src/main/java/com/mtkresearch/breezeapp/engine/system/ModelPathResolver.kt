@@ -1,9 +1,8 @@
 package com.mtkresearch.breezeapp.engine.system
 
 import android.content.Context
-import android.content.res.AssetManager
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.config.MTKConfig
+import com.mtkresearch.breezeapp.engine.runner.mtk.MTKConfig
 import java.io.File
 import java.io.IOException
 import java.io.InputStream

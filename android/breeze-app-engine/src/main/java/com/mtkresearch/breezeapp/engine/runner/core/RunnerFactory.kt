@@ -1,10 +1,10 @@
-package com.mtkresearch.breezeapp.engine.data.runner.core
+package com.mtkresearch.breezeapp.engine.runner.core
 
 import android.content.Context
 import com.mtkresearch.breezeapp.engine.config.RunnerDefinition
-import com.mtkresearch.breezeapp.engine.config.MTKConfig
-import com.mtkresearch.breezeapp.engine.data.runner.mtk.MTKLLMRunner
+import com.mtkresearch.breezeapp.engine.runner.mtk.MTKConfig
 import com.mtkresearch.breezeapp.engine.core.Logger
+import com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -87,7 +87,7 @@ class RunnerFactory(
         
         return try {
             when (definition.className) {
-                "com.mtkresearch.breezeapp.engine.data.runner.mtk.MTKLLMRunner" -> {
+                "com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner" -> {
                     createMTKLLMRunner(definition)
                 }
                 // Future MTK runners can be added here

@@ -1,7 +1,6 @@
 package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.data.runner.mock.MockLLMRunner
 import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult

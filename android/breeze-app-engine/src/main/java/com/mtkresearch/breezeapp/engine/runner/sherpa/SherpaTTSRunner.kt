@@ -5,24 +5,18 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
-import android.media.MediaPlayer
-import android.net.Uri
 import android.util.Log
 import com.k2fsa.sherpa.onnx.OfflineTts
-import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunner
-import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunnerCompanion
-import com.mtkresearch.breezeapp.engine.data.runner.core.FlowStreamingRunner
-import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
+import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
-import com.mtkresearch.breezeapp.engine.util.AssetCopyUtil
-import com.mtkresearch.breezeapp.engine.util.AudioUtil
 import com.mtkresearch.breezeapp.engine.util.SherpaTtsConfigUtil
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.concurrent.thread
 
 /**
  * SherpaTTSRunner - Real TTS runner using Sherpa ONNX with direct audio playback

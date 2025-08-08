@@ -1,9 +1,9 @@
-package com.mtkresearch.breezeapp.engine.data.runner.mock
+package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunner
-import com.mtkresearch.breezeapp.engine.data.runner.core.FlowStreamingRunner
-import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
+import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import java.util.concurrent.atomic.AtomicBoolean
 

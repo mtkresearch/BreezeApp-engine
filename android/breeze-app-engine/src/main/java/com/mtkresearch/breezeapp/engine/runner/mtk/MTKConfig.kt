@@ -1,4 +1,4 @@
-package com.mtkresearch.breezeapp.engine.config
+package com.mtkresearch.breezeapp.engine.runner.mtk
 
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
