@@ -5,9 +5,9 @@ import android.util.Log
 import com.k2fsa.sherpa.onnx.*
 import com.k2fsa.sherpa.onnx.WaveReader
 import com.mtkresearch.breezeapp.engine.util.AudioUtil
-import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunner
-import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunnerCompanion
-import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
