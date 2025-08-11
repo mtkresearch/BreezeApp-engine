@@ -46,6 +46,7 @@ data class InferenceRequest(
     val params: Map<String, Any> = emptyMap(),
     val timestamp: Long = System.currentTimeMillis()
 ) {
+
     companion object {
         // Standard input keys for different data types
         

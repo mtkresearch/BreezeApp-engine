@@ -25,7 +25,7 @@ class BreezeAppEngineConfigurator(context: Context) {
     val runnerRegistry: RunnerRegistry = RunnerRegistry(logger)
 
     /** The central use case for processing AI requests. */
-    val engineManager: AIEngineManager = AIEngineManager(runnerRegistry, logger)
+    val engineManager: AIEngineManager = AIEngineManager(context, runnerRegistry, logger)
     
     /** Manages loading runner configurations from external files. */
     private val configurationManager: ConfigurationManager = ConfigurationManager(context.applicationContext, logger)

@@ -46,7 +46,7 @@ class BreezeAppEngineCore(
     
     private val runnerRegistry = RunnerRegistry(logger)
     private val configurationManager = ConfigurationManager(context, logger)
-    private val aiEngineManager = AIEngineManager(runnerRegistry, logger)
+    private val aiEngineManager = AIEngineManager(context, runnerRegistry, logger)
     
     // Request tracking for status management
     private val requestIdGenerator = AtomicInteger(0)
