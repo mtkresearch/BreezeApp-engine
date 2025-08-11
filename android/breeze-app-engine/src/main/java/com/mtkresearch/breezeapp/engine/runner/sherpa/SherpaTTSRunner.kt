@@ -85,10 +85,15 @@ class SherpaTTSRunner(private val context: Context) : BaseRunner, FlowStreamingR
             
             // Initialize audio playback
             initAudioPlayback()
+
+            // find the number of characters in the text, and place space between each number character
+            val textWithSpaces = text.mapIndexed { index, c ->
+                if (c.isDigit() && index > 0 && text[index - 1].isDigit()) " $c" else c.toString()
+            }.joinToString("")
             
             // Use generateWithCallback for real streaming with direct playback
             val audio = tts!!.generateWithCallback(
-                text = text, 
+                text = textWithSpaces, 
                 sid = speakerId, 
                 speed = speed,
                 callback = { samples ->
@@ -170,10 +175,16 @@ class SherpaTTSRunner(private val context: Context) : BaseRunner, FlowStreamingR
             
             // Initialize audio playback for streaming
             initAudioPlayback()
-            
+
+            // find the number of characters in the text, and place space between each number character
+            val textWithSpaces = text.mapIndexed { index, c ->
+                if (c.isDigit() && index > 0 && text[index - 1].isDigit()) " $c" else c.toString()
+            }.joinToString("")
+
+
             // Use generateWithCallback for real streaming with direct playback
             val audio = tts!!.generateWithCallback(
-                text = text,
+                text = textWithSpaces,
                 sid = speakerId,
                 speed = speed,
                 callback = { samples ->
