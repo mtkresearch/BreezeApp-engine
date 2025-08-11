@@ -11,6 +11,7 @@ import com.mtkresearch.breezeapp.engine.domain.model.ModelConfig
 import com.mtkresearch.breezeapp.engine.domain.model.RunnerError
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
@@ -347,6 +348,7 @@ class AIEngineManager(
                     }
                 }
 
+                delay(2000)
                 availableRamGB = systemResourceMonitor.getAvailableRamGB()
                 logger.d(TAG, "RAM available after unloading: ${"%.2f".format(availableRamGB)}GB.")
 
