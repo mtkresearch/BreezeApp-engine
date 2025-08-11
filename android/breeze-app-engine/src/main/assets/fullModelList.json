@@ -65,7 +65,7 @@
       "id": "Breeze-ASR-25-onnx",
       "runner": "sherpa_offline_asr_runner_v1",
       "backend": "cpu", 
-      "ramGB": 1,
+      "ramGB": 4,
       "files": [
         { "fileName": "breeze-asr-25-half-encoder.int8.onnx", "type": "model", "urls": [
           "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/breeze-asr-25-half-encoder.int8.onnx"

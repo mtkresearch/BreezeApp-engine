@@ -38,20 +38,31 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_engine_launcher)
 
+        // Check if this is a programmatic wake-up call
+        val autoBackground = intent.getBooleanExtra("auto_background", false)
+
         // Initialize permission manager
         permissionManager = PermissionManager(this)
         
         // Check and request notification permission before starting service
         checkNotificationPermissionAndStartService()
         
-        // Check breathing border permission
-        checkBreathingBorderPermission()
-        
-        // Check microphone permission
-        checkMicrophonePermission()
+        if (autoBackground) {
+            // For programmatic wake-up, start service and finish activity
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                finish()
+            }, 1500) // Allow service startup time
+        } else {
+            // For manual launch, show full UI
+            // Check breathing border permission
+            checkBreathingBorderPermission()
+            
+            // Check microphone permission
+            checkMicrophonePermission()
 
-        // Initialize the premium UI components
-        initializePremiumUI()
+            // Initialize the premium UI components
+            initializePremiumUI()
+        }
     }
     
     /**
