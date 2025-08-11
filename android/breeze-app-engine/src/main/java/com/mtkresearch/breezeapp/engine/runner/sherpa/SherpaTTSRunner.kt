@@ -285,7 +285,8 @@ class SherpaTTSRunner(private val context: Context) : BaseRunner, FlowStreamingR
                         throw Exception("Failed to initialize AudioTrack")
                     }
                     
-                    audioTrack?.setVolume(1.0f)
+                    // Set volume to maximum and ensure proper audio routing for TTS
+                    audioTrack?.setVolume(AudioTrack.getMaxVolume())
                     audioTrack?.play()
                     isPlaying.set(true)
                     
