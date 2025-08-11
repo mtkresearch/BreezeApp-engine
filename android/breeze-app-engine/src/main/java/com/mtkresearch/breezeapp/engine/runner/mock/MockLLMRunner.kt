@@ -34,10 +34,10 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     private val isLoaded = AtomicBoolean(false)
     private var responseDelay = DEFAULT_RESPONSE_DELAY
     private var predefinedResponses = listOf(
-        "這是一個模擬的 LLM 回應。我正在協助您測試 BreezeApp Engine 架構的功能。",
-        "我是 Mock LLM Runner，專門用於驗證系統的擴展性和穩定性。",
-        "BreezeApp Engine 架構運作正常！您的訊息已被成功處理。",
-        "感謝您使用 BreezeApp Engine。系統正在使用模擬引擎進行回應。",
+        "這是一個模擬的 Language Model 回應。我正在協助您測試 Engine 架構的功能。",
+        "我是 Mock Language Model Runner，專門用於驗證系統的擴展性和穩定性。",
+        "Engine 架構運作正常！您的訊息已被成功處理。",
+        "感謝您使用 Engine。系統正在使用模擬引擎進行回應。",
         "這是一個測試回應，用於驗證 Mock Runner 的串流功能是否正常運作。"
     )
     
@@ -165,19 +165,19 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     private fun selectResponseFor(prompt: String): String {
         return when {
             prompt.contains("測試", ignoreCase = true) -> 
-                "這是一個測試回應，用於驗證 Mock LLM Runner 的功能。測試進行中..."
+                "這是一個測試回應，用於驗證 Mock Runner 的功能。測試進行中..."
             
             prompt.contains("錯誤", ignoreCase = true) -> 
                 throw RuntimeException("模擬錯誤：這是一個測試用的錯誤情況，用於驗證錯誤處理機制。")
             
             prompt.contains("串流", ignoreCase = true) || prompt.contains("stream", ignoreCase = true) -> 
-                "這是串流模式的測試回應。每個詞語都會逐步發送，模擬真實的 LLM 推論過程。"
+                "這是串流模式的測試回應。每個詞語都會逐步發送，模擬真實的 Language Model Runner推論過程。"
             
             prompt.contains("BreezeApp", ignoreCase = true) -> 
-                "BreezeApp 是一個先進的 AI 應用程式，使用模組化的 BreezeApp Engine 架構來管理不同的 AI 引擎。"
+                "此APP是一個先進的 A I 應用程式，使用模組化的 Engine 架構來管理不同的 A I 引擎。"
             
             prompt.isEmpty() -> 
-                "您好！我是 AI 助手。請問有什麼我可以協助您的嗎？"
+                "您好！我是 A I 助手。請問有什麼我可以協助您的嗎？"
             
             else -> predefinedResponses.random()
         }
