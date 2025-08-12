@@ -5,12 +5,9 @@ import android.util.Log
 import com.k2fsa.sherpa.onnx.*
 import com.k2fsa.sherpa.onnx.WaveReader
 import com.mtkresearch.breezeapp.engine.util.AudioUtil
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
-import java.io.File
-import java.util.concurrent.atomic.AtomicBoolean
+import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 
 /**
  * SherpaOfflineASRRunner - Offline ASR runner using Sherpa ONNX
@@ -20,26 +17,19 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * Model files must be extracted to assets before loading.
  */
-class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
-    companion object : BaseRunnerCompanion {
+class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
+    companion object {
         private const val TAG = "SherpaOfflineASRRunner"
-        private const val SAMPLE_RATE = 16000
         private const val DEFAULT_SAMPLE_RATE = 16000
-
-        @JvmStatic
-        override fun isSupported(): Boolean = true
     }
 
-    private val isLoaded = AtomicBoolean(false)
     private var recognizer: OfflineRecognizer? = null
-    private var modelName: String = ""
     private var modelType: Int = 0 // Default to Breeze-ASR-25-onnx (Type 0)
 
-    override fun load(config: ModelConfig): Boolean {
+    override fun getTag(): String = TAG
+
+    override fun initializeModel(config: ModelConfig): Boolean {
         return try {
-            Log.d(TAG, "Loading SherpaOfflineASRRunner with config: ${config.modelName}")
-            modelName = config.modelName
-            
             // Parse model type from config
             modelType = parseModelTypeFromConfig(config)
             Log.i(TAG, "Using offline model type $modelType: ${getModelDescription(modelType)}")
@@ -47,13 +37,9 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
             Log.i(TAG, "Start to initialize offline model")
             initModel()
             Log.i(TAG, "Finished initializing offline model")
-            
-            isLoaded.set(true)
-            Log.i(TAG, "SherpaOfflineASRRunner loaded successfully")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load SherpaOfflineASRRunner", e)
-            isLoaded.set(false)
+            Log.e(TAG, "Failed to initialize SherpaOfflineASRRunner", e)
             false
         }
     }
@@ -114,17 +100,15 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
     }
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
-        if (!isLoaded.get()) {
-            return InferenceResult.error(RunnerError.modelNotLoaded())
-        }
+        // Validate model is loaded
+        validateModelLoaded()?.let { return it }
+        
+        // Validate input data
+        val (audioData, error) = validateInput<ByteArray>(input, InferenceRequest.INPUT_AUDIO)
+        error?.let { return it }
         
         return try {
-            val audioData = input.inputs[InferenceRequest.INPUT_AUDIO] as? ByteArray
-            if (audioData == null) {
-                return InferenceResult.error(RunnerError.invalidInput("Audio data required for offline ASR processing"))
-            }
-            
-            Log.d(TAG, "Processing offline ASR with ${audioData.size} bytes of audio data")
+            Log.d(TAG, "Processing offline ASR with ${audioData!!.size} bytes of audio data")
             
             val startTime = System.currentTimeMillis()
             
@@ -178,16 +162,12 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
         }
     }
 
-    override fun unload() {
-        Log.d(TAG, "Unloading SherpaOfflineASRRunner")
+    override fun releaseModel() {
         recognizer?.release()
         recognizer = null
-        isLoaded.set(false)
     }
 
     override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.ASR)
-
-    override fun isLoaded(): Boolean = isLoaded.get()
 
     override fun getRunnerInfo(): RunnerInfo = RunnerInfo(
         name = "SherpaOfflineASRRunner",
@@ -196,20 +176,6 @@ class SherpaOfflineASRRunner(private val context: Context) : BaseRunner {
         description = "Sherpa ONNX offline ASR runner",
         isMock = false
     )
-
-    // ========== Private Helper Methods ==========
-
-    /**
-     * Convert PCM16 ByteArray to FloatArray as required by Sherpa ONNX
-     * PCM16 format: little-endian 16-bit samples
-     */
-    private fun convertPcm16ToFloat(audioData: ByteArray): FloatArray {
-        return FloatArray(audioData.size / 2) { i ->
-            val sample = ((audioData[i * 2 + 1].toInt() and 0xFF) shl 8) or 
-                        (audioData[i * 2].toInt() and 0xFF)
-            sample / 32768.0f
-        }
-    }
 
     /**
      * Parse model type from ModelConfig - auto-detect based on model name or parameters
