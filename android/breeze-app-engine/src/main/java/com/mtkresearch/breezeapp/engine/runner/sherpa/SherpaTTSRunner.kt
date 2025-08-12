@@ -100,7 +100,8 @@ class SherpaTTSRunner(private val context: Context) : BaseRunner, FlowStreamingR
                     // Direct audio playback in callback
                     if (!isStopped.get()) {
                         synchronized(audioLock) {
-                            audioTrack?.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
+                            val amplifiedSamples = amplifyVolume(samples, 2.0f)
+                            audioTrack?.write(amplifiedSamples, 0, amplifiedSamples.size, AudioTrack.WRITE_BLOCKING)
                         }
                         return@generateWithCallback 1 // Continue generation
                     } else {
@@ -191,7 +192,8 @@ class SherpaTTSRunner(private val context: Context) : BaseRunner, FlowStreamingR
                     // Direct audio playback in callback
                     if (!isStopped.get()) {
                         synchronized(audioLock) {
-                            audioTrack?.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
+                            val amplifiedSamples = amplifyVolume(samples, 2.0f)
+                            audioTrack?.write(amplifiedSamples, 0, amplifiedSamples.size, AudioTrack.WRITE_BLOCKING)
                         }
                         return@generateWithCallback 1 // Continue generation
                     } else {
@@ -279,6 +281,7 @@ class SherpaTTSRunner(private val context: Context) : BaseRunner, FlowStreamingR
                     val attr = AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                         .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
                         .build()
 
                     val format = AudioFormat.Builder()
@@ -369,6 +372,15 @@ class SherpaTTSRunner(private val context: Context) : BaseRunner, FlowStreamingR
             useExternalStorage = true
         ) ?: throw Exception("Failed to create TTS config for ${modelConfig.modelDir}")
         tts = OfflineTts(assetManager = context.assets, config = config)
+    }
+
+    /**
+     * Amplify volume of audio samples
+     */
+    private fun amplifyVolume(samples: FloatArray, gainFactor: Float): FloatArray {
+        return samples.map { sample ->
+            (sample * gainFactor).coerceIn(-1.0f, 1.0f)
+        }.toFloatArray()
     }
 
     /**
