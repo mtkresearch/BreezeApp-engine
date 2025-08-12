@@ -7,7 +7,7 @@ import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaAsrRunner
-import com.mtkresearch.breezeapp.engine.util.AudioUtil
+import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import com.mtkresearch.breezeapp.engine.core.ExceptionHandler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

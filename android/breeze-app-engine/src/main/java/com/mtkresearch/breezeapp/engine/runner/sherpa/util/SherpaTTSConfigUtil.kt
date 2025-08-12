@@ -117,9 +117,9 @@ object SherpaTtsConfigUtil {
             // Handle data directory copying
             if (modelConfig.dataDir.isNotEmpty()) {
                 val newDir = if (useExternalStorage) {
-                    AssetCopyUtil.copyAssetsToExternalFiles(context, modelConfig.dataDir)
+                    EngineUtils.copyAssetsToExternalFiles(context, modelConfig.dataDir)
                 } else {
-                    AssetCopyUtil.copyAssetsToInternalFiles(context, modelConfig.dataDir)
+                    EngineUtils.copyAssetsToInternalFiles(context, modelConfig.dataDir)
                 }
                 finalDataDir = "$newDir/${modelConfig.dataDir}"
             }
@@ -127,9 +127,9 @@ object SherpaTtsConfigUtil {
             // Handle dictionary directory copying
             if (modelConfig.dictDir.isNotEmpty()) {
                 val newDir = if (useExternalStorage) {
-                    AssetCopyUtil.copyAssetsToExternalFiles(context, modelConfig.dictDir)
+                    EngineUtils.copyAssetsToExternalFiles(context, modelConfig.dictDir)
                 } else {
-                    AssetCopyUtil.copyAssetsToInternalFiles(context, modelConfig.dictDir)
+                    EngineUtils.copyAssetsToInternalFiles(context, modelConfig.dictDir)
                 }
                 finalDictDir = "$newDir/${modelConfig.dictDir}"
                 

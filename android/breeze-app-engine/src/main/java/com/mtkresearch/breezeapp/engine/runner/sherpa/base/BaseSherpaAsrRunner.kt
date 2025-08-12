@@ -11,7 +11,7 @@ import com.mtkresearch.breezeapp.engine.core.ExceptionHandler
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.domain.model.RunnerError
-import com.mtkresearch.breezeapp.engine.util.AudioUtil
+import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -182,7 +182,7 @@ abstract class BaseSherpaAsrRunner(context: Context) : BaseSherpaRunner(context)
         Log.i(TAG, "Starting microphone ASR processing")
         
         // Check permission first
-        if (!AudioUtil.hasRecordAudioPermission(context)) {
+        if (!EngineUtils.hasRecordAudioPermission(context)) {
             Log.e(TAG, "RECORD_AUDIO permission not granted")
             emit(InferenceResult.error(RunnerError.invalidInput("RECORD_AUDIO permission not granted")))
             return@flow
@@ -203,7 +203,7 @@ abstract class BaseSherpaAsrRunner(context: Context) : BaseSherpaRunner(context)
         forceUpdateForegroundServiceState()
         
         // Create AudioRecord directly following Sherpa official example
-        val audioRecord = AudioUtil.createAudioRecord(context)
+        val audioRecord = EngineUtils.createAudioRecord(context)
         if (audioRecord == null) {
             Log.e(TAG, "Failed to create AudioRecord")
             emit(InferenceResult.error(RunnerError.runtimeError("Failed to create AudioRecord")))
@@ -212,7 +212,7 @@ abstract class BaseSherpaAsrRunner(context: Context) : BaseSherpaRunner(context)
         
         Log.i(TAG, "AudioRecord created successfully")
         
-        if (!AudioUtil.startRecording(audioRecord)) {
+        if (!EngineUtils.startRecording(audioRecord)) {
             Log.e(TAG, "Failed to start recording")
             audioRecord.release()
             emit(InferenceResult.error(RunnerError.runtimeError("Failed to start recording")))
@@ -259,14 +259,14 @@ abstract class BaseSherpaAsrRunner(context: Context) : BaseSherpaRunner(context)
                     break
                 }
                 
-                val samplesRead = AudioUtil.readAudioSamples(audioRecord, buffer)
+                val samplesRead = EngineUtils.readAudioSamples(audioRecord, buffer)
                 
                 if (samplesRead > 0) {
                     Log.d(TAG, "Read $samplesRead audio samples")
                     
                     // Convert to float array for Sherpa processing
                     val audioChunk = buffer.copyOf(samplesRead)
-                    val floatSamples = AudioUtil.convertPcm16ToFloat(audioChunk)
+                    val floatSamples = EngineUtils.convertPcm16ToFloat(audioChunk)
                     
                     // Process audio chunk following official example pattern
                     streamObj.acceptWaveform(floatSamples, sampleRate = SAMPLE_RATE)
@@ -349,7 +349,7 @@ abstract class BaseSherpaAsrRunner(context: Context) : BaseSherpaRunner(context)
             ExceptionHandler.handleFlowException(e, sessionId, "Microphone ASR processing")
             emit(ExceptionHandler.handleException(e, sessionId, "Microphone ASR processing"))
         } finally {
-            AudioUtil.stopAndReleaseAudioRecord(audioRecord)
+            EngineUtils.stopAndReleaseAudioRecord(audioRecord)
             streamObj.release()
             Log.i(TAG, "Microphone ASR processing completed")
         }

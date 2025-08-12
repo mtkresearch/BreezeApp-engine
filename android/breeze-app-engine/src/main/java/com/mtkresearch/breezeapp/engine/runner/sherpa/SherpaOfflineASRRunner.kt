@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.k2fsa.sherpa.onnx.*
 import com.k2fsa.sherpa.onnx.WaveReader
-import com.mtkresearch.breezeapp.engine.util.AudioUtil
+import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
@@ -112,8 +112,8 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
             
             val startTime = System.currentTimeMillis()
             
-            // Centralized ASR input prep using AudioUtil + Sherpa WaveReader (no extra resampling)
-            val (floatSamples, effectiveSampleRate) = AudioUtil.prepareAsrFloatSamples(
+            // Centralized ASR input prep using EngineUtils + Sherpa WaveReader (no extra resampling)
+            val (floatSamples, effectiveSampleRate) = EngineUtils.prepareAsrFloatSamples(
                 context = context,
                 sessionId = input.sessionId,
                 audioBytes = audioData,

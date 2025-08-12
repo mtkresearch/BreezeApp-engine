@@ -13,23 +13,69 @@ import androidx.core.content.ContextCompat
 import com.k2fsa.sherpa.onnx.WaveReader
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import java.io.File
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Utility class for audio operations in TTS and ASR
- * Extracted from Sherpa TTS example and extended with microphone recording capabilities
+ * Unified utility class for BreezeApp Engine
+ * 
+ * This class consolidates functionality from multiple utility classes:
+ * - Audio processing (TTS playback and ASR recording)
+ * - Asset management (copying assets to internal/external storage)
+ * - TTS model configuration
+ * 
+ * The goal is to reduce redundancy and provide a single point of access
+ * for common engine operations.
  */
-object AudioUtil {
-    private const val TAG = "AudioUtil"
+object EngineUtils {
+    private const val TAG = "EngineUtils"
     
-    // ASR Recording constants (following Sherpa-onnx official example)
+    // Audio constants
     private const val SAMPLE_RATE_ASR = 16000
     private const val CHANNEL_CONFIG_IN = AudioFormat.CHANNEL_IN_MONO
     private const val AUDIO_FORMAT_ASR = AudioFormat.ENCODING_PCM_16BIT
     private const val AUDIO_SOURCE = MediaRecorder.AudioSource.MIC
-
-    // ========== TTS Audio Playback Functions ==========
-
+    
+    // TTS model types
+    enum class TtsModelType {
+        VITS_MR_20250709,       // Your custom model
+        VITS_MELO_ZH_EN,        // VITS MeloTTS model
+        VITS_PIPER_EN_US_AMY,   // English Piper model
+        VITS_ICEFALL_ZH,        // Chinese VITS model
+        MATCHA_ICEFALL_ZH,      // Chinese Matcha model
+        KOKORO_EN,              // English Kokoro model
+        CUSTOM                  // Custom configuration
+    }
+    
+    // TTS model configuration data class
+    data class TtsModelConfig(
+        val modelDir: String,
+        val modelName: String = "",
+        val acousticModelName: String = "",
+        val vocoder: String = "",
+        val voices: String = "",
+        val lexicon: String = "",
+        val dataDir: String = "",
+        val dictDir: String = "",
+        val ruleFsts: String = "",
+        val ruleFars: String = "",
+        val description: String = ""
+    )
+    
+    // WAV info data class
+    data class WavInfo(
+        val sampleRate: Int,
+        val channels: Int,
+        val bitsPerSample: Int,
+        val dataOffset: Int,
+        val dataLength: Int
+    )
+    
+    // ========== Audio Processing Functions ==========
+    
     /**
      * Create and configure AudioTrack for TTS playback
      * @param sampleRate Sample rate from TTS model
@@ -99,8 +145,6 @@ object AudioUtil {
         track.flush()
         track.stop()
     }
-
-    // ========== ASR Microphone Recording Functions ==========
 
     /**
      * Check if RECORD_AUDIO permission is granted
@@ -302,22 +346,195 @@ object AudioUtil {
      */
     fun getAsrSampleRate(): Int = SAMPLE_RATE_ASR
 
-    // ========== WAV Utilities (Diagnostics) ==========
+    // ========== Asset Management Functions ==========
+    
+    /**
+     * Copy assets directory to external files directory
+     * @param context Application context
+     * @param assetPath Path in assets folder
+     * @return Absolute path of copied directory
+     */
+    fun copyAssetsToExternalFiles(context: Context, assetPath: String): String {
+        Log.i(TAG, "Copying assets from $assetPath to external files")
+        copyAssets(context, assetPath)
+        val newDir = context.getExternalFilesDir(null)!!.absolutePath
+        Log.i(TAG, "Assets copied to: $newDir")
+        return newDir
+    }
 
+    /**
+     * Copy assets directory to internal files directory
+     * @param context Application context
+     * @param assetPath Path in assets folder
+     * @return Absolute path of copied directory
+     */
+    fun copyAssetsToInternalFiles(context: Context, assetPath: String): String {
+        Log.i(TAG, "Copying assets from $assetPath to internal files")
+        copyAssetsToInternal(context, assetPath)
+        val newDir = context.filesDir.absolutePath
+        Log.i(TAG, "Assets copied to: $newDir")
+        return newDir
+    }
+
+    /**
+     * Recursively copy assets to external files directory
+     */
+    private fun copyAssets(context: Context, path: String) {
+        val assets: Array<String>?
+        try {
+            assets = context.assets.list(path)
+            if (assets.isNullOrEmpty()) {
+                copyFileToExternal(context, path)
+            } else {
+                val fullPath = "${context.getExternalFilesDir(null)}/$path"
+                val dir = File(fullPath)
+                dir.mkdirs()
+                for (asset in assets) {
+                    val p: String = if (path == "") "" else "$path/"
+                    copyAssets(context, "$p$asset")
+                }
+            }
+        } catch (ex: IOException) {
+            Log.e(TAG, "Failed to copy $path. $ex")
+            throw ex
+        }
+    }
+
+    /**
+     * Recursively copy assets to internal files directory
+     */
+    private fun copyAssetsToInternal(context: Context, path: String) {
+        val assets: Array<String>?
+        try {
+            assets = context.assets.list(path)
+            if (assets.isNullOrEmpty()) {
+                copyFileToInternal(context, path)
+            } else {
+                val fullPath = "${context.filesDir}/$path"
+                val dir = File(fullPath)
+                dir.mkdirs()
+                for (asset in assets) {
+                    val p: String = if (path == "") "" else "$path/"
+                    copyAssetsToInternal(context, "$p$asset")
+                }
+            }
+        } catch (ex: IOException) {
+            Log.e(TAG, "Failed to copy $path. $ex")
+            throw ex
+        }
+    }
+
+    /**
+     * Copy single file to external files directory
+     */
+    private fun copyFileToExternal(context: Context, filename: String) {
+        try {
+            val istream = context.assets.open(filename)
+            val newFilename = "${context.getExternalFilesDir(null)}/$filename"
+            val ostream = File(newFilename).outputStream()
+            copyStream(istream, ostream)
+        } catch (ex: Exception) {
+            Log.e(TAG, "Failed to copy $filename to external, $ex")
+            throw ex
+        }
+    }
+
+    /**
+     * Copy single file to internal files directory
+     */
+    private fun copyFileToInternal(context: Context, filename: String) {
+        try {
+            val istream = context.assets.open(filename)
+            val newFilename = "${context.filesDir}/$filename"
+            val ostream = File(newFilename).outputStream()
+            copyStream(istream, ostream)
+        } catch (ex: Exception) {
+            Log.e(TAG, "Failed to copy $filename to internal, $ex")
+            throw ex
+        }
+    }
+
+    /**
+     * Copy input stream to output stream
+     */
+    private fun copyStream(istream: java.io.InputStream, ostream: java.io.OutputStream) {
+        val buffer = ByteArray(1024)
+        var read = istream.read(buffer)
+        while (read != -1) {
+            ostream.write(buffer, 0, read)
+            read = istream.read(buffer)
+        }
+        istream.close()
+        ostream.flush()
+        ostream.close()
+    }
+    
+    // ========== TTS Model Configuration Functions ==========
+    
+    /**
+     * Get predefined TTS model configuration
+     */
+    fun getTtsModelConfig(type: TtsModelType): TtsModelConfig {
+        return when (type) {
+            TtsModelType.VITS_MR_20250709 -> TtsModelConfig(
+                modelDir = "vits-mr-20250709",
+                modelName = "vits-mr-20250709.onnx",
+                lexicon = "lexicon.txt",
+                description = "VITS MR custom TTS model (2025-07-09)"
+            )
+            
+            TtsModelType.VITS_MELO_ZH_EN -> TtsModelConfig(
+                modelDir = "vits-melo-tts-zh_en",
+                modelName = "model.onnx",
+                lexicon = "lexicon.txt",
+                dictDir = "vits-melo-tts-zh_en/dict",
+                description = "VITS MeloTTS Chinese-English bilingual model"
+            )
+            
+            TtsModelType.VITS_PIPER_EN_US_AMY -> TtsModelConfig(
+                modelDir = "vits-piper-en_US-amy-low",
+                modelName = "en_US-amy-low.onnx",
+                dataDir = "vits-piper-en_US-amy-low/espeak-ng-data",
+                description = "VITS Piper English Amy voice"
+            )
+            
+            TtsModelType.VITS_ICEFALL_ZH -> TtsModelConfig(
+                modelDir = "vits-icefall-zh-aishell3",
+                modelName = "model.onnx",
+                ruleFars = "vits-icefall-zh-aishell3/rule.far",
+                lexicon = "lexicon.txt",
+                description = "VITS Icefall Chinese AISHELL3 model"
+            )
+            
+            TtsModelType.MATCHA_ICEFALL_ZH -> TtsModelConfig(
+                modelDir = "matcha-icefall-zh-baker",
+                acousticModelName = "model-steps-3.onnx",
+                vocoder = "vocos-22khz-univ.onnx",
+                lexicon = "lexicon.txt",
+                dictDir = "matcha-icefall-zh-baker/dict",
+                description = "Matcha Icefall Chinese Baker model"
+            )
+            
+            TtsModelType.KOKORO_EN -> TtsModelConfig(
+                modelDir = "kokoro-en-v0_19",
+                modelName = "model.onnx",
+                voices = "voices.bin",
+                dataDir = "kokoro-en-v0_19/espeak-ng-data",
+                description = "Kokoro English model"
+            )
+            
+            TtsModelType.CUSTOM -> TtsModelConfig(
+                modelDir = "",
+                description = "Custom TTS model configuration"
+            )
+        }
+    }
+    
+    // ========== WAV Utilities (Diagnostics) ==========
+    
     /**
      * Simple WAV header parser for PCM 16-bit little-endian files.
      * Returns null if the input is not a valid PCM WAV.
-     */
-    data class WavInfo(
-        val sampleRate: Int,
-        val channels: Int,
-        val bitsPerSample: Int,
-        val dataOffset: Int,
-        val dataLength: Int
-    )
-
-    /**
-     * Try to parse a WAV header from the provided bytes.
      */
     fun tryParseWav(bytes: ByteArray): WavInfo? {
         if (bytes.size < 44) return null
@@ -411,12 +628,12 @@ object AudioUtil {
     /**
      * Save PCM16 data to a WAV file.
      */
-    fun savePcm16AsWav(file: java.io.File, pcm: ShortArray, sampleRate: Int, channels: Int = 1, bitsPerSample: Int = 16) {
+    fun savePcm16AsWav(file: File, pcm: ShortArray, sampleRate: Int, channels: Int = 1, bitsPerSample: Int = 16) {
         val byteRate = sampleRate * channels * (bitsPerSample / 8)
         val dataSize = pcm.size * 2
         val totalDataLen = 36 + dataSize
 
-        val header = java.nio.ByteBuffer.allocate(44).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
         // RIFF
         header.put('R'.code.toByte()).put('I'.code.toByte()).put('F'.code.toByte()).put('F'.code.toByte())
         header.putInt(totalDataLen)
@@ -434,11 +651,11 @@ object AudioUtil {
         header.put('d'.code.toByte()).put('a'.code.toByte()).put('t'.code.toByte()).put('a'.code.toByte())
         header.putInt(dataSize)
 
-        val fos = java.io.BufferedOutputStream(java.io.FileOutputStream(file))
+        val fos = file.outputStream().buffered()
         try {
             fos.write(header.array())
             // write little-endian samples
-            val buffer = java.nio.ByteBuffer.allocate(pcm.size * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            val buffer = ByteBuffer.allocate(pcm.size * 2).order(ByteOrder.LITTLE_ENDIAN)
             for (s in pcm) buffer.putShort(s)
             fos.write(buffer.array())
             fos.flush()
@@ -451,11 +668,11 @@ object AudioUtil {
      * Save a diagnostics WAV file under app files/diagnostics.
      * Returns the File if succeeded; null otherwise.
      */
-    fun saveDiagnosticsWav(context: Context, fileName: String, pcm: ShortArray, sampleRate: Int, channels: Int = 1): java.io.File? {
+    fun saveDiagnosticsWav(context: Context, fileName: String, pcm: ShortArray, sampleRate: Int, channels: Int = 1): File? {
         return try {
-            val dir = java.io.File(context.filesDir, "diagnostics")
+            val dir = File(context.filesDir, "diagnostics")
             if (!dir.exists()) dir.mkdirs()
-            val file = java.io.File(dir, fileName)
+            val file = File(dir, fileName)
             savePcm16AsWav(file, pcm, sampleRate, channels)
             file
         } catch (e: Exception) {
@@ -487,7 +704,7 @@ object AudioUtil {
         var result: Pair<FloatArray, Int> = if (isLikelyWav) {
             // Persist the bytes so WaveReader can read reliably
             val tmpName = "asr_input_${sessionId}_${System.currentTimeMillis()}.wav"
-            val wavFile = java.io.File(context.cacheDir, tmpName)
+            val wavFile = File(context.cacheDir, tmpName)
             kotlin.runCatching { wavFile.outputStream().use { it.write(audioBytes) } }
             try {
                 val waveData = WaveReader.readWave(wavFile.absolutePath)
@@ -574,6 +791,7 @@ object AudioUtil {
             var v = input[i]
             if (v > 1f) v = 1f
             if (v < -1f) v = -1f
+            // Use standard conversion with proper rounding
             out[i] = (v * 32767.0f).toInt().toShort()
         }
         return out
