@@ -13,9 +13,9 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Enhanced Configuration Manager - Improved version with flexibility and dynamic updates
+ * Configuration Manager - Manages runner configurations with flexibility and dynamic updates
  * 
- * Key Improvements:
+ * Key Features:
  * - Support for dynamic configuration updates
  * - Better error handling and fallback mechanisms
  * - Real-time configuration validation
@@ -24,12 +24,12 @@ import java.util.concurrent.ConcurrentHashMap
  * - Runtime configuration modification
  * - Better separation of concerns
  */
-class EnhancedConfigurationManager(
+class ConfigurationManager(
     private val context: Context,
     private val logger: Logger
 ) {
     companion object {
-        private const val TAG = "EnhancedConfigManager"
+        private const val TAG = "ConfigurationManager"
         private const val DEFAULT_CONFIG_FILE = "runner_config.json"
         private const val FALLBACK_CONFIG_FILE = "runner_config_fallback.json"
     }

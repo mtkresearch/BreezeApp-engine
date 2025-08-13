@@ -10,7 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
 import android.os.Build
-import com.mtkresearch.breezeapp.engine.core.ModelManagementCenter
+import com.mtkresearch.breezeapp.engine.core.ModelManager
 import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
 
 /**
@@ -150,11 +150,11 @@ class BreezeAppEngineService : Service() {
     /**
      * Check if a specific category of model is ready for inference
      */
-    fun isCategoryReadyForInference(category: ModelManagementCenter.ModelCategory): Boolean {
-        val modelCenter = ModelManagementCenter.getInstance(this)
-        return modelCenter.getDefaultModel(category)?.status in setOf(
-            ModelManagementCenter.ModelState.Status.DOWNLOADED,
-            ModelManagementCenter.ModelState.Status.READY
+    fun isCategoryReadyForInference(category: ModelManager.ModelCategory): Boolean {
+        val modelManager = ModelManager.getInstance(this)
+        return modelManager.getDefaultModel(category)?.status in setOf(
+            ModelManager.ModelState.Status.DOWNLOADED,
+            ModelManager.ModelState.Status.READY
         )
     }
     
@@ -259,28 +259,28 @@ class BreezeAppEngineService : Service() {
     }
 
     /**
-     * Ensures essential models are ready using the new ModelManagementCenter.
+     * Ensures essential models are ready using the new ModelManager.
      * Downloads LLM (Breeze2-3B-8W16A-250630-npu) and ASR (Breeze-ASR-25-onnx) models.
      */
     private fun ensureDefaultModelReadyWithLogging() {
-        val modelCenter = ModelManagementCenter.getInstance(this)
+        val modelManager = ModelManager.getInstance(this)
         
         // Set status manager for download progress updates
-        modelCenter.setStatusManager(serviceOrchestrator.getStatusManager())
+        modelManager.setStatusManager(serviceOrchestrator.getStatusManager())
         
         // Download essential categories: LLM and ASR
         val essentialCategories = listOf(
-            ModelManagementCenter.ModelCategory.LLM,
-            ModelManagementCenter.ModelCategory.ASR,
-            ModelManagementCenter.ModelCategory.TTS
+            ModelManager.ModelCategory.LLM,
+            ModelManager.ModelCategory.ASR,
+            ModelManager.ModelCategory.TTS
         )
         
         // Log which default models will be used
         essentialCategories.forEach { category ->
-            val defaultModel = modelCenter.getDefaultModel(category)
+            val defaultModel = modelManager.getDefaultModel(category)
             if (defaultModel != null) {
                 Log.i(TAG, "Default ${category.name} model: ${defaultModel.modelInfo.id}")
-                if (defaultModel.status == ModelManagementCenter.ModelState.Status.DOWNLOADED) {
+                if (defaultModel.status == ModelManager.ModelState.Status.DOWNLOADED) {
                     Log.i(TAG, "${category.name} model ${defaultModel.modelInfo.id} already downloaded")
                 }
             } else {
@@ -288,7 +288,7 @@ class BreezeAppEngineService : Service() {
             }
         }
         
-        modelCenter.downloadDefaultModels(essentialCategories, object : ModelManagementCenter.BulkDownloadListener {
+        modelManager.downloadDefaultModels(essentialCategories, object : ModelManager.BulkDownloadListener {
             override fun onModelCompleted(modelId: String, success: Boolean) {
                 if (success) {
                     Log.i(TAG, "Essential model $modelId download completed and ready.")
@@ -298,10 +298,10 @@ class BreezeAppEngineService : Service() {
                 
                 // Check if all essential models are ready
                 val allEssentialReady = essentialCategories.all { category ->
-                    val model = modelCenter.getDefaultModel(category)
+                    val model = modelManager.getDefaultModel(category)
                     val ready = model?.status in setOf(
-                        ModelManagementCenter.ModelState.Status.DOWNLOADED,
-                        ModelManagementCenter.ModelState.Status.READY
+                        ModelManager.ModelState.Status.DOWNLOADED,
+                        ModelManager.ModelState.Status.READY
                     )
                     Log.d(TAG, "${category.name} model ready: $ready (${model?.modelInfo?.id})")
                     ready
@@ -314,16 +314,16 @@ class BreezeAppEngineService : Service() {
             override fun onAllCompleted() {
                 // Only mark ready if all models are actually downloaded/ready
                 val essentialCategories = listOf(
-                    ModelManagementCenter.ModelCategory.LLM,
-                    ModelManagementCenter.ModelCategory.ASR,
-                    ModelManagementCenter.ModelCategory.TTS
+                    ModelManager.ModelCategory.LLM,
+                    ModelManager.ModelCategory.ASR,
+                    ModelManager.ModelCategory.TTS
                 )
                 
                 val allEssentialReady = essentialCategories.all { category ->
-                    val model = modelCenter.getDefaultModel(category)
+                    val model = modelManager.getDefaultModel(category)
                     model?.status in setOf(
-                        ModelManagementCenter.ModelState.Status.DOWNLOADED,
-                        ModelManagementCenter.ModelState.Status.READY
+                        ModelManager.ModelState.Status.DOWNLOADED,
+                        ModelManager.ModelState.Status.READY
                     )
                 }
                 

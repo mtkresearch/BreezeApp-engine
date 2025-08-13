@@ -10,14 +10,13 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URL
-import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Unified Model Manager - Consolidates ModelManagementCenter, ModelManager, ModelRegistry, ModelVersionStore
+ * Model Manager - Handles all model-related operations
  * 
- * Single unified class that handles all model-related operations:
+ * Single class that handles all model-related operations:
  * - Model registry and discovery
  * - Download management with progress tracking  
  * - Local storage and metadata management
@@ -25,21 +24,20 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - State management and notifications
  * 
  * Benefits:
- * - Eliminates code duplication across 4 separate classes
  * - Simplified API surface with clear responsibilities
  * - Better resource management and consistency
  * - Easier testing and maintenance
  */
-class UnifiedModelManager private constructor(
+class ModelManager private constructor(
     private val context: Context
 ) {
     companion object {
         @Volatile
-        private var INSTANCE: UnifiedModelManager? = null
+        private var INSTANCE: ModelManager? = null
         
-        fun getInstance(context: Context): UnifiedModelManager {
+        fun getInstance(context: Context): ModelManager {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: UnifiedModelManager(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: ModelManager(context.applicationContext).also { INSTANCE = it }
             }
         }
     }
@@ -379,7 +377,7 @@ class UnifiedModelManager private constructor(
                             type = f.optString("type", "model"),
                             urls = f.optJSONArray("urls")?.let { arr ->
                                 List(arr.length()) { arr.getString(it) }
-                            } ?: emptyList()
+                            }?.toList() ?: emptyList()
                         )
                     )
                 }
@@ -388,7 +386,7 @@ class UnifiedModelManager private constructor(
                 availableModels.add(
                     ModelInfo(
                         id = m.optString("id"),
-                        name = m.optString("name", m.optString("id")),
+                        name = m.optString("name", m.optString("id")).ifEmpty { m.optString("id") },
                         version = m.optString("version", ""),
                         runner = m.optString("runner"),
                         files = files,
@@ -708,7 +706,7 @@ class UnifiedModelManager private constructor(
                             group = f.optString("group", null),
                             pattern = f.optString("pattern", null),
                             type = f.optString("type", "model"),
-                            urls = urls
+                            urls = urls.toList()
                         )
                     )
                 }
@@ -716,7 +714,7 @@ class UnifiedModelManager private constructor(
                 result.add(
                     ModelInfo(
                         id = m.optString("id"),
-                        name = m.optString("name"),
+                        name = m.optString("name").ifEmpty { m.optString("id") },
                         version = m.optString("version", ""),
                         runner = m.optString("runner"),
                         files = files,
@@ -757,7 +755,7 @@ class UnifiedModelManager private constructor(
     
     data class DownloadHandle(
         val modelId: String,
-        private val manager: UnifiedModelManager
+        private val manager: ModelManager
     ) {
         fun cancel() = manager.cancelDownload(modelId)
         fun pause() = manager.pauseDownload(modelId)

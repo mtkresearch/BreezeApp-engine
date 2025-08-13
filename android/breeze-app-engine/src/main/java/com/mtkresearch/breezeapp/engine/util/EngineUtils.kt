@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  * This class consolidates functionality from multiple utility classes:
  * - Audio processing (TTS playback and ASR recording)
  * - Asset management (copying assets to internal/external storage)
- * - TTS model configuration
  * 
  * The goal is to reduce redundancy and provide a single point of access
  * for common engine operations.
@@ -38,32 +37,6 @@ object EngineUtils {
     private const val CHANNEL_CONFIG_IN = AudioFormat.CHANNEL_IN_MONO
     private const val AUDIO_FORMAT_ASR = AudioFormat.ENCODING_PCM_16BIT
     private const val AUDIO_SOURCE = MediaRecorder.AudioSource.MIC
-    
-    // TTS model types
-    enum class TtsModelType {
-        VITS_MR_20250709,       // Your custom model
-        VITS_MELO_ZH_EN,        // VITS MeloTTS model
-        VITS_PIPER_EN_US_AMY,   // English Piper model
-        VITS_ICEFALL_ZH,        // Chinese VITS model
-        MATCHA_ICEFALL_ZH,      // Chinese Matcha model
-        KOKORO_EN,              // English Kokoro model
-        CUSTOM                  // Custom configuration
-    }
-    
-    // TTS model configuration data class
-    data class TtsModelConfig(
-        val modelDir: String,
-        val modelName: String = "",
-        val acousticModelName: String = "",
-        val vocoder: String = "",
-        val voices: String = "",
-        val lexicon: String = "",
-        val dataDir: String = "",
-        val dictDir: String = "",
-        val ruleFsts: String = "",
-        val ruleFars: String = "",
-        val description: String = ""
-    )
     
     // WAV info data class
     data class WavInfo(
@@ -467,109 +440,6 @@ object EngineUtils {
         istream.close()
         ostream.flush()
         ostream.close()
-    }
-    
-    // ========== TTS Model Configuration Functions ==========
-    
-    /**
-     * Get predefined TTS model configuration
-     */
-    fun getTtsModelConfig(type: TtsModelType): TtsModelConfig {
-        return when (type) {
-            TtsModelType.VITS_MR_20250709 -> TtsModelConfig(
-                modelDir = "vits-mr-20250709",
-                modelName = "vits-mr-20250709.onnx",
-                lexicon = "lexicon.txt",
-                description = "VITS MR custom TTS model (2025-07-09)"
-            )
-            
-            TtsModelType.VITS_MELO_ZH_EN -> TtsModelConfig(
-                modelDir = "vits-melo-tts-zh_en",
-                modelName = "model.onnx",
-                lexicon = "lexicon.txt",
-                dictDir = "vits-melo-tts-zh_en/dict",
-                description = "VITS MeloTTS Chinese-English bilingual model"
-            )
-            
-            TtsModelType.VITS_PIPER_EN_US_AMY -> TtsModelConfig(
-                modelDir = "vits-piper-en_US-amy-low",
-                modelName = "en_US-amy-low.onnx",
-                dataDir = "vits-piper-en_US-amy-low/espeak-ng-data",
-                description = "VITS Piper English Amy voice"
-            )
-            
-            TtsModelType.VITS_ICEFALL_ZH -> TtsModelConfig(
-                modelDir = "vits-icefall-zh-aishell3",
-                modelName = "model.onnx",
-                ruleFars = "vits-icefall-zh-aishell3/rule.far",
-                lexicon = "lexicon.txt",
-                description = "VITS Icefall Chinese AISHELL3 model"
-            )
-            
-            TtsModelType.MATCHA_ICEFALL_ZH -> TtsModelConfig(
-                modelDir = "matcha-icefall-zh-baker",
-                acousticModelName = "model-steps-3.onnx",
-                vocoder = "vocos-22khz-univ.onnx",
-                lexicon = "lexicon.txt",
-                dictDir = "matcha-icefall-zh-baker/dict",
-                description = "Matcha Icefall Chinese Baker model"
-            )
-            
-            TtsModelType.KOKORO_EN -> TtsModelConfig(
-                modelDir = "kokoro-en-v0_19",
-                modelName = "model.onnx",
-                voices = "voices.bin",
-                dataDir = "kokoro-en-v0_19/espeak-ng-data",
-                description = "Kokoro English model"
-            )
-            
-            TtsModelType.CUSTOM -> TtsModelConfig(
-                modelDir = "",
-                description = "Custom TTS model configuration"
-            )
-        }
-    }
-    
-    /**
-     * Create OfflineTtsConfig from TTS model configuration
-     */
-    fun createOfflineTtsConfig(
-        context: Context,
-        modelConfig: TtsModelConfig,
-        useExternalStorage: Boolean = true
-    ): com.k2fsa.sherpa.onnx.OfflineTtsConfig? {
-        if (modelConfig.modelDir.isEmpty()) return null
-        
-        val baseDir = if (useExternalStorage) {
-            File(context.getExternalFilesDir(null), modelConfig.modelDir)
-        } else {
-            File(context.filesDir, modelConfig.modelDir)
-        }
-        
-        if (!baseDir.exists()) return null
-        
-        // Create the appropriate config based on model type
-        val modelPath = File(baseDir, modelConfig.modelName).absolutePath
-        val lexiconPath = if (modelConfig.lexicon.isNotEmpty()) File(baseDir, modelConfig.lexicon).absolutePath else ""
-        val dataDirPath = if (modelConfig.dataDir.isNotEmpty()) File(baseDir, modelConfig.dataDir).absolutePath else ""
-        val dictDirPath = if (modelConfig.dictDir.isNotEmpty()) File(baseDir, modelConfig.dictDir).absolutePath else ""
-        val voicesPath = if (modelConfig.voices.isNotEmpty()) File(baseDir, modelConfig.voices).absolutePath else ""
-        
-        return com.k2fsa.sherpa.onnx.OfflineTtsConfig(
-            model = com.k2fsa.sherpa.onnx.OfflineTtsModelConfig(
-                vits = com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig(
-                    model = modelPath,
-                    tokens = lexiconPath,
-                    dataDir = dataDirPath,
-                    dictDir = dictDirPath
-                ),
-                numThreads = 1,
-                debug = false,
-                provider = "cpu"
-            ),
-            ruleFsts = voicesPath,
-            maxNumSentences = 1
-        )
     }
     
     // ========== WAV Utilities (Diagnostics) ==========
