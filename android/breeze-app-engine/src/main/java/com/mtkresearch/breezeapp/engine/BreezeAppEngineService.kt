@@ -271,7 +271,8 @@ class BreezeAppEngineService : Service() {
         // Download essential categories: LLM and ASR
         val essentialCategories = listOf(
             ModelManagementCenter.ModelCategory.LLM,
-            ModelManagementCenter.ModelCategory.ASR
+            ModelManagementCenter.ModelCategory.ASR,
+            ModelManagementCenter.ModelCategory.TTS
         )
         
         // Log which default models will be used
@@ -311,8 +312,27 @@ class BreezeAppEngineService : Service() {
             }
             
             override fun onAllCompleted() {
-                Log.i(TAG, "All essential models (Breeze2 LLM + Breeze-ASR-25-onnx) ready for inference.")
-                isModelReady = true
+                // Only mark ready if all models are actually downloaded/ready
+                val essentialCategories = listOf(
+                    ModelManagementCenter.ModelCategory.LLM,
+                    ModelManagementCenter.ModelCategory.ASR,
+                    ModelManagementCenter.ModelCategory.TTS
+                )
+                
+                val allEssentialReady = essentialCategories.all { category ->
+                    val model = modelCenter.getDefaultModel(category)
+                    model?.status in setOf(
+                        ModelManagementCenter.ModelState.Status.DOWNLOADED,
+                        ModelManagementCenter.ModelState.Status.READY
+                    )
+                }
+                
+                if (allEssentialReady) {
+                    Log.i(TAG, "All essential models (Breeze2 LLM + Breeze-ASR-25-onnx + vits-mr-20250709) ready for inference.")
+                    isModelReady = true
+                } else {
+                    Log.w(TAG, "onAllCompleted called but not all models are ready yet.")
+                }
             }
         })
     }

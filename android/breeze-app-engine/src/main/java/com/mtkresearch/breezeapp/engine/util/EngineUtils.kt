@@ -530,6 +530,48 @@ object EngineUtils {
         }
     }
     
+    /**
+     * Create OfflineTtsConfig from TTS model configuration
+     */
+    fun createOfflineTtsConfig(
+        context: Context,
+        modelConfig: TtsModelConfig,
+        useExternalStorage: Boolean = true
+    ): com.k2fsa.sherpa.onnx.OfflineTtsConfig? {
+        if (modelConfig.modelDir.isEmpty()) return null
+        
+        val baseDir = if (useExternalStorage) {
+            File(context.getExternalFilesDir(null), modelConfig.modelDir)
+        } else {
+            File(context.filesDir, modelConfig.modelDir)
+        }
+        
+        if (!baseDir.exists()) return null
+        
+        // Create the appropriate config based on model type
+        val modelPath = File(baseDir, modelConfig.modelName).absolutePath
+        val lexiconPath = if (modelConfig.lexicon.isNotEmpty()) File(baseDir, modelConfig.lexicon).absolutePath else ""
+        val dataDirPath = if (modelConfig.dataDir.isNotEmpty()) File(baseDir, modelConfig.dataDir).absolutePath else ""
+        val dictDirPath = if (modelConfig.dictDir.isNotEmpty()) File(baseDir, modelConfig.dictDir).absolutePath else ""
+        val voicesPath = if (modelConfig.voices.isNotEmpty()) File(baseDir, modelConfig.voices).absolutePath else ""
+        
+        return com.k2fsa.sherpa.onnx.OfflineTtsConfig(
+            model = com.k2fsa.sherpa.onnx.OfflineTtsModelConfig(
+                vits = com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig(
+                    model = modelPath,
+                    tokens = lexiconPath,
+                    dataDir = dataDirPath,
+                    dictDir = dictDirPath
+                ),
+                numThreads = 1,
+                debug = false,
+                provider = "cpu"
+            ),
+            ruleFsts = voicesPath,
+            maxNumSentences = 1
+        )
+    }
+    
     // ========== WAV Utilities (Diagnostics) ==========
     
     /**

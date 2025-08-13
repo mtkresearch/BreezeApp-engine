@@ -7,7 +7,6 @@ import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaAsrRunner
-import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import com.mtkresearch.breezeapp.engine.core.ExceptionHandler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -52,37 +51,54 @@ class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStre
     }
 
     /**
-     * Initialize the Sherpa ONNX model using the official API functions
-     * Simplified to use existing functions from reference_api
+     * Initialize the Sherpa ONNX model using external storage configuration
+     * Following SherpaOfflineASRRunner pattern for consistency
      */
     private fun initModel() {
         Log.i(TAG, "Initializing model with type $modelType")
         
-        // Use official API functions directly
+        // Create online recognizer with external storage configuration
         val featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80)
-        val modelConfig = getModelConfig(type = modelType)
-            ?: throw IllegalArgumentException("Unsupported model type: $modelType")
-        val endpointConfig = getEndpointConfig()
-        val lmConfig = getOnlineLMConfig(type = modelType)
-
-        // Complete recognizer configuration following the official example
+        val modelConfig = createOnlineModelConfig(modelType)
+        
         val recognizerConfig = OnlineRecognizerConfig(
             featConfig = featConfig,
             modelConfig = modelConfig,
-            lmConfig = lmConfig,
             ctcFstDecoderConfig = OnlineCtcFstDecoderConfig(),
-            endpointConfig = endpointConfig,
             enableEndpoint = true,
             decodingMethod = "greedy_search",
             maxActivePaths = 4,
         )
 
-        recognizer = OnlineRecognizer(
-            assetManager = context.assets,
-            config = recognizerConfig,
-        )
+        recognizer = OnlineRecognizer(config = recognizerConfig)
         
         Log.i(TAG, "Model initialized successfully with type $modelType (${getModelDescription(modelType)})")
+    }
+    
+    /**
+     * Create online model configuration using external storage paths
+     * Models are loaded from context.filesDir/models/ directory (downloaded models)
+     */
+    private fun createOnlineModelConfig(type: Int): OnlineModelConfig {
+        val modelsDir = context.filesDir.absolutePath + "/models"
+        
+        return when (type) {
+            0 -> {
+                val modelDir = "$modelsDir/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20"
+                OnlineModelConfig(
+                    transducer = OnlineTransducerModelConfig(
+                        encoder = "$modelDir/encoder-epoch-99-avg-1.int8.onnx",
+                        decoder = "$modelDir/decoder-epoch-99-avg-1.onnx",
+                        joiner = "$modelDir/joiner-epoch-99-avg-1.int8.onnx"
+                    ),
+                    tokens = "$modelDir/tokens.txt",
+                    modelType = "zipformer"
+                )
+            }
+            else -> {
+                throw IllegalArgumentException("Unsupported online model type: $type")
+            }
+        }
     }
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {

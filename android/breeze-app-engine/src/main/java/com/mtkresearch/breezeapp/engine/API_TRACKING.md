@@ -108,23 +108,23 @@ This document tracks all APIs we've examined to ensure we don't have duplicate i
 | ModelManagementCenter | cleanupStorage() | Cleanup storage | Examined |
 | ModelManagementCenter | calculateTotalStorageUsed() | Calculate storage used | Examined |
 | ModelManagementCenter | getStorageUsageByCategory() | Get storage usage by category | Examined |
-| ModelManager | listAvailableModels() | List available models | Examined |
-| ModelManager | listDownloadedModels() | List downloaded models | Examined |
-| ModelManager | getCurrentModel() | Get current model | Examined |
-| ModelManager | downloadModel() | Download model | Examined |
-| ModelManager | switchModel() | Switch model | Examined |
-| ModelManager | deleteModel() | Delete model | Examined |
-| ModelManager | cleanupOldVersions() | Cleanup old versions | Examined |
-| ModelRegistry | listAllModels() | List all models | Examined |
-| ModelRegistry | getModelInfo() | Get model info | Examined |
-| ModelRegistry | filterByHardware() | Filter by hardware | Examined |
-| ModelVersionStore | getDownloadedModels() | Get downloaded models | Examined |
-| ModelVersionStore | getModelFiles() | Get model files | Examined |
-| ModelVersionStore | saveModelMetadata() | Save model metadata | Examined |
-| ModelVersionStore | removeModel() | Remove model | Examined |
-| ModelVersionStore | getCurrentModelId() | Get current model ID | Examined |
-| ModelVersionStore | setCurrentModelId() | Set current model ID | Examined |
-| ModelVersionStore | validateModelFiles() | Validate model files | Examined |
+| ~~ModelManager~~ | ~~listAvailableModels()~~ | ~~List available models~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelManager~~ | ~~listDownloadedModels()~~ | ~~List downloaded models~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelManager~~ | ~~getCurrentModel()~~ | ~~Get current model~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelManager~~ | ~~downloadModel()~~ | ~~Download model~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelManager~~ | ~~switchModel()~~ | ~~Switch model~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelManager~~ | ~~deleteModel()~~ | ~~Delete model~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelManager~~ | ~~cleanupOldVersions()~~ | ~~Cleanup old versions~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelRegistry~~ | ~~listAllModels()~~ | ~~List all models~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelRegistry~~ | ~~getModelInfo()~~ | ~~Get model info~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelRegistry~~ | ~~filterByHardware()~~ | ~~Filter by hardware~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelVersionStore~~ | ~~getDownloadedModels()~~ | ~~Get downloaded models~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelVersionStore~~ | ~~getModelFiles()~~ | ~~Get model files~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelVersionStore~~ | ~~saveModelMetadata()~~ | ~~Save model metadata~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelVersionStore~~ | ~~removeModel()~~ | ~~Remove model~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelVersionStore~~ | ~~getCurrentModelId()~~ | ~~Get current model ID~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelVersionStore~~ | ~~setCurrentModelId()~~ | ~~Set current model ID~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelVersionStore~~ | ~~validateModelFiles()~~ | ~~Validate model files~~ | **DELETED - Consolidated into UnifiedModelManager** |
 | SherpaLibraryManager | initializeCompleteSystem() | Initialize complete system | Examined |
 | SherpaLibraryManager | initializeGlobally() | Initialize globally | Examined |
 | SherpaLibraryManager | isLibraryReady() | Check library ready | Examined |
@@ -157,11 +157,11 @@ This document tracks all APIs we've examined to ensure we don't have duplicate i
 | AudioUtil | prepareAsrFloatSamples() | Prepare ASR float samples | Examined |
 | AudioUtil | resampleLinear() | Resample linear | Examined |
 | AudioUtil | floatToPcm16() | Convert float to PCM16 | Examined |
-| SherpaTtsConfigUtil | getTtsModelConfig() | Get TTS model config | Examined |
-| SherpaTtsConfigUtil | createOfflineTtsConfig() | Create offline TTS config | Examined |
-| SherpaTtsConfigUtil | createCustomConfig() | Create custom config | Examined |
-| SherpaTtsConfigUtil | getAllModelConfigs() | Get all model configs | Examined |
-| SherpaTtsConfigUtil | validateModelAssets() | Validate model assets | Examined |
+| ~~SherpaTtsConfigUtil~~ | ~~getTtsModelConfig()~~ | ~~Get TTS model config~~ | **DELETED - Consolidated into EngineUtils** |
+| ~~SherpaTtsConfigUtil~~ | ~~createOfflineTtsConfig()~~ | ~~Create offline TTS config~~ | **DELETED - Consolidated into EngineUtils** |
+| ~~SherpaTtsConfigUtil~~ | ~~createCustomConfig()~~ | ~~Create custom config~~ | **DELETED - Consolidated into EngineUtils** |
+| ~~SherpaTtsConfigUtil~~ | ~~getAllModelConfigs()~~ | ~~Get all model configs~~ | **DELETED - Consolidated into EngineUtils** |
+| ~~SherpaTtsConfigUtil~~ | ~~validateModelAssets()~~ | ~~Validate model assets~~ | **DELETED - Consolidated into EngineUtils** |
 | AssetCopyUtil | copyAssetsToExternalFiles() | Copy assets to external files | Examined |
 | AssetCopyUtil | copyAssetsToInternalFiles() | Copy assets to internal files | Examined |
 | EngineServiceBinder | getBinder() | Get binder | Examined |
@@ -178,10 +178,10 @@ This document tracks all APIs we've examined to ensure we don't have duplicate i
 | ClientManager | isClientTimeoutReached() | Check client timeout | Examined |
 | ClientManager | updateClientActivity() | Update client activity | Examined |
 | ClientManager | cleanup() | Cleanup resources | Examined |
-| ModelDownloader | listAvailableModels() | List available models | Examined |
-| ModelDownloader | getModelInfo() | Get model info | Examined |
-| ModelDownloader | downloadModel() | Download model | Examined |
-| ModelDownloader | downloadDefaultModel() | Download default model | Examined |
+| ~~ModelDownloader~~ | ~~listAvailableModels()~~ | ~~List available models~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelDownloader~~ | ~~getModelInfo()~~ | ~~Get model info~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelDownloader~~ | ~~downloadModel()~~ | ~~Download model~~ | **DELETED - Consolidated into UnifiedModelManager** |
+| ~~ModelDownloader~~ | ~~downloadDefaultModel()~~ | ~~Download default model~~ | **DELETED - Consolidated into UnifiedModelManager** |
 | TtsTestUtil | runComprehensiveTest() | Run comprehensive test | Examined |
 | TtsTestUtil | runQuickTest() | Run quick test | Examined |
 | SherpaTTSRunner | run() | Run TTS | Examined |
@@ -204,8 +204,8 @@ This document tracks all APIs we've examined to ensure we don't have duplicate i
 | BreezeAppEngineLauncherActivity | checkNotificationPermissionAndStartService() | Check notification permission | Examined |
 | BreezeAppEngineLauncherActivity | startBreezeAppEngineService() | Start engine service | Examined |
 | ConfigurationManager | loadAndRegisterRunners() | Load and register runners | Examined |
-| DownloadModelUseCase | ensureDefaultModelReady() | Ensure default model ready | Examined |
-| DownloadModelUseCase | downloadModel() | Download model | Examined |
+| ~~DownloadModelUseCase~~ | ~~ensureDefaultModelReady()~~ | ~~Ensure default model ready~~ | **DELETED - Functionality moved to UnifiedModelManager** |
+| ~~DownloadModelUseCase~~ | ~~downloadModel()~~ | ~~Download model~~ | **DELETED - Functionality moved to UnifiedModelManager** |
 | Logger | d() | Debug log | Examined |
 | Logger | w() | Warning log | Examined |
 | Logger | e() | Error log | Examined |
@@ -217,3 +217,27 @@ This document tracks all APIs we've examined to ensure we don't have duplicate i
 | EngineConstants | Service | Service constants | Examined |
 | EngineConstants | Model | Model constants | Examined |
 | EngineConstants | ErrorCodes | Error codes | Examined |
+
+## NEW CONSOLIDATED COMPONENTS
+
+| Class | Method | Purpose | Status |
+|-------|--------|---------|--------|
+| **UnifiedModelManager** | getInstance() | Get singleton instance | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **UnifiedModelManager** | discoverModels() | Discover available models | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **UnifiedModelManager** | getAvailableModels() | Get available models by category | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **UnifiedModelManager** | downloadModel() | Download model with progress tracking | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **UnifiedModelManager** | deleteModel() | Delete model and cleanup | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **UnifiedModelManager** | getModelState() | Get current model state | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **UnifiedModelManager** | validateModelIntegrity() | Validate model file integrity | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **UnifiedModelManager** | getStorageUsage() | Get storage usage statistics | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **UnifiedModelManager** | cleanupStorage() | Cleanup storage and orphaned files | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **UnifiedModelManager** | observeModelStates() | Observe model state changes via StateFlow | **NEW - Consolidates ModelManager, ModelRegistry, ModelVersionStore** |
+| **EnhancedConfigurationManager** | getInstance() | Get singleton instance | **NEW - Enhanced configuration management** |
+| **EnhancedConfigurationManager** | loadConfiguration() | Load configuration from multiple sources | **NEW - Enhanced configuration management** |
+| **EnhancedConfigurationManager** | updateConfiguration() | Update configuration dynamically | **NEW - Enhanced configuration management** |
+| **EnhancedConfigurationManager** | observeConfigurationState() | Observe configuration changes via StateFlow | **NEW - Enhanced configuration management** |
+| **EnhancedConfigurationManager** | registerConfigurationSource() | Register plugin-based configuration source | **NEW - Enhanced configuration management** |
+| **EngineUtils** | getTtsModelConfig() | Get TTS model configuration | **CONSOLIDATED - From SherpaTtsConfigUtil** |
+| **EngineUtils** | createOfflineTtsConfig() | Create offline TTS configuration | **CONSOLIDATED - From SherpaTtsConfigUtil** |
+| **EngineUtils** | validateModelAssets() | Validate model assets | **CONSOLIDATED - From SherpaTtsConfigUtil** |
+| **EngineUtils** | getAllModelConfigs() | Get all available model configurations | **CONSOLIDATED - From SherpaTtsConfigUtil** |
