@@ -4,8 +4,10 @@ import android.content.Context
 import android.content.res.AssetManager
 import com.mtkresearch.breezeapp.engine.core.Logger
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerConfigurationManager
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
 import io.mockk.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
 import org.junit.After
@@ -15,7 +17,7 @@ import org.junit.Test
 import java.io.ByteArrayInputStream
 
 /**
- * Comprehensive tests for EnhancedConfigurationManager
+ * Comprehensive tests for RunnerConfigurationManager
  * 
  * Tests the enhanced configuration functionality including:
  * - Dynamic configuration loading
@@ -25,13 +27,13 @@ import java.io.ByteArrayInputStream
  * - Multiple configuration sources
  */
 @ExperimentalCoroutinesApi
-class EnhancedConfigurationManagerTest {
+class RunnerConfigurationManagerTest {
 
     private lateinit var context: Context
     private lateinit var assetManager: AssetManager
     private lateinit var logger: Logger
     private lateinit var runnerRegistry: RunnerRegistry
-    private lateinit var configManager: EnhancedConfigurationManager
+    private lateinit var configManager: RunnerConfigurationManager
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -48,7 +50,7 @@ class EnhancedConfigurationManagerTest {
 
         Dispatchers.setMain(testDispatcher)
 
-        configManager = EnhancedConfigurationManager(context, logger)
+        configManager = RunnerConfigurationManager(context, logger)
     }
 
     @After
@@ -62,7 +64,7 @@ class EnhancedConfigurationManagerTest {
         // Initial state should be Loading
         val initialState = configManager.configurationState.value
         assertTrue("Initial state should be Loading", 
-            initialState is EnhancedConfigurationManager.ConfigurationState.Loading)
+            initialState is RunnerConfigurationManager.ConfigurationState.Loading)
     }
 
     @Test
@@ -93,7 +95,7 @@ class EnhancedConfigurationManagerTest {
         
         val finalState = configManager.configurationState.value
         assertTrue("Final state should be Ready", 
-            finalState is EnhancedConfigurationManager.ConfigurationState.Ready)
+            finalState is RunnerConfigurationManager.ConfigurationState.Ready)
     }
 
     @Test
@@ -186,7 +188,7 @@ class EnhancedConfigurationManagerTest {
         
         val finalState = configManager.configurationState.value
         assertTrue("Final state should be Error", 
-            finalState is EnhancedConfigurationManager.ConfigurationState.Error)
+            finalState is RunnerConfigurationManager.ConfigurationState.Error)
     }
 
     @Test
@@ -371,7 +373,7 @@ class EnhancedConfigurationManagerTest {
     @Test
     fun `test custom configuration source`() = runTest {
         // Create a custom configuration source
-        val customSource = object : EnhancedConfigurationManager.ConfigurationSource {
+        val customSource = object : RunnerConfigurationManager.ConfigurationSource {
             override val name = "CustomTest"
             override suspend fun loadConfiguration(): String = """
             {
@@ -416,7 +418,7 @@ class EnhancedConfigurationManagerTest {
         
         val finalState = configManager.configurationState.value
         assertTrue("Final state should be Error", 
-            finalState is EnhancedConfigurationManager.ConfigurationState.Error)
+            finalState is RunnerConfigurationManager.ConfigurationState.Error)
     }
 
     @Test

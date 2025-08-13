@@ -5,6 +5,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
@@ -13,18 +16,20 @@ import androidx.core.content.ContextCompat
 import com.mtkresearch.breezeapp.engine.model.PermissionState
 
 /**
- * Permission Manager - Unified permission management
+ * Permission Manager - Unified permission and audio focus management
  * 
- * This class handles all required permissions for the BreezeApp Engine:
+ * This class handles all required permissions and audio focus for the BreezeApp Engine:
  * - Notification permission (Android 13+)
  * - Microphone permission (for ASR)
  * - Overlay permission (for breathing border)
+ * - Audio focus management (for microphone recording)
  * 
  * Responsibilities:
  * - Check permission status
  * - Request permissions with rationale
  * - Handle permission results
- * - Provide permission state updates
+ * - Manage audio focus for recording
+ * - Provide unified permission state updates
  */
 class PermissionManager(private val context: Context) {
     
@@ -35,6 +40,33 @@ class PermissionManager(private val context: Context) {
         const val OVERLAY_PERMISSION_REQUEST_CODE = 1003
         private const val PERMISSION_POST_NOTIFICATIONS = Manifest.permission.POST_NOTIFICATIONS
         private const val PERMISSION_RECORD_AUDIO = Manifest.permission.RECORD_AUDIO
+    }
+    
+    // Audio management
+    private val audioManager: AudioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private var hasAudioFocus: Boolean = false
+    
+    // Audio focus change listener
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                hasAudioFocus = true
+                Log.d(TAG, "AUDIOFOCUS_GAIN: Acquired audio focus")
+            }
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                hasAudioFocus = false
+                Log.w(TAG, "AUDIOFOCUS_LOSS: Lost audio focus permanently")
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                hasAudioFocus = false
+                Log.w(TAG, "AUDIOFOCUS_LOSS_TRANSIENT: Lost audio focus temporarily")
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                hasAudioFocus = false
+                Log.w(TAG, "AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK: Lost audio focus, can duck")
+            }
+        }
     }
     
     /**
@@ -68,6 +100,13 @@ class PermissionManager(private val context: Context) {
      */
     fun isOverlayPermissionGranted(): Boolean {
         return Settings.canDrawOverlays(context)
+    }
+    
+    /**
+     * Checks if audio focus is currently granted
+     */
+    fun hasAudioFocus(): Boolean {
+        return hasAudioFocus
     }
     
     /**
@@ -139,6 +178,77 @@ class PermissionManager(private val context: Context) {
             android.net.Uri.parse("package:${context.packageName}")
         )
         activity.startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE)
+    }
+    
+    /**
+     * Requests audio focus for microphone recording
+     */
+    fun requestAudioFocus(): Boolean {
+        return try {
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+                
+            val focusRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(audioAttributes)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                    .build()
+            } else {
+                // For older Android versions, we'll create a temporary request object
+                null
+            }
+            
+            val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                audioManager.requestAudioFocus(focusRequest!!)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(
+                    audioFocusChangeListener,
+                    AudioManager.STREAM_VOICE_CALL,
+                    AudioManager.AUDIOFOCUS_GAIN
+                )
+            }
+            
+            if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                hasAudioFocus = true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    this.audioFocusRequest = focusRequest
+                }
+                Log.i(TAG, "Audio focus granted for microphone access")
+                true
+            } else {
+                hasAudioFocus = false
+                Log.w(TAG, "Audio focus request denied for microphone access")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error requesting audio focus", e)
+            false
+        }
+    }
+    
+    /**
+     * Abandons audio focus
+     */
+    fun abandonAudioFocus() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                audioFocusRequest?.let { request ->
+                    audioManager.abandonAudioFocusRequest(request)
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.abandonAudioFocus(audioFocusChangeListener)
+            }
+            hasAudioFocus = false
+            audioFocusRequest = null
+            Log.d(TAG, "Audio focus abandoned")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error abandoning audio focus", e)
+        }
     }
     
     /**

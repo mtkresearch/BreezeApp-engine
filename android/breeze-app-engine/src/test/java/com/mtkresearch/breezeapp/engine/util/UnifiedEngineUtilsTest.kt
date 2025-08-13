@@ -35,7 +35,7 @@ class UnifiedEngineUtilsTest {
         assertNotNull("EngineUtils should provide audio processing capabilities", EngineUtils)
         
         // Test TTS model configuration
-        val ttsConfig = EngineUtils.getTtsModelConfig(EngineUtils.TtsModelType.VITS_MR_20250709)
+        val ttsConfig = SherpaTtsConfigUtil.getTtsModelConfig(SherpaTtsConfigUtil.TtsModelType.VITS_MR_20250709)
         assertNotNull("EngineUtils should provide TTS model configuration", ttsConfig)
         assertEquals("TTS model directory should match", "vits-mr-20250709", ttsConfig.modelDir)
         
@@ -66,12 +66,12 @@ class UnifiedEngineUtilsTest {
         assertNotNull("EngineUtils should provide asset management capabilities", EngineUtils)
         
         // Test TTS model configurations
-        val allConfigs = EngineUtils.TtsModelType.values().filter { it != EngineUtils.TtsModelType.CUSTOM }
+        val allConfigs = SherpaTtsConfigUtil.TtsModelType.values().filter { it != SherpaTtsConfigUtil.TtsModelType.CUSTOM }
         assertTrue("Should have multiple TTS model configurations", allConfigs.isNotEmpty())
         
         // Test getting specific configurations
         allConfigs.forEach { type ->
-            val config = EngineUtils.getTtsModelConfig(type)
+            val config = SherpaTtsConfigUtil.getTtsModelConfig(type)
             assertNotNull("Model config for $type should not be null", config)
             assertFalse("Model directory should not be empty for $type", config.modelDir.isEmpty())
         }

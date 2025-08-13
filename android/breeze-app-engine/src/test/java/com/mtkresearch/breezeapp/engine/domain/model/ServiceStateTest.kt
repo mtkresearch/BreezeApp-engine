@@ -1,6 +1,8 @@
 package com.mtkresearch.breezeapp.engine.domain.model
 
 import com.mtkresearch.breezeapp.engine.R
+import com.mtkresearch.breezeapp.engine.model.NotificationPriority
+import com.mtkresearch.breezeapp.engine.model.ServiceState
 import org.junit.Test
 import org.junit.Assert.*
 

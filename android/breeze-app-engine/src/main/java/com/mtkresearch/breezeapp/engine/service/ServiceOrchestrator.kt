@@ -1,7 +1,6 @@
 package com.mtkresearch.breezeapp.engine.service
 
 import android.content.Context
-import android.media.AudioManager
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.core.BreezeAppEngineConfigurator
 import com.mtkresearch.breezeapp.engine.core.BreezeAppEngineStatusManager
@@ -9,6 +8,7 @@ import com.mtkresearch.breezeapp.engine.system.BreathingBorderManager
 import com.mtkresearch.breezeapp.engine.system.VisualStateManager
 import com.mtkresearch.breezeapp.engine.system.NotificationManager
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
+import com.mtkresearch.breezeapp.engine.system.PermissionManager
 import com.mtkresearch.breezeapp.engine.model.ServiceState
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.ConcurrentHashMap
@@ -37,6 +37,7 @@ class ServiceOrchestrator(private val context: Context) {
     private lateinit var notificationManager: NotificationManager
     private lateinit var breathingBorderManager: BreathingBorderManager
     private lateinit var visualStateManager: VisualStateManager
+    private lateinit var permissionManager: PermissionManager
     
     // Clean Architecture Components
     private lateinit var clientManager: ClientManager
@@ -44,42 +45,12 @@ class ServiceOrchestrator(private val context: Context) {
     private lateinit var engineServiceBinder: EngineServiceBinder
     private lateinit var engineCore: BreezeAppEngineCore
     
-    // Audio management
-    private lateinit var audioManager: AudioManager
-    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
-        when (focusChange) {
-            AudioManager.AUDIOFOCUS_GAIN -> {
-                hasAudioFocus = true
-                Log.d(TAG, "AUDIOFOCUS_GAIN: Acquired audio focus")
-                // Resume microphone recording if it was paused
-            }
-            AudioManager.AUDIOFOCUS_LOSS -> {
-                hasAudioFocus = false
-                Log.w(TAG, "AUDIOFOCUS_LOSS: Lost audio focus permanently")
-                // Stop microphone recording permanently
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                hasAudioFocus = false
-                Log.w(TAG, "AUDIOFOCUS_LOSS_TRANSIENT: Lost audio focus temporarily")
-                // Pause microphone recording temporarily
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                hasAudioFocus = false
-                Log.w(TAG, "AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK: Lost audio focus, can duck")
-                // Lower microphone volume but continue recording
-            }
-        }
-    }
-    
     // Request tracking
     private val activeRequestCount = AtomicInteger(0)
     private val requestTracker = ConcurrentHashMap<String, Long>()
     
     // Service type tracking
     private var currentServiceType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-    
-    // Audio focus tracking
-    private var hasAudioFocus = false
     
     /**
      * Initializes all service components
@@ -153,25 +124,12 @@ class ServiceOrchestrator(private val context: Context) {
             // Update service type to include microphone
             updateForegroundServiceType(true)
             
-            // Request audio focus with proper attributes for microphone recording
-            val audioAttributes = android.media.AudioAttributes.Builder()
-                .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build()
-                
-            val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                .setAudioAttributes(audioAttributes)
-                .setAcceptsDelayedFocusGain(true)
-                .setOnAudioFocusChangeListener(audioFocusChangeListener)
-                .build()
-
-            val result = audioManager.requestAudioFocus(focusRequest)
-
-            if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                hasAudioFocus = true
+            // Request audio focus through PermissionManager
+            val focusGranted = permissionManager.requestAudioFocus()
+            
+            if (focusGranted) {
                 Log.i(TAG, "Audio focus granted for microphone access")
             } else {
-                hasAudioFocus = false
                 Log.w(TAG, "Audio focus request denied for microphone access")
             }
             
@@ -201,22 +159,8 @@ class ServiceOrchestrator(private val context: Context) {
             // Cleanup visual components
             visualStateManager.cleanup()
             
-            // Abandon audio focus
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                val audioAttributes = android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-                    
-                val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(audioAttributes)
-                    .setOnAudioFocusChangeListener(audioFocusChangeListener)
-                    .build()
-                    
-                audioManager.abandonAudioFocusRequest(focusRequest)
-            } else {
-                audioManager.abandonAudioFocus(audioFocusChangeListener)
-            }
+            // Abandon audio focus through PermissionManager
+            permissionManager.abandonAudioFocus()
             
             Log.d(TAG, "Service orchestrator cleaned up successfully")
             
@@ -249,8 +193,8 @@ class ServiceOrchestrator(private val context: Context) {
         notificationManager = NotificationManager(context)
         notificationManager.createNotificationChannel()
         
-        // Initialize audio manager
-        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        // Initialize permission manager (includes audio management)
+        permissionManager = PermissionManager(context)
         
         // Initialize breathing border manager
         breathingBorderManager = BreathingBorderManager(context)

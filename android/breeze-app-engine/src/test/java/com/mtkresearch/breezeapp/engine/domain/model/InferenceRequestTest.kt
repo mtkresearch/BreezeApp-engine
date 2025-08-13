@@ -1,5 +1,6 @@
 package com.mtkresearch.breezeapp.engine.domain.model
 
+import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import org.junit.Test
 import org.junit.Assert.*
 

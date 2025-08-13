@@ -5,6 +5,7 @@ import android.content.res.AssetManager
 import com.mtkresearch.breezeapp.engine.model.ModelFile
 import com.mtkresearch.breezeapp.engine.model.ModelInfo
 import io.mockk.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
 import org.junit.After
@@ -15,7 +16,7 @@ import java.io.ByteArrayInputStream
 import java.io.File
 
 /**
- * Comprehensive tests for UnifiedModelManager
+ * Comprehensive tests for ModelManager
  * 
  * Tests the consolidated model management functionality that replaces:
  * - ModelManagementCenter
@@ -24,14 +25,14 @@ import java.io.File
  * - ModelVersionStore
  */
 @ExperimentalCoroutinesApi
-class UnifiedModelManagerTest {
+class ModelManagerTest {
 
     private lateinit var context: Context
     private lateinit var assetManager: AssetManager
     private lateinit var filesDir: File
     private lateinit var modelsDir: File
     private lateinit var metadataFile: File
-    private lateinit var unifiedManager: UnifiedModelManager
+    private lateinit var modelManager: ModelManager
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -94,7 +95,7 @@ class UnifiedModelManagerTest {
         Dispatchers.setMain(testDispatcher)
 
         // Initialize the manager
-        unifiedManager = UnifiedModelManager.getInstance(context)
+        modelManager = ModelManager.getInstance(context)
     }
 
     @After
@@ -103,7 +104,7 @@ class UnifiedModelManagerTest {
         filesDir.deleteRecursively()
         
         // Clear singleton instance for clean tests
-        UnifiedModelManager::class.java.getDeclaredField("INSTANCE").apply {
+        ModelManager::class.java.getDeclaredField("INSTANCE").apply {
             isAccessible = true
             set(null, null)
         }
@@ -111,16 +112,16 @@ class UnifiedModelManagerTest {
 
     @Test
     fun `test singleton pattern`() {
-        val instance1 = UnifiedModelManager.getInstance(context)
-        val instance2 = UnifiedModelManager.getInstance(context)
+        val instance1 = ModelManager.getInstance(context)
+        val instance2 = ModelManager.getInstance(context)
         
         assertSame("Should return same singleton instance", instance1, instance2)
     }
 
     @Test
     fun `test model category determination`() {
-        val availableModels = unifiedManager.getAvailableModels(UnifiedModelManager.ModelCategory.LLM)
-        val asrModels = unifiedManager.getAvailableModels(UnifiedModelManager.ModelCategory.ASR)
+        val availableModels = modelManager.getAvailableModels(ModelManager.ModelCategory.LLM)
+        val asrModels = modelManager.getAvailableModels(ModelManager.ModelCategory.ASR)
         
         assertEquals("Should find 1 LLM model", 1, availableModels.size)
         assertEquals("Should find 1 ASR model", 1, asrModels.size)
@@ -131,33 +132,33 @@ class UnifiedModelManagerTest {
 
     @Test
     fun `test model states initialization`() = runTest {
-        val allStates = unifiedManager.modelStates.value
+        val allStates = modelManager.modelStates.value
         
         assertEquals("Should have 2 models loaded", 2, allStates.size)
         
         allStates.values.forEach { state ->
             assertEquals("All models should be available initially", 
-                UnifiedModelManager.ModelState.Status.AVAILABLE, state.status)
+                ModelManager.ModelState.Status.AVAILABLE, state.status)
             assertEquals("Storage size should be 0 for undownloaded models", 0L, state.storageSize)
         }
     }
 
     @Test
     fun `test models by category organization`() {
-        val modelsByCategory = unifiedManager.getModelsByCategory()
+        val modelsByCategory = modelManager.getModelsByCategory()
         
-        assertTrue("Should have LLM category", modelsByCategory.containsKey(UnifiedModelManager.ModelCategory.LLM))
-        assertTrue("Should have ASR category", modelsByCategory.containsKey(UnifiedModelManager.ModelCategory.ASR))
+        assertTrue("Should have LLM category", modelsByCategory.containsKey(ModelManager.ModelCategory.LLM))
+        assertTrue("Should have ASR category", modelsByCategory.containsKey(ModelManager.ModelCategory.ASR))
         
-        assertEquals("Should have 1 LLM model", 1, modelsByCategory[UnifiedModelManager.ModelCategory.LLM]?.size)
-        assertEquals("Should have 1 ASR model", 1, modelsByCategory[UnifiedModelManager.ModelCategory.ASR]?.size)
+        assertEquals("Should have 1 LLM model", 1, modelsByCategory[ModelManager.ModelCategory.LLM]?.size)
+        assertEquals("Should have 1 ASR model", 1, modelsByCategory[ModelManager.ModelCategory.ASR]?.size)
     }
 
     @Test
     fun `test downloaded models filtering`() {
         // Initially no models should be downloaded
-        val downloadedLLM = unifiedManager.getDownloadedModels(UnifiedModelManager.ModelCategory.LLM)
-        val downloadedASR = unifiedManager.getDownloadedModels(UnifiedModelManager.ModelCategory.ASR)
+        val downloadedLLM = modelManager.getDownloadedModels(ModelManager.ModelCategory.LLM)
+        val downloadedASR = modelManager.getDownloadedModels(ModelManager.ModelCategory.ASR)
         
         assertEquals("No LLM models should be downloaded initially", 0, downloadedLLM.size)
         assertEquals("No ASR models should be downloaded initially", 0, downloadedASR.size)
@@ -165,24 +166,24 @@ class UnifiedModelManagerTest {
 
     @Test
     fun `test model state retrieval by ID`() {
-        val llmState = unifiedManager.getModelState("test-llm-model")
-        val asrState = unifiedManager.getModelState("test-asr-model")
-        val nonExistentState = unifiedManager.getModelState("non-existent")
+        val llmState = modelManager.getModelState("test-llm-model")
+        val asrState = modelManager.getModelState("test-asr-model")
+        val nonExistentState = modelManager.getModelState("non-existent")
         
         assertNotNull("LLM model state should exist", llmState)
         assertNotNull("ASR model state should exist", asrState)
         assertNull("Non-existent model state should be null", nonExistentState)
         
         assertEquals("LLM model should have correct category", 
-            UnifiedModelManager.ModelCategory.LLM, llmState?.category)
+            ModelManager.ModelCategory.LLM, llmState?.category)
         assertEquals("ASR model should have correct category", 
-            UnifiedModelManager.ModelCategory.ASR, asrState?.category)
+            ModelManager.ModelCategory.ASR, asrState?.category)
     }
 
     @Test
     fun `test storage calculation`() {
         // Initially should be 0
-        assertEquals("Initial storage should be 0", 0L, unifiedManager.calculateTotalStorageUsed())
+        assertEquals("Initial storage should be 0", 0L, modelManager.calculateTotalStorageUsed())
         
         // Create a mock downloaded model file
         val testModelDir = File(modelsDir, "test-model")
@@ -190,18 +191,18 @@ class UnifiedModelManagerTest {
         val testFile = File(testModelDir, "test.bin")
         testFile.writeBytes(ByteArray(1024)) // 1KB file
         
-        assertEquals("Storage should reflect file size", 1024L, unifiedManager.calculateTotalStorageUsed())
+        assertEquals("Storage should reflect file size", 1024L, modelManager.calculateTotalStorageUsed())
     }
 
     @Test
     fun `test storage usage by category`() {
-        val storageByCategory = unifiedManager.getStorageUsageByCategory()
+        val storageByCategory = modelManager.getStorageUsageByCategory()
         
         // Initially all categories should have 0 storage
         assertEquals("LLM storage should be 0 initially", 0L, 
-            storageByCategory[UnifiedModelManager.ModelCategory.LLM] ?: 0L)
+            storageByCategory[ModelManager.ModelCategory.LLM] ?: 0L)
         assertEquals("ASR storage should be 0 initially", 0L, 
-            storageByCategory[UnifiedModelManager.ModelCategory.ASR] ?: 0L)
+            storageByCategory[ModelManager.ModelCategory.ASR] ?: 0L)
     }
 
     @Test
@@ -212,9 +213,9 @@ class UnifiedModelManagerTest {
         tempFile1.writeBytes(ByteArray(512))
         tempFile2.writeBytes(ByteArray(256))
         
-        val initialSize = unifiedManager.calculateTotalStorageUsed()
-        val cleanupResult = unifiedManager.cleanupStorage()
-        val finalSize = unifiedManager.calculateTotalStorageUsed()
+        val initialSize = modelManager.calculateTotalStorageUsed()
+        val cleanupResult = modelManager.cleanupStorage()
+        val finalSize = modelManager.calculateTotalStorageUsed()
         
         assertTrue("Should have freed some space", cleanupResult.spaceFreed >= 0)
         assertEquals("Temp files should be removed", 768L, cleanupResult.tempFilesRemoved)
@@ -225,7 +226,7 @@ class UnifiedModelManagerTest {
     fun `test status manager integration`() {
         val mockStatusManager = mockk<BreezeAppEngineStatusManager>(relaxed = true)
         
-        unifiedManager.setStatusManager(mockStatusManager)
+        modelManager.setStatusManager(mockStatusManager)
         
         // Verify status manager is set (would be tested through download operations)
         // This is a basic integration test
@@ -234,7 +235,7 @@ class UnifiedModelManagerTest {
 
     @Test
     fun `test download listener interface compatibility`() {
-        val mockListener = mockk<UnifiedModelManager.DownloadListener>(relaxed = true)
+        val mockListener = mockk<ModelManager.DownloadListener>(relaxed = true)
         
         // Test that all listener methods can be called without errors
         mockListener.onProgress("test", 50, 1000L, 60L)
@@ -253,7 +254,7 @@ class UnifiedModelManagerTest {
 
     @Test
     fun `test bulk download listener interface compatibility`() {
-        val mockBulkListener = mockk<UnifiedModelManager.BulkDownloadListener>(relaxed = true)
+        val mockBulkListener = mockk<ModelManager.BulkDownloadListener>(relaxed = true)
         
         mockBulkListener.onModelCompleted("test", true)
         mockBulkListener.onAllCompleted()
@@ -264,7 +265,7 @@ class UnifiedModelManagerTest {
 
     @Test
     fun `test download handle functionality`() {
-        val handle = UnifiedModelManager.DownloadHandle("test-model", unifiedManager)
+        val handle = ModelManager.DownloadHandle("test-model", modelManager)
         
         // Test handle methods don't throw exceptions
         assertDoesNotThrow { handle.cancel() }
@@ -277,13 +278,13 @@ class UnifiedModelManagerTest {
     @Test
     fun `test model info loading from assets`() {
         // Verify that models are loaded correctly from the mock JSON
-        val allModels = unifiedManager.getModelsByCategory()
+        val allModels = modelManager.getModelsByCategory()
         val flattenedModels = allModels.values.flatten()
         
         assertEquals("Should load 2 models from assets", 2, flattenedModels.size)
         
-        val llmModel = flattenedModels.find { it.category == UnifiedModelManager.ModelCategory.LLM }
-        val asrModel = flattenedModels.find { it.category == UnifiedModelManager.ModelCategory.ASR }
+        val llmModel = flattenedModels.find { it.category == ModelManager.ModelCategory.LLM }
+        val asrModel = flattenedModels.find { it.category == ModelManager.ModelCategory.ASR }
         
         assertNotNull("LLM model should be loaded", llmModel)
         assertNotNull("ASR model should be loaded", asrModel)
@@ -308,7 +309,7 @@ class UnifiedModelManagerTest {
         
         // Should handle gracefully without crashing
         assertDoesNotThrow {
-            UnifiedModelManager.getInstance(contextWithBadJson)
+            ModelManager.getInstance(contextWithBadJson)
         }
     }
 

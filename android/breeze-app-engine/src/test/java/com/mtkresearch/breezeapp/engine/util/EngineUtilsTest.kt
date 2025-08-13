@@ -62,7 +62,7 @@ class EngineUtilsTest {
     @Test
     fun testTtsModelConfig() {
         // Test that we can get TTS model configurations
-        val config = EngineUtils.getTtsModelConfig(EngineUtils.TtsModelType.VITS_MR_20250709)
+        val config = SherpaTtsConfigUtil.getTtsModelConfig(SherpaTtsConfigUtil.TtsModelType.VITS_MR_20250709)
         assertNotNull("Model config should not be null", config)
         assertEquals("Model directory should match", "vits-mr-20250709", config.modelDir)
         assertEquals("Model name should match", "vits-mr-20250709.onnx", config.modelName)
