@@ -4,7 +4,7 @@ import android.app.Service
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
+import com.mtkresearch.breezeapp.engine.model.ServiceState
 import com.mtkresearch.breezeapp.engine.system.VisualStateManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -4,7 +4,7 @@ import android.util.Log
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
-import com.mtkresearch.breezeapp.engine.domain.model.*
+import com.mtkresearch.breezeapp.engine.model.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

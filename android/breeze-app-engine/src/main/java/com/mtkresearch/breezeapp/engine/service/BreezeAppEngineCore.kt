@@ -2,10 +2,10 @@ package com.mtkresearch.breezeapp.engine.service
 
 import android.content.Context
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.config.ConfigurationManager
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerConfigurationManager
 import com.mtkresearch.breezeapp.engine.core.AIEngineManager
 import com.mtkresearch.breezeapp.engine.core.Logger
-import com.mtkresearch.breezeapp.engine.domain.model.*
+import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
@@ -45,7 +45,7 @@ class BreezeAppEngineCore(
     private val logger = Logger
     
     private val runnerRegistry = RunnerRegistry(logger)
-    private val configurationManager = ConfigurationManager(context, logger)
+    private val configurationManager = RunnerConfigurationManager(context, logger)
     private val aiEngineManager = AIEngineManager(context, runnerRegistry, logger)
     
     // Request tracking for status management

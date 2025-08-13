@@ -6,7 +6,7 @@ import com.k2fsa.sherpa.onnx.*
 import com.k2fsa.sherpa.onnx.WaveReader
 import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
-import com.mtkresearch.breezeapp.engine.domain.model.*
+import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 
 /**

@@ -1,7 +1,7 @@
 package com.mtkresearch.breezeapp.engine.runner.core
 
 import com.mtkresearch.breezeapp.engine.config.RunnerDefinition
-import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.CapabilityType
 
 /**
  * Strategy interface for selecting the best runner for a given capability.

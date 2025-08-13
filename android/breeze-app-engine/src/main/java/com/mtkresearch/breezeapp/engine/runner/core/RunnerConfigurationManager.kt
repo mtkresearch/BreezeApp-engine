@@ -1,11 +1,10 @@
-package com.mtkresearch.breezeapp.engine.config
+package com.mtkresearch.breezeapp.engine.runner.core
 
 import android.content.Context
+import com.mtkresearch.breezeapp.engine.config.RunnerConfigFile
+import com.mtkresearch.breezeapp.engine.config.RunnerDefinition
 import com.mtkresearch.breezeapp.engine.core.Logger
-import com.mtkresearch.breezeapp.engine.runner.core.RunnerFactory
-import com.mtkresearch.breezeapp.engine.runner.core.RunnerSelectionStrategy
-import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
-import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
+import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
@@ -13,7 +12,7 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Configuration Manager - Manages runner configurations with flexibility and dynamic updates
+ * Runner Configuration Manager - Manages runner configurations with flexibility and dynamic updates
  * 
  * Key Features:
  * - Support for dynamic configuration updates
@@ -24,12 +23,12 @@ import java.util.concurrent.ConcurrentHashMap
  * - Runtime configuration modification
  * - Better separation of concerns
  */
-class ConfigurationManager(
+class RunnerConfigurationManager(
     private val context: Context,
     private val logger: Logger
 ) {
     companion object {
-        private const val TAG = "ConfigurationManager"
+        private const val TAG = "RunnerConfigurationManager"
         private const val DEFAULT_CONFIG_FILE = "runner_config.json"
         private const val FALLBACK_CONFIG_FILE = "runner_config_fallback.json"
     }

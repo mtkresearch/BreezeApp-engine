@@ -102,24 +102,6 @@
         ] }
       ],
       "entry_point": { "type": "whisper", "value": "sherpa-onnx-whisper-base" }
-    },
-    {
-      "id": "vits-mr-20250709",
-      "runner": "sherpa_tts_runner_v1",
-      "backend": "cpu",
-      "ramGB": 1,
-      "files": [
-        { "fileName": "vits-mr-20250709.onnx", "type": "model", "urls": [
-          "https://huggingface.co/MediaTek-Research/vits-mr-20250709/resolve/main/vits-mr-20250709.onnx"
-        ] },
-        { "fileName": "tokens.txt", "type": "tokenizer", "urls": [
-          "https://huggingface.co/MediaTek-Research/vits-mr-20250709/resolve/main/tokens.txt"
-        ] },
-        { "fileName": "lexicon.txt", "type": "config", "urls": [
-          "https://huggingface.co/MediaTek-Research/vits-mr-20250709/resolve/main/lexicon.txt"
-        ] }
-      ],
-      "entry_point": { "type": "vits", "value": "vits-mr-20250709" }
     }
   ]
 } 

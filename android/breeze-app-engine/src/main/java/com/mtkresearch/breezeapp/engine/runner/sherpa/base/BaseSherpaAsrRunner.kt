@@ -8,9 +8,9 @@ import com.k2fsa.sherpa.onnx.OnlineRecognizer
 import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OnlineStream
 import com.mtkresearch.breezeapp.engine.core.ExceptionHandler
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.domain.model.RunnerError
+import com.mtkresearch.breezeapp.engine.model.InferenceRequest
+import com.mtkresearch.breezeapp.engine.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.model.RunnerError
 import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

@@ -3,7 +3,7 @@ package com.mtkresearch.breezeapp.engine.config
 import android.content.Context
 import android.content.res.AssetManager
 import com.mtkresearch.breezeapp.engine.core.Logger
-import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
 import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi

@@ -4,7 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtkresearch.breezeapp.engine.runner.mtk.MTKConfig
 import com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner
-import com.mtkresearch.breezeapp.engine.domain.model.ModelConfig
+import com.mtkresearch.breezeapp.engine.model.ModelConfig
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue

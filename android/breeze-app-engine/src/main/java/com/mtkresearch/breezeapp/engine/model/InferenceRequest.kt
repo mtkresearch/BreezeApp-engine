@@ -1,4 +1,4 @@
-package com.mtkresearch.breezeapp.engine.domain.model
+package com.mtkresearch.breezeapp.engine.model
 
 /**
  * Unified inference request data structure for all AI operations.

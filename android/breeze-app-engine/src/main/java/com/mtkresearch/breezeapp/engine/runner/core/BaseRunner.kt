@@ -1,6 +1,6 @@
 package com.mtkresearch.breezeapp.engine.runner.core
 
-import com.mtkresearch.breezeapp.engine.domain.model.*
+import com.mtkresearch.breezeapp.engine.model.*
 
 /**
  * Core interface for all AI Runner implementations.

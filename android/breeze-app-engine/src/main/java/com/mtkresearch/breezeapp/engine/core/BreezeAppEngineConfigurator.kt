@@ -1,9 +1,7 @@
-package com.mtkresearch.breezeapp.engine.model
+package com.mtkresearch.breezeapp.engine.core
 
 import android.content.Context
-import com.mtkresearch.breezeapp.engine.config.ConfigurationManager
-import com.mtkresearch.breezeapp.engine.core.Logger
-import com.mtkresearch.breezeapp.engine.core.AIEngineManager
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerConfigurationManager
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
 
 /**
@@ -28,7 +26,7 @@ class BreezeAppEngineConfigurator(context: Context) {
     val engineManager: AIEngineManager = AIEngineManager(context, runnerRegistry, logger)
     
     /** Manages loading runner configurations from external files. */
-    private val configurationManager: ConfigurationManager = ConfigurationManager(context.applicationContext, logger)
+    private val configurationManager: RunnerConfigurationManager = RunnerConfigurationManager(context.applicationContext, logger)
 
     init {
         // This is the final step: load configurations and register all runners.

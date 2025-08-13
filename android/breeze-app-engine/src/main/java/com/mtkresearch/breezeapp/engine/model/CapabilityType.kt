@@ -1,4 +1,4 @@
-package com.mtkresearch.breezeapp.engine.domain.model
+package com.mtkresearch.breezeapp.engine.model
 
 /**
  * AI 能力類型定義

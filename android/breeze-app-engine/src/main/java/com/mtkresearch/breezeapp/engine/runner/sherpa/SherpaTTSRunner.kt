@@ -6,7 +6,7 @@ import android.util.Log
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
-import com.mtkresearch.breezeapp.engine.domain.model.*
+import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaTtsRunner
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
 import com.mtkresearch.breezeapp.engine.util.SherpaTtsConfigUtil

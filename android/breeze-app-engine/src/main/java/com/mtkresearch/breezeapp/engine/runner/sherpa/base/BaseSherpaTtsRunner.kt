@@ -6,9 +6,9 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.domain.model.RunnerError
+import com.mtkresearch.breezeapp.engine.model.InferenceRequest
+import com.mtkresearch.breezeapp.engine.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.model.RunnerError
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**

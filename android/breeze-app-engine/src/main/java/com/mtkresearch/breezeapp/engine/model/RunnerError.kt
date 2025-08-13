@@ -1,4 +1,4 @@
-package com.mtkresearch.breezeapp.engine.domain.model
+package com.mtkresearch.breezeapp.engine.model
 
 /**
  * Runner 錯誤處理格式

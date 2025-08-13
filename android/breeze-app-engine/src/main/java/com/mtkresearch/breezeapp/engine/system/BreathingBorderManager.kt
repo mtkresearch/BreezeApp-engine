@@ -8,7 +8,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
-import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
+import com.mtkresearch.breezeapp.engine.model.ServiceState
 import com.mtkresearch.breezeapp.engine.ui.BreathingBorderView
 
 /**

@@ -2,7 +2,7 @@ package com.mtkresearch.breezeapp.engine.runner.core
 
 import com.mtkresearch.breezeapp.engine.config.RunnerDefinition
 import com.mtkresearch.breezeapp.engine.core.Logger
-import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read

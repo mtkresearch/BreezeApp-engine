@@ -2,9 +2,9 @@ package com.mtkresearch.breezeapp.engine.service
 
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.core.AIEngineManager
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.InferenceRequest
+import com.mtkresearch.breezeapp.engine.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.core.BreezeAppEngineStatusManager
 import com.mtkresearch.breezeapp.engine.core.CancellationManager
 import kotlinx.coroutines.flow.catch
@@ -49,7 +49,7 @@ class RequestProcessor(
         val startTime = System.currentTimeMillis()
         requestTracker[requestId] = startTime
         val currentActiveRequests = activeRequestCount.incrementAndGet()
-        statusManager.updateState(com.mtkresearch.breezeapp.engine.domain.model.ServiceState.Processing(currentActiveRequests))
+        statusManager.updateState(com.mtkresearch.breezeapp.engine.model.ServiceState.Processing(currentActiveRequests))
         
         Log.d(TAG, "Started processing $requestType request $requestId (active: $currentActiveRequests)")
         
@@ -86,7 +86,7 @@ class RequestProcessor(
         val startTime = System.currentTimeMillis()
         requestTracker[requestId] = startTime
         val currentActiveRequests = activeRequestCount.incrementAndGet()
-        statusManager.updateState(com.mtkresearch.breezeapp.engine.domain.model.ServiceState.Processing(currentActiveRequests))
+        statusManager.updateState(com.mtkresearch.breezeapp.engine.model.ServiceState.Processing(currentActiveRequests))
         
         Log.d(TAG, "Started processing streaming $requestType request $requestId (active: $currentActiveRequests)")
         

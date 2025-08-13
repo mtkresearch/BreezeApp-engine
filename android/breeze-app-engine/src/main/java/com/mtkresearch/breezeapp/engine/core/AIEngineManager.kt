@@ -4,11 +4,11 @@ import android.app.ActivityManager
 import android.content.Context
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
-import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.domain.model.ModelConfig
-import com.mtkresearch.breezeapp.engine.domain.model.RunnerError
+import com.mtkresearch.breezeapp.engine.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.InferenceRequest
+import com.mtkresearch.breezeapp.engine.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.model.ModelConfig
+import com.mtkresearch.breezeapp.engine.model.RunnerError
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay

@@ -1,8 +1,8 @@
 package com.mtkresearch.breezeapp.engine.core
 
 import android.content.Context
-import com.mtkresearch.breezeapp.engine.domain.model.ModelInfo
-import com.mtkresearch.breezeapp.engine.domain.model.ModelFile
+import com.mtkresearch.breezeapp.engine.model.ModelInfo
+import com.mtkresearch.breezeapp.engine.model.ModelFile
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.json.JSONArray

@@ -7,8 +7,8 @@ import com.mtkresearch.breezeapp.edgeai.ASRRequest
 import com.mtkresearch.breezeapp.edgeai.AIResponse
 import com.mtkresearch.breezeapp.engine.core.AIEngineManager
 import com.mtkresearch.breezeapp.engine.service.RequestProcessor
-import com.mtkresearch.breezeapp.engine.domain.model.*
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.BreezeAppEngineService
 
 /**

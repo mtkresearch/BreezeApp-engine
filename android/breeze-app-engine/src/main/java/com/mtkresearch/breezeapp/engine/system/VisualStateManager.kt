@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
+import com.mtkresearch.breezeapp.engine.model.ServiceState
 
 /**
  * Visual State Manager - Centralized visual state management

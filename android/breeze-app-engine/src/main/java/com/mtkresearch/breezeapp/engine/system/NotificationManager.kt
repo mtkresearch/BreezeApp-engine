@@ -9,8 +9,8 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.mtkresearch.breezeapp.engine.R
-import com.mtkresearch.breezeapp.engine.domain.model.NotificationPriority
-import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
+import com.mtkresearch.breezeapp.engine.model.NotificationPriority
+import com.mtkresearch.breezeapp.engine.model.ServiceState
 import com.mtkresearch.breezeapp.engine.ui.BreezeAppEngineLauncherActivity
 import android.util.Log
 

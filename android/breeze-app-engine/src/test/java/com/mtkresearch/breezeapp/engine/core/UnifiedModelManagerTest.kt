@@ -2,8 +2,8 @@ package com.mtkresearch.breezeapp.engine.core
 
 import android.content.Context
 import android.content.res.AssetManager
-import com.mtkresearch.breezeapp.engine.domain.model.ModelFile
-import com.mtkresearch.breezeapp.engine.domain.model.ModelInfo
+import com.mtkresearch.breezeapp.engine.model.ModelFile
+import com.mtkresearch.breezeapp.engine.model.ModelInfo
 import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*

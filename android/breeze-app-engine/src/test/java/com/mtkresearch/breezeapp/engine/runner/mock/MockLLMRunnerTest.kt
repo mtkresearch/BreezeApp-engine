@@ -1,10 +1,10 @@
 package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.domain.model.CapabilityType
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceRequest
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.domain.model.ModelConfig
+import com.mtkresearch.breezeapp.engine.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.InferenceRequest
+import com.mtkresearch.breezeapp.engine.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.model.ModelConfig
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic

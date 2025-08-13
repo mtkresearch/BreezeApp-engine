@@ -3,13 +3,13 @@ package com.mtkresearch.breezeapp.engine.service
 import android.content.Context
 import android.media.AudioManager
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.model.BreezeAppEngineConfigurator
+import com.mtkresearch.breezeapp.engine.core.BreezeAppEngineConfigurator
 import com.mtkresearch.breezeapp.engine.core.BreezeAppEngineStatusManager
 import com.mtkresearch.breezeapp.engine.system.BreathingBorderManager
 import com.mtkresearch.breezeapp.engine.system.VisualStateManager
 import com.mtkresearch.breezeapp.engine.system.NotificationManager
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
-import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
+import com.mtkresearch.breezeapp.engine.model.ServiceState
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.ConcurrentHashMap
 

@@ -1,8 +1,8 @@
 package com.mtkresearch.breezeapp.engine.core
 
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.domain.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.domain.model.RunnerError
+import com.mtkresearch.breezeapp.engine.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.model.RunnerError
 import kotlinx.coroutines.CancellationException
 
 /**

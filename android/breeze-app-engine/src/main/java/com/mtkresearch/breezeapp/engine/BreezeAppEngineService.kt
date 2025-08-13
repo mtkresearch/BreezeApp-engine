@@ -11,7 +11,7 @@ import android.content.Context
 import android.content.IntentFilter
 import android.os.Build
 import com.mtkresearch.breezeapp.engine.core.ModelManager
-import com.mtkresearch.breezeapp.engine.domain.model.ServiceState
+import com.mtkresearch.breezeapp.engine.model.ServiceState
 
 /**
  * BreezeAppEngineService - Simplified Android Service Implementation
