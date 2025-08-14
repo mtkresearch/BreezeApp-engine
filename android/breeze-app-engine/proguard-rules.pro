@@ -21,7 +21,20 @@
 # Keep other annotation classes used by AIRunner
 -keep @interface com.mtkresearch.breezeapp.engine.annotation.VendorType
 -keep @interface com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
--keep @interface com.mtkresearch.breezapp.engine.annotation.HardwareRequirement
+-keep @interface com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
+
+# ClassGraph library support - required for annotation discovery
+-keep class io.github.classgraph.** { *; }
+-dontwarn io.github.classgraph.**
+
+# Keep annotation retention at runtime
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes InnerClasses
+
+# Ensure annotations are not stripped in release builds
+-keep @com.mtkresearch.breezeapp.engine.annotation.AIRunner class * { *; }
+-keepclassmembers @com.mtkresearch.breezeapp.engine.annotation.AIRunner class * { *; }
 
 # General rule for the rest of the app's code, can be refined later
 -keep class com.mtkresearch.breezeapp.** { *; }

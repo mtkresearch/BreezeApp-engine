@@ -1,10 +1,12 @@
 package com.mtkresearch.breezeapp.engine.runner.core
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
 import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.core.Logger
 import com.mtkresearch.breezeapp.engine.system.HardwareCompatibility
+import dalvik.system.DexFile
 import io.github.classgraph.ClassGraph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -104,68 +106,130 @@ class RunnerAnnotationDiscovery(
             }
         }
     }
-    
+
     /**
      * Discover all classes annotated with @AIRunner in the application classpath.
-     * 
+     *
+     * This method uses a two-strategy approach:
+     * 1. ClassGraph (Primary): Best for development/testing environments.
+     * 2. DexFile Scanning (Fallback): Android-native approach that works reliably in runtime.
+     *
      * @return List of Class objects representing annotated runner classes
      */
     fun discoverAnnotatedRunners(): List<Class<out BaseRunner>> {
-        return try {
-            logger.d(TAG, "Scanning classpath for runner classes - testing direct class loading")
+        var discoveredClasses = emptyList<Class<out BaseRunner>>()
+
+        // Strategy 1: Try ClassGraph first
+        try {
+            logger.d(TAG, "Attempting ClassGraph runner discovery...")
             val scanStartTime = System.currentTimeMillis()
-            
-            // First, try to directly load some known classes to see if they exist
-            val knownRunnerClasses = listOf(
-                "com.mtkresearch.breezeapp.engine.runner.mock.MockLLMRunner",
-                "com.mtkresearch.breezeapp.engine.runner.mock.MockASRRunner",
-                "com.mtkresearch.breezeapp.engine.runner.mock.MockTTSRunner",
-                "com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner",
-                "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaASRRunner",
-                "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaOfflineASRRunner",
-                "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaTTSRunner"
-            )
-            
-            val manuallyLoadedClasses = mutableListOf<Class<out BaseRunner>>()
-            
-            knownRunnerClasses.forEach { className ->
-                try {
-                    val clazz = Class.forName(className)
-                    if (BaseRunner::class.java.isAssignableFrom(clazz)) {
-                        @Suppress("UNCHECKED_CAST")
-                        val baseRunnerClass = clazz as Class<out BaseRunner>
-                        logger.d(TAG, "Successfully loaded known class: $className")
-                        manuallyLoadedClasses.add(baseRunnerClass)
-                    } else {
-                        logger.d(TAG, "Class $className exists but does not implement BaseRunner")
+
+            ClassGraph()
+                .acceptPackages(PACKAGE_SCAN_ROOT)
+                .enableAnnotationInfo()
+                .enableClassInfo()
+                .disableJarScanning() // Android uses DEX, not JARs
+                .scan()
+                .use { scanResult ->
+                    val annotatedClasses = scanResult.getClassesWithAnnotation(AIRunner::class.java.name)
+                    val classGraphDiscovered = mutableListOf<Class<out BaseRunner>>()
+                    for (classInfo in annotatedClasses) {
+                        try {
+                            val clazz = classInfo.loadClass()
+                            if (BaseRunner::class.java.isAssignableFrom(clazz) && !Modifier.isAbstract(clazz.modifiers) && !clazz.isInterface) {
+                                @Suppress("UNCHECKED_CAST")
+                                classGraphDiscovered.add(clazz as Class<out BaseRunner>)
+                            }
+                        } catch (e: Exception) {
+                            logger.w(TAG, "❌ ClassGraph: Failed to load ${classInfo.name}: ${e.message}")
+                        }
                     }
-                } catch (e: ClassNotFoundException) {
-                    logger.d(TAG, "Class not found: $className")
-                } catch (e: Exception) {
-                    logger.w(TAG, "Error loading class $className: ${e.message}")
+                    discoveredClasses = classGraphDiscovered
                 }
-            }
-            
-            // Now check which of these have the @AIRunner annotation
-            val annotatedClasses = manuallyLoadedClasses.filter { clazz ->
-                val hasAnnotation = clazz.isAnnotationPresent(AIRunner::class.java)
-                if (!hasAnnotation) {
-                    logger.d(TAG, "Manually loaded class ${clazz.simpleName} has no @AIRunner annotation")
-                } else {
-                    logger.d(TAG, "Manually loaded class ${clazz.simpleName} has @AIRunner annotation")
-                }
-                hasAnnotation
-            }
-            
+
             val scanTime = System.currentTimeMillis() - scanStartTime
-            logger.d(TAG, "Manual class loading completed in ${scanTime}ms, found ${annotatedClasses.size} annotated runner classes")
-            
-            annotatedClasses
-            
+            logger.d(TAG, "ClassGraph discovery completed in ${scanTime}ms, found ${discoveredClasses.size} runners.")
+
+            if (discoveredClasses.isNotEmpty()) {
+                return discoveredClasses
+            } else {
+                logger.w(TAG, "ClassGraph found no @AIRunner classes. Falling back to DexFile scan.")
+            }
+
         } catch (e: Exception) {
-            logger.e(TAG, "Failed to scan classpath for annotations", e)
-            emptyList()
+            logger.e(TAG, "ClassGraph discovery failed: ${e.message}. Falling back to DexFile scan.", e)
         }
+
+        // Strategy 2: Fallback to DexFile scanning for Android runtime
+        try {
+            logger.d(TAG, "Attempting DexFile runner discovery...")
+            val dexScanStartTime = System.currentTimeMillis()
+            discoveredClasses = scanRunnersWithDexFile()
+            val dexScanTime = System.currentTimeMillis() - dexScanStartTime
+            logger.d(TAG, "DexFile discovery completed in ${dexScanTime}ms, found ${discoveredClasses.size} runners.")
+
+            if (discoveredClasses.isEmpty()) {
+                logger.w(TAG, "⚠️ No @AIRunner classes found by either ClassGraph or DexFile. Verify:")
+                logger.w(TAG, "  1. Classes have @AIRunner annotation")
+                logger.w(TAG, "  2. Classes extend BaseRunner")
+                logger.w(TAG, "  3. Classes are in package: $PACKAGE_SCAN_ROOT")
+                logger.w(TAG, "  4. Annotations have runtime retention")
+                logger.w(TAG, "  5. For DexFile, ensure the APK is properly built and accessible.")
+            }
+
+        } catch (e: Exception) {
+            logger.e(TAG, "DexFile discovery failed: ${e.message}", e)
+            discoveredClasses = emptyList()
+        }
+
+        return discoveredClasses
+    }
+
+    /**
+     * Scans the application's DEX files for classes annotated with @AIRunner and extending BaseRunner.
+     * This method is suitable for Android runtime environments where ClassGraph might not be fully effective.
+     *
+     * @return List of Class objects representing annotated runner classes.
+     */
+    private fun scanRunnersWithDexFile(): List<Class<out BaseRunner>> {
+        val discovered = mutableListOf<Class<out BaseRunner>>()
+        var dexFile: DexFile? = null
+        try {
+            val applicationInfo: ApplicationInfo = context.applicationInfo
+            val apkPath = applicationInfo.sourceDir
+            dexFile = DexFile(apkPath)
+
+            val classNames = dexFile.entries()
+            for (className in classNames) {
+                if (className.startsWith(PACKAGE_SCAN_ROOT)) {
+                    try {
+                        val clazz = Class.forName(className, false, context.classLoader)
+                        if (BaseRunner::class.java.isAssignableFrom(clazz) && !Modifier.isAbstract(clazz.modifiers) && !clazz.isInterface) {
+                            if (clazz.isAnnotationPresent(AIRunner::class.java)) {
+                                @Suppress("UNCHECKED_CAST")
+                                discovered.add(clazz as Class<out BaseRunner>)
+                                logger.d(TAG, "✅ DexFile Discovered: ${clazz.simpleName}")
+                            }
+                        }
+                    } catch (e: ClassNotFoundException) {
+                        logger.w(TAG, "❌ DexFile: Class not found: $className - ${e.message}")
+                    } catch (e: NoClassDefFoundError) {
+                        logger.w(TAG, "❌ DexFile: No class def found for: $className - ${e.message}")
+                    } catch (e: Exception) {
+                        logger.w(TAG, "❌ DexFile: Error processing class $className: ${e.message}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            logger.e(TAG, "Error during DexFile scan: ${e.message}", e)
+        } finally {
+            try {
+                dexFile?.close()
+            } catch (e: Exception) {
+                logger.e(TAG, "Error closing DexFile: ${e.message}", e)
+            }
+        }
+        return discovered
     }
     
     /**
