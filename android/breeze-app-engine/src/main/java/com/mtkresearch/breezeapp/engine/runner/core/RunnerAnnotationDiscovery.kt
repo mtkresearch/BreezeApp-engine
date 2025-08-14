@@ -122,6 +122,7 @@ class RunnerAnnotationDiscovery(
                 "com.mtkresearch.breezeapp.engine.runner.mock.MockTTSRunner",
                 "com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner",
                 "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaASRRunner",
+                "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaOfflineASRRunner",
                 "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaTTSRunner"
             )
             

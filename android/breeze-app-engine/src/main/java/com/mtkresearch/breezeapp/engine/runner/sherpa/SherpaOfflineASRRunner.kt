@@ -23,7 +23,7 @@ import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
  */
 @AIRunner(
     vendor = VendorType.SHERPA,
-    priority = RunnerPriority.NORMAL,
+    priority = RunnerPriority.HIGH,
     capabilities = [CapabilityType.ASR],
     hardwareRequirements = [HardwareRequirement.CPU]
 )
