@@ -58,6 +58,21 @@
    - Repositories: `NounRepository` (e.g., `ModelRepository`)
    - Domain Models: Clear business names (e.g., `ServiceState`, `InferenceRequest`)
 
+### System Integration Components
+
+The `system/` package contains Android-specific integrations including:
+- **Permission Management**: Unified handling of permissions and audio focus
+- **Hardware Compatibility**: Device capability detection
+- **Native Library Management**: Loading and unloading native libraries
+- **Notification Management**: Status notifications and user interactions
+- **Resource Management**: Proper cleanup and lifecycle handling
+
+#### Permission Manager
+The `PermissionManager` provides a unified interface for:
+- Checking and requesting Android permissions (notifications, microphone, overlay)
+- Managing audio focus for microphone recording
+- Providing permission state information to other components
+
 ### Testing Strategy
 
 - **Unit Tests**: Domain models and Use Cases
@@ -71,3 +86,4 @@
 - Prefer `StateFlow` over `LiveData` for reactive state
 - Keep ViewModels lightweight
 - Use coroutines for async operations
+- Implement proper resource cleanup in system components

@@ -80,6 +80,7 @@ Excellent! Your journey is about consuming the API.
 1. **Start Here:** Begin with the **[Quick Start Guide](./docs/QUICK_START.md)**. It's a comprehensive guide that shows you how to connect to the service and use its features.
 2. **Learn the API:** Then, review the **[android/EdgeAI/README.md](./android/EdgeAI/README.md)** to understand the `AIRequest` and `AIResponse` models you'll be using.
 3. **JitPack Integration:** Check out **[android/EdgeAI/docs/USAGE_GUIDE.md](./android/EdgeAI/docs/USAGE_GUIDE.md)** for how to integrate EdgeAI via JitPack.
+4. **Permission System:** Learn about the unified permission management in our **[Permission System Guide](./docs/PERMISSION_SYSTEM.md)**.
 
 ---
 

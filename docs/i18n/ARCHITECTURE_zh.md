@@ -58,6 +58,21 @@
    - Repositories：`NounRepository`（例如：`ModelRepository`）
    - 領域模型：清楚的業務名稱（例如：`ServiceState`、`InferenceRequest`）
 
+### 系統整合元件
+
+`system/` 套件包含 Android 特定的整合，包括：
+- **權限管理**：統一處理權限和音訊焦點
+- **硬體相容性**：裝置功能偵測
+- **原生程式庫管理**：載入和卸載原生程式庫
+- **通知管理**：狀態通知和使用者互動
+- **資源管理**：正確的清理和生命週期處理
+
+#### 權限管理器
+`PermissionManager` 提供統一的介面用於：
+- 檢查和請求 Android 權限（通知、麥克風、浮層）
+- 管理麥克風錄音的音訊焦點
+- 向其他元件提供權限狀態資訊
+
 ### 測試策略
 
 - **單元測試**：領域模型和 Use Cases
@@ -70,4 +85,5 @@
 - 對昂貴物件使用 `lazy` 初始化
 - 偏好 `StateFlow` 而非 `LiveData` 進行響應式狀態
 - 保持 ViewModels 輕量
-- 使用 coroutines 進行非同步操作 
+- 使用 coroutines 進行非同步操作
+- 在系統元件中實作正確的資源清理 

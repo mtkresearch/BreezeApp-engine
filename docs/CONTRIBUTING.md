@@ -23,6 +23,7 @@ See [API_REFERENCE.md](./API_REFERENCE.md) for complete API documentation.
 - **MVVM**: Use only for complex UI components
 - **Use Cases**: One per business operation
 - **Minimal Dependencies**: Avoid over-engineering
+- **Unified Permission Management**: Use the centralized `PermissionManager` for all permission and audio focus operations
 
 ## 🧪 Testing Requirements
 

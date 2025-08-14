@@ -75,6 +75,7 @@ graph TD
 1. **從這裡開始：** 請參考 **[快速開始指南](./QUICK_START_zh.md)**，這是一個完整的指南，展示如何連接服務並使用其功能。
 2. **了解 API：** 接著閱讀 **[README](../../android/EdgeAI/docs/i18n/README_zh.md)**，了解你會用到的 `AIRequest` 和 `AIResponse` 模型。
 3. **JitPack 整合：** 參考 **[使用指南](../../android/EdgeAI/docs/i18n/USAGE_GUIDE_zh.md)**，學習如何透過 JitPack 整合 EdgeAI。
+4. **權限系統：** 了解我們統一的權限管理系統 **[權限系統指南](./PERMISSION_SYSTEM_zh.md)**。
 
 ---
 
