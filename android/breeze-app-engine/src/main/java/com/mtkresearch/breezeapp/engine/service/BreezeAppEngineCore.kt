@@ -2,11 +2,10 @@ package com.mtkresearch.breezeapp.engine.service
 
 import android.content.Context
 import android.util.Log
-import com.mtkresearch.breezeapp.engine.runner.core.RunnerConfigurationManager
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 import com.mtkresearch.breezeapp.engine.core.AIEngineManager
 import com.mtkresearch.breezeapp.engine.core.Logger
 import com.mtkresearch.breezeapp.engine.model.*
-import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.onCompletion
@@ -23,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
  * ## Responsibilities
  * - AI request processing coordination
  * - Request tracking and status management
- * - Runner registry management
+ * - Runner management using annotation-based discovery
  * - Error handling and recovery
  * - Performance metrics collection
  * 
@@ -44,9 +43,8 @@ class BreezeAppEngineCore(
     // Core dependencies - using our enhanced runner system
     private val logger = Logger
     
-    private val runnerRegistry = RunnerRegistry(logger)
-    private val configurationManager = RunnerConfigurationManager(context, logger)
-    private val aiEngineManager = AIEngineManager(context, runnerRegistry, logger)
+    private val runnerManager = RunnerManager(context, logger)
+    private val aiEngineManager = AIEngineManager(context, runnerManager, logger)
     
     // Request tracking for status management
     private val requestIdGenerator = AtomicInteger(0)
@@ -69,10 +67,10 @@ class BreezeAppEngineCore(
         if (isInitialized) return
         
         try {
-            Log.d(TAG, "Initializing BreezeAppEngineCore with enhanced runner system")
+            Log.d(TAG, "Initializing BreezeAppEngineCore with annotation-based runner system")
             
-            // Load and register runners using our enhanced system
-            configurationManager.loadAndRegisterRunners(runnerRegistry)
+            // Initialize the annotation-based runner system
+            runnerManager.initializeBlocking()
             
             // Start background request cleanup
             startRequestCleanup()
@@ -188,7 +186,7 @@ class BreezeAppEngineCore(
             "initialized" to isInitialized,
             "activeRequests" to activeRequests.size,
             "totalRequestsProcessed" to requestMetrics.size,
-            "runnerRegistry" to runnerRegistry.getRegisteredRunners()
+            "runnerStats" to runnerManager.getStats()
         )
     }
     

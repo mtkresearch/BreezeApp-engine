@@ -25,15 +25,10 @@ import kotlinx.coroutines.flow.flow
  * Model files must be extracted to internal storage before loading.
  */
 @AIRunner(
-    name = "Sherpa ASR Runner",
     vendor = VendorType.SHERPA,
-    priority = RunnerPriority.MEDIUM,
+    priority = RunnerPriority.NORMAL,
     capabilities = [CapabilityType.ASR],
-    hardwareRequirements = [HardwareRequirement.CPU],
-    description = "Sherpa ONNX streaming ASR runner for speech recognition",
-    version = "1.0.0",
-    apiLevel = 1,
-    enabled = true
+    hardwareRequirements = [HardwareRequirement.CPU]
 )
 class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStreamingRunner {
     companion object {

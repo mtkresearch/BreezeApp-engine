@@ -28,11 +28,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 音訊格式驗證
  */
 @AIRunner(
-    name = "Mock ASR Runner",
     vendor = VendorType.UNKNOWN,
     priority = RunnerPriority.LOW,
     capabilities = [CapabilityType.ASR],
-    hardwareRequirements = [HardwareRequirement.CPU],
+    hardwareRequirements = [HardwareRequirement.CPU]
 )
 class MockASRRunner : BaseRunner, FlowStreamingRunner {
     

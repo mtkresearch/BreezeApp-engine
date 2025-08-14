@@ -25,11 +25,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 可配置的分析延遲
  */
 @AIRunner(
-    name = "Mock VLM Runner",
     vendor = VendorType.UNKNOWN,
     priority = RunnerPriority.LOW,
     capabilities = [CapabilityType.VLM],
-    hardwareRequirements = [HardwareRequirement.CPU],
+    hardwareRequirements = [HardwareRequirement.CPU]
 )
 class MockVLMRunner : BaseRunner, FlowStreamingRunner {
     

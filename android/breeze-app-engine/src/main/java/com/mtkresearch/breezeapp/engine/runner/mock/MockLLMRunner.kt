@@ -28,11 +28,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 線程安全設計
  */
 @AIRunner(
-    name = "Mock LLM Runner",
     vendor = VendorType.UNKNOWN,
     priority = RunnerPriority.LOW,
     capabilities = [CapabilityType.LLM],
-    hardwareRequirements = [HardwareRequirement.CPU],
+    hardwareRequirements = [HardwareRequirement.CPU]
 )
 class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     

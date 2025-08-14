@@ -32,13 +32,9 @@ import kotlinx.coroutines.flow.flow
  * - Robust audio playback management
  */
 @AIRunner(
-    name = "Sherpa TTS Runner",
     vendor = VendorType.SHERPA,
-    priority = RunnerPriority.MEDIUM,
     capabilities = [CapabilityType.TTS],
     hardwareRequirements = [HardwareRequirement.CPU],
-    description = "Sherpa ONNX TTS runner with real-time streaming audio playback",
-    version = "1.0.0",
     apiLevel = 1,
     enabled = true
 )

@@ -28,11 +28,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 音訊格式支援
  */
 @AIRunner(
-    name = "Mock TTS Runner",
     vendor = VendorType.UNKNOWN,
     priority = RunnerPriority.LOW,
     capabilities = [CapabilityType.TTS],
-    hardwareRequirements = [HardwareRequirement.CPU],
+    hardwareRequirements = [HardwareRequirement.CPU]
 )
 class MockTTSRunner : BaseRunner, FlowStreamingRunner {
     

@@ -11,12 +11,12 @@ import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.system.HardwareCompatibility
-import com.mtkresearch.breezeapp.engine.system.ModelPathResolver
 import com.mtkresearch.breezeapp.engine.system.NativeLibraryManager
 import kotlinx.coroutines.flow.Flow
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.callbackFlow
+import java.io.File
 
 /**
  * MTKLLMRunner - MTK NPU 加速的 AI Runner 實作
@@ -37,29 +37,23 @@ import kotlinx.coroutines.flow.callbackFlow
  * - 現代化的 Kotlin 協程支援
  */
 @AIRunner(
-    name = "MTK NPU Runner",
     vendor = VendorType.MEDIATEK,
     priority = RunnerPriority.HIGH,
     capabilities = [CapabilityType.LLM],
-    hardwareRequirements = [HardwareRequirement.MTK_NPU],
-    description = "MTK NPU accelerated language model runner with streaming support",
-    version = "1.0.0",
-    apiLevel = 1,
-    enabled = true
+    hardwareRequirements = [HardwareRequirement.MTK_NPU]
 )
-class MTKLLMRunner private constructor(
-    private val context: Context,
-    private var config: MTKConfig,
-    private var hardwareCompatibility: HardwareCompatibility,
-    private var nativeLibraryManager: NativeLibraryManager,
-    private var modelPathResolver: ModelPathResolver
-) : BaseRunner, FlowStreamingRunner {
-    
+class MTKLLMRunner : BaseRunner, FlowStreamingRunner {
+
     private val isLoaded = AtomicBoolean(false)
     private val isGenerating = AtomicBoolean(false)
     private val isCleaningUp = AtomicBoolean(false)
     private var initializationResult: InitializationResult? = null
     private var resolvedModelPath: String? = null
+
+    // Dependencies are now initialized later or are singletons
+    private lateinit var config: MTKConfig
+    private val hardwareCompatibility = HardwareCompatibility
+    private val nativeLibraryManager = NativeLibraryManager.getInstance()
 
     companion object {
         private const val TAG = "MTKLLMRunner"
@@ -80,16 +74,6 @@ class MTKLLMRunner private constructor(
                 false
             }
         }
-
-        fun create(context: Context, config: MTKConfig): MTKLLMRunner {
-            return MTKLLMRunner(
-                context,
-                config,
-                HardwareCompatibility,
-                NativeLibraryManager.getInstance(),
-                ModelPathResolver(context, config),
-            )
-        }
     }
     
     override fun load(config: ModelConfig): Boolean {
@@ -109,15 +93,14 @@ class MTKLLMRunner private constructor(
             return false
         }
 
-        // 3. 解析模型路徑
-        val pathValidation = modelPathResolver.validateModelFile()
-        if (pathValidation.isInvalid()) {
-            val errorList = if (pathValidation is ModelPathResolver.ValidationResult.Invalid) pathValidation.errors else emptyList<String>()
-            Log.e(TAG, "Model validation failed: $errorList")
+        // 3. 解析模型路徑 (Refactored: directly from config)
+        val modelPath = config.modelPath
+        if (modelPath.isNullOrEmpty() || !File(modelPath).exists()) {
+            Log.e(TAG, "Model path from config is invalid or file does not exist: $modelPath")
             return false
         }
-        resolvedModelPath = modelPathResolver.resolveModelPath()
-        Log.d(TAG, "Model path resolved: $resolvedModelPath")
+        resolvedModelPath = modelPath
+        Log.d(TAG, "Model path resolved from config: $resolvedModelPath")
 
         // 4. 初始化 MTK 後端
         val initResult = initializeMTKBackend()

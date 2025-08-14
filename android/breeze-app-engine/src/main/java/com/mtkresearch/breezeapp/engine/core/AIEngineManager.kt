@@ -9,7 +9,7 @@ import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.model.ModelConfig
 import com.mtkresearch.breezeapp.engine.model.RunnerError
-import com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -96,7 +96,7 @@ private class ModelInfoProviderImpl(private val context: Context, private val lo
 
 class AIEngineManager(
     private val context: Context,
-    private val runnerRegistry: RunnerRegistry,
+    private val runnerManager: RunnerManager,
     private val logger: Logger
 ) {
 
@@ -109,25 +109,12 @@ class AIEngineManager(
 
     // 執行緒安全的 Runner 儲存
     private val activeRunners = ConcurrentHashMap<String, BaseRunner>()
-    private val defaultRunners = ConcurrentHashMap<CapabilityType, String>()
 
     // 讀寫鎖保護配置變更
     private val configLock = ReentrantReadWriteLock()
 
     // 使用統一的取消管理器
     private val cancellationManager = CancellationManager.getInstance()
-
-    /**
-     * 設定預設 Runner 映射
-     * @param mappings 能力類型到 Runner 名稱的映射
-     */
-    fun setDefaultRunners(mappings: Map<CapabilityType, String>) {
-        configLock.write {
-            defaultRunners.clear()
-            defaultRunners.putAll(mappings)
-            logger.d(TAG, "Updated default runners: $mappings")
-        }
-    }
 
     /**
      * 處理推論請求
@@ -295,43 +282,39 @@ class AIEngineManager(
         capability: CapabilityType,
         preferredRunner: String?
     ): Result<BaseRunner> {
-        val runnerName: String?
-
-        // 1. Select runner name
-        if (preferredRunner != null) {
-            if (!runnerRegistry.isRegistered(preferredRunner)) {
-                return Result.failure(RunnerSelectionException(RunnerError("E404", "Runner not found: $preferredRunner")))
-            }
-            runnerName = preferredRunner
+        // 1. Select runner using the new priority-based selection
+        val runner = if (preferredRunner != null) {
+            // Find specific runner by name
+            runnerManager.getAllRunners().find { it.getRunnerInfo().name == preferredRunner }
         } else {
-            runnerName = configLock.read {
-                defaultRunners[capability] ?: runnerRegistry.getRunnersForCapability(capability).firstOrNull()?.name
+            // Use priority-based selection
+            runnerManager.getRunner(capability)
+        }
+
+        if (runner == null) {
+            val errorMessage = if (preferredRunner != null) {
+                "Runner not found: $preferredRunner"
+            } else {
+                "No runner found for capability: ${capability.name}"
             }
+            return Result.failure(RunnerSelectionException(RunnerError("E404", errorMessage)))
         }
 
-        if (runnerName == null) {
-            return Result.failure(RunnerSelectionException(RunnerError("E404", "No runner found for capability: ${capability.name}")))
-        }
-
-        // 2. Get or create runner instance
-        val runner = getOrCreateRunner(runnerName)
-            ?: return Result.failure(RunnerSelectionException(RunnerError("E404", "Failed to create runner: $runnerName")))
-
-        // 3. Check capability
+        // 2. Check capability
         if (!runner.getCapabilities().contains(capability)) {
-            return Result.failure(RunnerSelectionException(RunnerError("E405", "Runner $runnerName does not support capability: ${capability.name}")))
+            return Result.failure(RunnerSelectionException(RunnerError("E405", "Runner ${runner.getRunnerInfo().name} does not support capability: ${capability.name}")))
         }
 
-        // 4. Load runner if needed
+        // 3. Load runner if needed
         if (!runner.isLoaded()) {
-            logger.d(TAG, "Runner $runnerName not loaded, attempting to load...")
+            logger.d(TAG, "Runner ${runner.getRunnerInfo().name} not loaded, attempting to load...")
 
             // Memory Management Logic
-            val modelInfo = modelInfoProvider.getModelInfoByRunner(runnerName)
+            val modelInfo = modelInfoProvider.getModelInfoByRunner(runner.getRunnerInfo().name)
             val requiredRamGB = modelInfo?.ramGB ?: 4 // Default to 2GB if model info is not found
 
             var availableRamGB = systemResourceMonitor.getAvailableRamGB()
-            logger.d(TAG, "Runner $runnerName requires ~${requiredRamGB}GB RAM. Available: ${"%.2f".format(availableRamGB)}GB.")
+            logger.d(TAG, "Runner ${runner.getRunnerInfo().name} requires ~${requiredRamGB}GB RAM. Available: ${"%.2f".format(availableRamGB)}GB.")
 
             if (availableRamGB < requiredRamGB * 1.2f) {
                 logger.w(TAG, "Insufficient RAM. Attempting to unload other loaded runners.")
@@ -353,15 +336,15 @@ class AIEngineManager(
                 logger.d(TAG, "RAM available after unloading: ${"%.2f".format(availableRamGB)}GB.")
 
                 if (availableRamGB < requiredRamGB) {
-                    val errorMessage = "OOM Risk: Not enough RAM for runner $runnerName. Required: ${requiredRamGB}GB, Available: ${"%.2f".format(availableRamGB)}GB."
+                    val errorMessage = "OOM Risk: Not enough RAM for runner ${runner.getRunnerInfo().name}. Required: ${requiredRamGB}GB, Available: ${"%.2f".format(availableRamGB)}GB."
                     logger.e(TAG, errorMessage)
                     return Result.failure(RunnerSelectionException(RunnerError("E502", errorMessage)))
                 }
             }
 
-            val loaded = runner.load(createDefaultConfig(runnerName))
+            val loaded = runner.load(createDefaultConfig(runner.getRunnerInfo().name))
             if (!loaded) {
-                return Result.failure(RunnerSelectionException(RunnerError("E501", "Failed to load model for runner: $runnerName")))
+                return Result.failure(RunnerSelectionException(RunnerError("E501", "Failed to load model for runner: ${runner.getRunnerInfo().name}")))
             }
         }
 
@@ -380,15 +363,16 @@ class AIEngineManager(
             // Double-check lock
             activeRunners[name]?.let { return@write it }
 
-            try {
-                runnerRegistry.createRunner(name)?.also { runner ->
-                    activeRunners[name] = runner
-                    logger.d(TAG, "Created new runner instance: $name")
-                }
-            } catch (e: Exception) {
-                logger.e(TAG, "Failed to create runner: $name", e)
-                null
+            // In the new system, runners are already created and managed by RunnerManager
+            // We just need to find the existing runner by name
+            val runner = runnerManager.getAllRunners().find { it.getRunnerInfo().name == name }
+            if (runner != null) {
+                activeRunners[name] = runner
+                logger.d(TAG, "Using existing runner instance: $name")
+            } else {
+                logger.e(TAG, "Failed to find runner: $name")
             }
+            runner
         }
     }
 

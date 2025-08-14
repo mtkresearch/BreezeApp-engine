@@ -112,35 +112,52 @@ class RunnerAnnotationDiscovery(
      */
     fun discoverAnnotatedRunners(): List<Class<out BaseRunner>> {
         return try {
-            logger.d(TAG, "Scanning classpath for @AIRunner annotations")
+            logger.d(TAG, "Scanning classpath for runner classes - testing direct class loading")
             val scanStartTime = System.currentTimeMillis()
             
-            val annotatedClasses = ClassGraph()
-                .acceptPackages(PACKAGE_SCAN_ROOT)
-                .enableAnnotationInfo()
-                .enableClassInfo()
-                .scan()
-                .use { scanResult ->
-                    scanResult.getClassesWithAnnotation(AIRunner::class.java.name)
-                        .mapNotNull { classInfo ->
-                            try {
-                                val clazz = classInfo.loadClass()
-                                if (BaseRunner::class.java.isAssignableFrom(clazz)) {
-                                    @Suppress("UNCHECKED_CAST")
-                                    clazz as Class<out BaseRunner>
-                                } else {
-                                    logger.w(TAG, "Class ${clazz.name} has @AIRunner but doesn't implement BaseRunner")
-                                    null
-                                }
-                            } catch (e: Exception) {
-                                logger.w(TAG, "Failed to load class ${classInfo.name}: ${e.message}")
-                                null
-                            }
-                        }
+            // First, try to directly load some known classes to see if they exist
+            val knownRunnerClasses = listOf(
+                "com.mtkresearch.breezeapp.engine.runner.mock.MockLLMRunner",
+                "com.mtkresearch.breezeapp.engine.runner.mock.MockASRRunner",
+                "com.mtkresearch.breezeapp.engine.runner.mock.MockTTSRunner",
+                "com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner",
+                "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaASRRunner",
+                "com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaTTSRunner"
+            )
+            
+            val manuallyLoadedClasses = mutableListOf<Class<out BaseRunner>>()
+            
+            knownRunnerClasses.forEach { className ->
+                try {
+                    val clazz = Class.forName(className)
+                    if (BaseRunner::class.java.isAssignableFrom(clazz)) {
+                        @Suppress("UNCHECKED_CAST")
+                        val baseRunnerClass = clazz as Class<out BaseRunner>
+                        logger.d(TAG, "Successfully loaded known class: $className")
+                        manuallyLoadedClasses.add(baseRunnerClass)
+                    } else {
+                        logger.d(TAG, "Class $className exists but does not implement BaseRunner")
+                    }
+                } catch (e: ClassNotFoundException) {
+                    logger.d(TAG, "Class not found: $className")
+                } catch (e: Exception) {
+                    logger.w(TAG, "Error loading class $className: ${e.message}")
                 }
+            }
+            
+            // Now check which of these have the @AIRunner annotation
+            val annotatedClasses = manuallyLoadedClasses.filter { clazz ->
+                val hasAnnotation = clazz.isAnnotationPresent(AIRunner::class.java)
+                if (!hasAnnotation) {
+                    logger.d(TAG, "Manually loaded class ${clazz.simpleName} has no @AIRunner annotation")
+                } else {
+                    logger.d(TAG, "Manually loaded class ${clazz.simpleName} has @AIRunner annotation")
+                }
+                hasAnnotation
+            }
             
             val scanTime = System.currentTimeMillis() - scanStartTime
-            logger.d(TAG, "Classpath scan completed in ${scanTime}ms, found ${annotatedClasses.size} classes")
+            logger.d(TAG, "Manual class loading completed in ${scanTime}ms, found ${annotatedClasses.size} annotated runner classes")
             
             annotatedClasses
             
@@ -215,12 +232,7 @@ class RunnerAnnotationDiscovery(
         }
         
         // Check for accessible constructor
-        val hasAccessibleConstructor = try {
-            runnerClass.getConstructor() != null || 
-            runnerClass.getConstructor(Context::class.java) != null
-        } catch (e: NoSuchMethodException) {
-            false
-        }
+        val hasAccessibleConstructor = hasDefaultConstructor(runnerClass) || hasContextConstructor(runnerClass)
         
         if (!hasAccessibleConstructor) {
             logger.w(TAG, "Runner class ${runnerClass.simpleName} has no accessible constructor")
@@ -228,6 +240,30 @@ class RunnerAnnotationDiscovery(
         }
         
         return true
+    }
+    
+    /**
+     * Check if a runner class has a default (parameterless) constructor.
+     */
+    private fun hasDefaultConstructor(runnerClass: Class<out BaseRunner>): Boolean {
+        return try {
+            runnerClass.getConstructor()
+            true
+        } catch (e: NoSuchMethodException) {
+            false
+        }
+    }
+    
+    /**
+     * Check if a runner class has a Context constructor.
+     */
+    private fun hasContextConstructor(runnerClass: Class<out BaseRunner>): Boolean {
+        return try {
+            runnerClass.getConstructor(Context::class.java)
+            true
+        } catch (e: NoSuchMethodException) {
+            false
+        }
     }
     
     /**
@@ -251,17 +287,7 @@ class RunnerAnnotationDiscovery(
             return false
         }
         
-        // Validate vendor type
-        if (annotation.vendor == null) {
-            logger.w(TAG, "Runner ${runnerClass.simpleName} has null vendor")
-            return false
-        }
-        
-        // Validate priority
-        if (annotation.priority == null) {
-            logger.w(TAG, "Runner ${runnerClass.simpleName} has null priority")
-            return false
-        }
+        // Note: vendor and priority are non-null enum types, no validation needed
         
         // Validate API level
         if (annotation.apiLevel < 1) {

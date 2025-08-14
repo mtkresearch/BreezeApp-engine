@@ -24,11 +24,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 快速回應設計
  */
 @AIRunner(
-    name = "Mock Guardrail Runner",
     vendor = VendorType.UNKNOWN,
     priority = RunnerPriority.LOW,
     capabilities = [CapabilityType.GUARDIAN],
-    hardwareRequirements = [HardwareRequirement.CPU],
+    hardwareRequirements = [HardwareRequirement.CPU]
 )
 class MockGuardrailRunner : BaseRunner {
     

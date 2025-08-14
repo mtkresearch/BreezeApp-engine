@@ -4,6 +4,10 @@ import android.content.Context
 import android.util.Log
 import com.k2fsa.sherpa.onnx.*
 import com.k2fsa.sherpa.onnx.WaveReader
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
+import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
+import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
@@ -18,15 +22,10 @@ import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
  * Model files must be extracted to assets before loading.
  */
 @AIRunner(
-    name = "Sherpa Offline ASR Runner",
     vendor = VendorType.SHERPA,
-    priority = RunnerPriority.MEDIUM,
+    priority = RunnerPriority.NORMAL,
     capabilities = [CapabilityType.ASR],
-    hardwareRequirements = [HardwareRequirement.CPU],
-    description = "Sherpa ONNX offline ASR runner",
-    version = "1.0.0",
-    apiLevel = 1,
-    enabled = true
+    hardwareRequirements = [HardwareRequirement.CPU]
 )
 class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
     companion object {
