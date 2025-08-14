@@ -4,6 +4,10 @@ import android.content.Context
 import android.media.AudioTrack
 import android.util.Log
 import com.k2fsa.sherpa.onnx.OfflineTts
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
+import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
+import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
@@ -27,6 +31,17 @@ import kotlinx.coroutines.flow.flow
  * - Global library management integration
  * - Robust audio playback management
  */
+@AIRunner(
+    name = "Sherpa TTS Runner",
+    vendor = VendorType.SHERPA,
+    priority = RunnerPriority.MEDIUM,
+    capabilities = [CapabilityType.TTS],
+    hardwareRequirements = [HardwareRequirement.CPU],
+    description = "Sherpa ONNX TTS runner with real-time streaming audio playback",
+    version = "1.0.0",
+    apiLevel = 1,
+    enabled = true
+)
 class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStreamingRunner {
     companion object {
         private const val TAG = "SherpaTTSRunner"

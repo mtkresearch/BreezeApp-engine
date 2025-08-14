@@ -3,6 +3,10 @@ package com.mtkresearch.breezeapp.engine.runner.sherpa
 import android.content.Context
 import android.util.Log
 import com.k2fsa.sherpa.onnx.*
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
+import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
+import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
@@ -20,6 +24,17 @@ import kotlinx.coroutines.flow.flow
  *
  * Model files must be extracted to internal storage before loading.
  */
+@AIRunner(
+    name = "Sherpa ASR Runner",
+    vendor = VendorType.SHERPA,
+    priority = RunnerPriority.MEDIUM,
+    capabilities = [CapabilityType.ASR],
+    hardwareRequirements = [HardwareRequirement.CPU],
+    description = "Sherpa ONNX streaming ASR runner for speech recognition",
+    version = "1.0.0",
+    apiLevel = 1,
+    enabled = true
+)
 class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStreamingRunner {
     companion object {
         private const val TAG = "SherpaASRRunner"

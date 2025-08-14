@@ -1,6 +1,10 @@
 package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
+import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
+import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
@@ -20,6 +24,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 圖像格式驗證
  * - 可配置的分析延遲
  */
+@AIRunner(
+    name = "Mock VLM Runner",
+    vendor = VendorType.UNKNOWN,
+    priority = RunnerPriority.LOW,
+    capabilities = [CapabilityType.VLM],
+    hardwareRequirements = [HardwareRequirement.CPU],
+)
 class MockVLMRunner : BaseRunner, FlowStreamingRunner {
     
     companion object {

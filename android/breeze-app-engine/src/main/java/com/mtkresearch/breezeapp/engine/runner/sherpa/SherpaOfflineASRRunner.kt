@@ -17,6 +17,17 @@ import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
  *
  * Model files must be extracted to assets before loading.
  */
+@AIRunner(
+    name = "Sherpa Offline ASR Runner",
+    vendor = VendorType.SHERPA,
+    priority = RunnerPriority.MEDIUM,
+    capabilities = [CapabilityType.ASR],
+    hardwareRequirements = [HardwareRequirement.CPU],
+    description = "Sherpa ONNX offline ASR runner",
+    version = "1.0.0",
+    apiLevel = 1,
+    enabled = true
+)
 class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
     companion object {
         private const val TAG = "SherpaOfflineASRRunner"

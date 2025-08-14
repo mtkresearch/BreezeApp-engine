@@ -1,22 +1,36 @@
 package com.mtkresearch.breezeapp.engine.runner.core
 
 import android.content.Context
-import com.mtkresearch.breezeapp.engine.config.RunnerDefinition
-import com.mtkresearch.breezeapp.engine.runner.mtk.MTKConfig
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.core.Logger
-import com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner
-import java.util.concurrent.ConcurrentHashMap
+import java.lang.reflect.Constructor
 
 /**
- * Smart factory for creating runner instances with vendor-specific logic.
+ * RunnerFactory - Simple Runner Instance Creation
  * 
- * This factory handles the complexity of creating different types of runners:
- * - Mock runners: Simple instantiation
- * - MTK runners: Require hardware detection and model configuration
- * - OpenAI runners: Require API keys and network configuration (future)
- * - HuggingFace runners: Require model downloads and caching (future)
+ * Creates runner instances from annotated classes using reflection with dependency injection.
+ * This replaces the complex vendor-specific factory logic with a simple, unified approach
+ * that relies on @AIRunner annotations for all configuration.
  * 
- * The factory uses caching to avoid recreating expensive runner instances.
+ * ## Creation Strategy
+ * The factory attempts constructor injection in this order:
+ * 1. **Constructor(Context)** - For runners needing Android context
+ * 2. **Constructor()** - For simple runners with no dependencies
+ * 
+ * ## Dependency Injection
+ * - **Context**: Automatically injected for Android-specific operations
+ * - **Future**: Could be extended for other dependencies (Logger, etc.)
+ * 
+ * ## Error Handling
+ * - Missing constructors are logged and return null
+ * - Constructor exceptions are caught and logged
+ * - Hardware requirement validation failures are handled gracefully
+ * 
+ * @param context Android context for dependency injection
+ * @param logger Logger instance for debugging and monitoring
+ * 
+ * @since Engine API v2.0
  */
 class RunnerFactory(
     private val context: Context,
@@ -26,229 +40,188 @@ class RunnerFactory(
         private const val TAG = "RunnerFactory"
     }
     
-    private val runnerCache = ConcurrentHashMap<String, BaseRunner>()
-    
     /**
-     * Create a runner instance from its definition.
+     * Create a runner instance from an annotated class.
      * 
-     * @param definition The runner definition containing class name and configuration
-     * @return The created runner instance, or null if creation failed
+     * @param runnerClass The annotated runner class to instantiate
+     * @return New runner instance, or null if creation failed
      */
-    fun createRunner(definition: RunnerDefinition): BaseRunner? {
-        return runnerCache.getOrPut(definition.name) {
-            try {
-                logger.d(TAG, "Creating runner: ${definition.name} (${definition.className})")
-                
-                when {
-                    definition.className.contains(".mock.") -> {
-                        createMockRunner(definition)
-                    }
-                    definition.className.contains(".mtk.") -> {
-                        createMTKRunner(definition)
-                    }
-                    definition.className.contains(".openai.") -> {
-                        createOpenAIRunner(definition)
-                    }
-                    definition.className.contains(".huggingface.") -> {
-                        createHuggingFaceRunner(definition)
-                    }
-                    else -> {
-                        createGenericRunner(definition)
-                    }
-                } ?: throw RuntimeException("Failed to create runner: ${definition.name}")
-                
-            } catch (e: Exception) {
-                logger.e(TAG, "Failed to create runner '${definition.name}': ${e.message}", e)
-                null
+    fun createRunner(runnerClass: Class<out BaseRunner>): BaseRunner? {
+        try {
+            logger.d(TAG, "Creating runner instance: ${runnerClass.simpleName}")
+            
+            // Validate annotation before creation
+            val annotation = runnerClass.getAnnotation(AIRunner::class.java)
+            if (annotation == null) {
+                logger.w(TAG, "Class ${runnerClass.simpleName} missing @AIRunner annotation")
+                return null
             }
-        }
-    }
-    
-    /**
-     * Create a mock runner - simple instantiation with no special requirements.
-     */
-    private fun createMockRunner(definition: RunnerDefinition): BaseRunner? {
-        logger.d(TAG, "Creating mock runner: ${definition.name}")
-        
-        return try {
-            val clazz = Class.forName(definition.className)
-            clazz.getConstructor().newInstance() as BaseRunner
-        } catch (e: Exception) {
-            logger.e(TAG, "Failed to create mock runner: ${definition.name}", e)
-            null
-        }
-    }
-    
-    /**
-     * Create an MTK runner - requires hardware detection and model configuration.
-     */
-    private fun createMTKRunner(definition: RunnerDefinition): BaseRunner? {
-        logger.d(TAG, "Creating MTK runner: ${definition.name}")
-        
-        return try {
-            when (definition.className) {
-                "com.mtkresearch.breezeapp.engine.runner.mtk.MTKLLMRunner" -> {
-                    createMTKLLMRunner(definition)
-                }
-                // Future MTK runners can be added here
-                // "com.mtkresearch.breezeapp.engine.data.runner.mtk.MTKASRRunner" -> { ... }
-                // "com.mtkresearch.breezeapp.engine.data.runner.mtk.MTKTTSRunner" -> { ... }
-                else -> {
-                    logger.w(TAG, "Unknown MTK runner type: ${definition.className}")
-                    null
-                }
+            
+            // Create instance using appropriate constructor
+            val instance = instantiateRunner(runnerClass)
+            if (instance == null) {
+                logger.e(TAG, "Failed to instantiate ${runnerClass.simpleName}")
+                return null
             }
+            
+            logger.d(TAG, "Successfully created runner: ${runnerClass.simpleName}")
+            return instance
+            
         } catch (e: Exception) {
-            logger.e(TAG, "Failed to create MTK runner: ${definition.name}", e)
-            null
-        }
-    }
-    
-    /**
-     * Create MTK LLM Runner with proper configuration.
-     */
-    private fun createMTKLLMRunner(definition: RunnerDefinition): BaseRunner? {
-        val modelId = definition.modelId ?: "Breeze2-3B-8W16A-250630-npu"
-        
-        // Get model entry point path
-        val entryPointPath = getLocalEntryPointPath(context, modelId)
-        if (entryPointPath == null) {
-            logger.w(TAG, "Model entry point not found for $modelId")
+            logger.e(TAG, "Error creating runner ${runnerClass.simpleName}", e)
             return null
         }
-        
-        // Create MTK configuration
-        val mtkConfig = MTKConfig.createDefault(entryPointPath)
-        
-        // Create the runner
-        return MTKLLMRunner.create(context, mtkConfig)
     }
     
     /**
-     * Create an OpenAI runner - requires API configuration (future implementation).
+     * Validate that hardware requirements are satisfied.
+     * 
+     * @param annotation The @AIRunner annotation containing requirements
+     * @return true if all hardware requirements are met
      */
-    private fun createOpenAIRunner(definition: RunnerDefinition): BaseRunner? {
-        logger.d(TAG, "Creating OpenAI runner: ${definition.name}")
-        
-        // Future implementation for OpenAI runners
-        // This would handle:
-        // - API key configuration
-        // - Network connectivity checks
-        // - Rate limiting setup
-        // - Model selection
-        
-        logger.w(TAG, "OpenAI runners not yet implemented")
-        return null
-        
-        /*
-        // Future implementation example:
-        return try {
-            val apiKey = getOpenAIApiKey()
-            val clazz = Class.forName(definition.className)
-            val constructor = clazz.getConstructor(String::class.java)
-            constructor.newInstance(apiKey) as BaseRunner
-        } catch (e: Exception) {
-            logger.e(TAG, "Failed to create OpenAI runner: ${definition.name}", e)
-            null
+    fun validateHardwareRequirements(annotation: AIRunner): Boolean {
+        if (annotation.hardwareRequirements.isEmpty()) {
+            return true
         }
-        */
-    }
-    
-    /**
-     * Create a HuggingFace runner - requires model download and caching (future implementation).
-     */
-    private fun createHuggingFaceRunner(definition: RunnerDefinition): BaseRunner? {
-        logger.d(TAG, "Creating HuggingFace runner: ${definition.name}")
         
-        // Future implementation for HuggingFace runners
-        // This would handle:
-        // - Model download from HuggingFace Hub
-        // - Local model caching
-        // - Tokenizer setup
-        // - Hardware optimization
+        val unmetRequirements = mutableListOf<HardwareRequirement>()
         
-        logger.w(TAG, "HuggingFace runners not yet implemented")
-        return null
-        
-        /*
-        // Future implementation example:
-        return try {
-            val modelPath = downloadHuggingFaceModel(definition.modelId)
-            val clazz = Class.forName(definition.className)
-            val constructor = clazz.getConstructor(String::class.java)
-            constructor.newInstance(modelPath) as BaseRunner
-        } catch (e: Exception) {
-            logger.e(TAG, "Failed to create HuggingFace runner: ${definition.name}", e)
-            null
-        }
-        */
-    }
-    
-    /**
-     * Create a generic runner - fallback for unknown runner types.
-     */
-    private fun createGenericRunner(definition: RunnerDefinition): BaseRunner? {
-        logger.d(TAG, "Creating generic runner: ${definition.name}")
-
-        return try {
-            val clazz = Class.forName(definition.className)
-            // Prefer (Context) constructor if available
-            val contextCtor = clazz.constructors.find { ctor ->
-                val params = ctor.parameterTypes
-                params.size == 1 && Context::class.java.isAssignableFrom(params[0])
-            }
-            if (contextCtor != null) {
-                contextCtor.newInstance(context) as BaseRunner
-            } else {
-                clazz.getConstructor().newInstance() as BaseRunner
-            }
-        } catch (e: Exception) {
-            logger.e(TAG, "Failed to create generic runner: ${definition.name}", e)
-            null
-        }
-    }
-    
-    /**
-     * Get the local entry point path for a model.
-     * This is used by MTK runners to locate downloaded models.
-     */
-    private fun getLocalEntryPointPath(context: Context, modelId: String): String? {
-        return try {
-            val file = java.io.File(context.filesDir, "downloadedModelList.json")
-            if (!file.exists()) return null
-            
-            val json = file.readText()
-            val modelList = org.json.JSONObject(json).getJSONArray("models")
-            
-            for (i in 0 until modelList.length()) {
-                val model = modelList.getJSONObject(i)
-                if (model.getString("id") == modelId) {
-                    val entryPoint = model.getString("entryPointValue")
-                    return java.io.File(context.filesDir, "models/$modelId/$entryPoint").absolutePath
+        for (requirement in annotation.hardwareRequirements) {
+            try {
+                if (!requirement.isSatisfied(context)) {
+                    unmetRequirements.add(requirement)
                 }
+            } catch (e: Exception) {
+                logger.w(TAG, "Error validating hardware requirement $requirement: ${e.message}")
+                unmetRequirements.add(requirement)
             }
-            null
-        } catch (e: Exception) {
-            logger.e(TAG, "Failed to get entry point path for model: $modelId", e)
+        }
+        
+        if (unmetRequirements.isNotEmpty()) {
+            logger.d(TAG, "Unmet hardware requirements: ${unmetRequirements.joinToString()}")
+            return false
+        }
+        
+        return true
+    }
+    
+    /**
+     * Check if a runner class is supported on the current device.
+     * This combines annotation validation and hardware requirement checking.
+     * 
+     * @param runnerClass The runner class to check
+     * @return true if the runner is supported on this device
+     */
+    fun isRunnerSupported(runnerClass: Class<out BaseRunner>): Boolean {
+        val annotation = runnerClass.getAnnotation(AIRunner::class.java)
+            ?: return false
+        
+        if (!annotation.enabled) {
+            logger.d(TAG, "Runner ${runnerClass.simpleName} is disabled via annotation")
+            return false
+        }
+        
+        return validateHardwareRequirements(annotation)
+    }
+    
+    /**
+     * Get creation statistics for debugging.
+     * 
+     * @return Map containing factory performance metrics
+     */
+    fun getCreationStats(): Map<String, Any> {
+        return mapOf(
+            "factoryType" to "Reflection-based with dependency injection",
+            "supportedConstructors" to listOf("(Context)", "()"),
+            "dependencyInjection" to "Context auto-injection"
+        )
+    }
+    
+    // Private implementation methods
+    
+    /**
+     * Instantiate a runner using the most appropriate constructor.
+     * 
+     * @param runnerClass The class to instantiate
+     * @return New instance, or null if instantiation failed
+     */
+    private fun instantiateRunner(runnerClass: Class<out BaseRunner>): BaseRunner? {
+        // Try Context constructor first (preferred for Android runners)
+        val contextConstructor = findContextConstructor(runnerClass)
+        if (contextConstructor != null) {
+            return tryCreateWithConstructor(contextConstructor, context)
+        }
+        
+        // Fallback to default constructor
+        val defaultConstructor = findDefaultConstructor(runnerClass)
+        if (defaultConstructor != null) {
+            return tryCreateWithConstructor(defaultConstructor)
+        }
+        
+        logger.w(TAG, "No suitable constructor found for ${runnerClass.simpleName}")
+        return null
+    }
+    
+    /**
+     * Find a constructor that takes a Context parameter.
+     * 
+     * @param runnerClass The class to search
+     * @return Constructor(Context) if found, null otherwise
+     */
+    private fun findContextConstructor(runnerClass: Class<out BaseRunner>): Constructor<out BaseRunner>? {
+        return try {
+            runnerClass.getConstructor(Context::class.java)
+        } catch (e: NoSuchMethodException) {
             null
         }
     }
     
     /**
-     * Clear the runner cache. Useful for testing or when configuration changes.
+     * Find the default no-argument constructor.
+     * 
+     * @param runnerClass The class to search
+     * @return Constructor() if found, null otherwise
      */
-    fun clearCache() {
-        logger.d(TAG, "Clearing runner cache")
-        runnerCache.clear()
+    private fun findDefaultConstructor(runnerClass: Class<out BaseRunner>): Constructor<out BaseRunner>? {
+        return try {
+            runnerClass.getConstructor()
+        } catch (e: NoSuchMethodException) {
+            null
+        }
     }
     
     /**
-     * Get cache statistics for debugging.
+     * Attempt to create an instance using a specific constructor with arguments.
+     * 
+     * @param constructor The constructor to use
+     * @param args Arguments to pass to the constructor
+     * @return New instance, or null if creation failed
      */
-    fun getCacheStats(): Map<String, Any> {
-        return mapOf(
-            "cacheSize" to runnerCache.size,
-            "cachedRunners" to runnerCache.keys.toList()
-        )
+    private fun tryCreateWithConstructor(
+        constructor: Constructor<out BaseRunner>,
+        vararg args: Any
+    ): BaseRunner? {
+        return try {
+            constructor.newInstance(*args)
+        } catch (e: Exception) {
+            logger.w(TAG, "Failed to create instance using constructor ${constructor}: ${e.message}")
+            null
+        }
+    }
+    
+    /**
+     * Inject dependencies into a runner instance (for future extensibility).
+     * Currently a no-op, but could be extended for complex dependency injection.
+     * 
+     * @param runner The runner instance to inject dependencies into
+     * @return The runner with dependencies injected
+     */
+    private fun injectDependencies(runner: BaseRunner): BaseRunner {
+        // Future: Could inject additional dependencies here
+        // - Logger
+        // - Configuration
+        // - Hardware managers
+        // - etc.
+        return runner
     }
 }

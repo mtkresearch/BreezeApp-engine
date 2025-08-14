@@ -1,6 +1,10 @@
 package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
+import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
+import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
@@ -23,6 +27,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 錯誤情況模擬
  * - 線程安全設計
  */
+@AIRunner(
+    name = "Mock LLM Runner",
+    vendor = VendorType.UNKNOWN,
+    priority = RunnerPriority.LOW,
+    capabilities = [CapabilityType.LLM],
+    hardwareRequirements = [HardwareRequirement.CPU],
+)
 class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     
     companion object {

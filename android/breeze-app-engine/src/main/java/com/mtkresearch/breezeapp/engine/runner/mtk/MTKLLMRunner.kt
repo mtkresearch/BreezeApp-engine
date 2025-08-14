@@ -2,6 +2,10 @@ package com.mtkresearch.breezeapp.engine.runner.mtk
 
 import android.content.Context
 import android.util.Log
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
+import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
+import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
@@ -32,6 +36,17 @@ import kotlinx.coroutines.flow.callbackFlow
  * - 統一配置管理
  * - 現代化的 Kotlin 協程支援
  */
+@AIRunner(
+    name = "MTK NPU Runner",
+    vendor = VendorType.MEDIATEK,
+    priority = RunnerPriority.HIGH,
+    capabilities = [CapabilityType.LLM],
+    hardwareRequirements = [HardwareRequirement.MTK_NPU],
+    description = "MTK NPU accelerated language model runner with streaming support",
+    version = "1.0.0",
+    apiLevel = 1,
+    enabled = true
+)
 class MTKLLMRunner private constructor(
     private val context: Context,
     private var config: MTKConfig,

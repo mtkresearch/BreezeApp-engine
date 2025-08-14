@@ -1,6 +1,5 @@
 package com.mtkresearch.breezeapp.engine.runner.core
 
-import com.mtkresearch.breezeapp.engine.config.RunnerDefinition
 import com.mtkresearch.breezeapp.engine.core.Logger
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import java.util.concurrent.ConcurrentHashMap
@@ -8,299 +7,307 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-private const val TAG = "RunnerRegistry"
-
 /**
- * RunnerRegistry
+ * RunnerRegistry - Thread-Safe Runner Storage and Lookup
  * 
- * Runner 註冊管理器，實現 Factory Pattern
- * 負責 Runner 的動態註冊、註銷和實例化
+ * Simplified registry that stores and manages runner instances using annotation-based
+ * metadata. This replaces the complex configuration-based system with a clean,
+ * annotation-only approach.
  * 
- * 特性：
- * - 線程安全的註冊和查詢
- * - 支援 Factory Pattern 動態創建
- * - 基於能力的優先級選擇
- * - Runner 生命週期管理
- * - 異常處理和日誌記錄
+ * ## Architecture Changes from Legacy
+ * - **REMOVED**: Configuration file parsing and validation
+ * - **REMOVED**: Strategy pattern selection complexity  
+ * - **REMOVED**: Hardware capability tracking and registration
+ * - **REMOVED**: Definition-based registration methods
+ * - **KEPT**: Thread-safe storage and capability-based lookup
+ * - **ADDED**: Simple annotation-based registration
+ * 
+ * ## Thread Safety
+ * All public methods are thread-safe using ReentrantReadWriteLock:
+ * - **Read operations**: Concurrent access allowed
+ * - **Write operations**: Exclusive access required
+ * 
+ * ## Storage Strategy
+ * Runners are indexed by:
+ * - **Capability**: Fast lookup by AI capability type
+ * - **Name**: Direct access by runner name
+ * 
+ * @param logger Logger instance for debugging and monitoring
+ * 
+ * @since Engine API v2.0
  */
 class RunnerRegistry(private val logger: Logger) {
     
-    // 以能力為鍵，儲存一個按優先級排序的 RunnerRegistration 列表
-    private val capabilitiesMap = ConcurrentHashMap<CapabilityType, MutableList<RunnerRegistration>>()
-    private val runnersByName = ConcurrentHashMap<String, RunnerRegistration>()
-    private val runnerDefinitions = ConcurrentHashMap<String, RunnerDefinition>()
+    companion object {
+        private const val TAG = "RunnerRegistry"
+    }
+    
+    // Thread-safe storage for runners
+    private val runnersByCapability = ConcurrentHashMap<CapabilityType, MutableList<BaseRunner>>()
+    private val runnersByName = ConcurrentHashMap<String, BaseRunner>()
     private val indexLock = ReentrantReadWriteLock()
     
-    // Smart selection capabilities
-    private var selectionStrategy: RunnerSelectionStrategy = RunnerSelectionStrategy.MockFirst
-    private var hardwareCapabilities: Set<String> = emptySet()
-    
     /**
-     * Runner 工廠介面
+     * Register a runner instance using its @AIRunner annotation for metadata.
+     * 
+     * @param runner The runner instance to register
+     * @throws IllegalArgumentException if runner has no @AIRunner annotation
      */
-    fun interface RunnerFactory {
-        fun create(): BaseRunner
-    }
-    
-    /**
-     * Runner 註冊資訊
-     */
-    data class RunnerRegistration(
-        val name: String,
-        val factory: RunnerFactory,
-        val capabilities: List<CapabilityType>,
-        val priority: Int, // 0=最高, 數字越大優先級越低
-        val description: String = "",
-        val version: String = "1.0.0"
-    )
-    
-    /**
-     * Set the runner selection strategy.
-     */
-    fun setSelectionStrategy(strategy: RunnerSelectionStrategy) {
-        indexLock.write {
-            this.selectionStrategy = strategy
-            logger.d(TAG, "Selection strategy updated to: ${strategy::class.simpleName}")
-        }
-    }
-    
-    /**
-     * Update hardware capabilities for smart selection.
-     */
-    fun updateHardwareCapabilities(capabilities: Set<String>) {
-        indexLock.write {
-            this.hardwareCapabilities = capabilities
-            logger.d(TAG, "Hardware capabilities updated: $capabilities")
-        }
-    }
-    
-    /**
-     * Register a runner with its definition for smart selection.
-     */
-    fun registerWithDefinition(registration: RunnerRegistration, definition: RunnerDefinition) {
-        indexLock.write {
-            register(registration)
-            runnerDefinitions[registration.name] = definition
-            logger.d(TAG, "Runner definition stored for smart selection: ${registration.name}")
-        }
-    }
-    
-    /**
-     * 註冊 Runner
-     * @param registration Runner 註冊資訊
-     */
-    fun register(registration: RunnerRegistration) {
+    fun register(runner: BaseRunner) {
         indexLock.write {
             try {
-                // 註冊到名稱映射中，方便按名稱查找
-                runnersByName[registration.name] = registration
+                val runnerInfo = runner.getRunnerInfo()
+                val capabilities = runner.getCapabilities()
                 
-                // 更新能力索引
-                registration.capabilities.forEach { capability ->
-                    capabilitiesMap.getOrPut(capability) { mutableListOf() }
-                        .apply {
-                            // 移除舊的同名註冊，避免重複
-                            removeAll { it.name == registration.name }
-                            add(registration)
-                            // 根據優先級排序，數字越小越靠前
-                            sortBy { it.priority }
-                        }
+                if (capabilities.isEmpty()) {
+                    logger.w(TAG, "Runner ${runnerInfo.name} has no capabilities, skipping registration")
+                    return@write
                 }
                 
-                logger.d(TAG, "Registered runner: ${registration.name} with priority: ${registration.priority}")
+                // Store by name (remove any existing with same name)
+                val existingRunner = runnersByName.put(runnerInfo.name, runner)
+                if (existingRunner != null) {
+                    logger.d(TAG, "Replaced existing runner: ${runnerInfo.name}")
+                    removeFromCapabilityIndex(existingRunner)
+                }
+                
+                // Index by capabilities
+                capabilities.forEach { capability ->
+                    val runnerList = runnersByCapability.getOrPut(capability) { mutableListOf() }
+                    runnerList.add(runner)
+                }
+                
+                logger.d(TAG, "Registered runner '${runnerInfo.name}' with capabilities: ${capabilities.joinToString()}")
+                
             } catch (e: Exception) {
-                logger.e(TAG, "Failed to register runner: ${registration.name}", e)
+                logger.e(TAG, "Failed to register runner", e)
                 throw e
             }
         }
     }
     
     /**
-     * 註冊 Runner (簡化版本)
-     * @param name Runner 名稱
-     * @param factory Runner 工廠函數
-     * @param priority 優先級，數字越小越高
+     * Unregister a runner by name.
+     * 
+     * @param runnerName The name of the runner to unregister
+     * @return true if a runner was removed, false if not found
      */
-    fun register(name: String, factory: RunnerFactory, priority: Int = 10) {
-        try {
-            // 嘗試創建實例以獲取能力資訊
-            val tempInstance = factory.create()
-            val capabilities = tempInstance.getCapabilities()
-            val info = tempInstance.getRunnerInfo()
-            
-            // 清理臨時實例
-            tempInstance.unload()
-            
-            register(RunnerRegistration(
-                name = name,
-                factory = factory,
-                capabilities = capabilities,
-                priority = priority, // Use provided priority
-                description = info.description,
-                version = info.version
-            ))
-        } catch (e: Exception) {
-            logger.e(TAG, "Failed to register runner: $name", e)
-            throw RunnerRegistrationException("Failed to register runner: $name", e)
-        }
-    }
-    
-    /**
-     * 註銷 Runner
-     * @param name Runner 名稱
-     */
-    fun unregister(name: String) {
-        indexLock.write {
-            try {
-                runnersByName.remove(name)
-                
-                // 從能力索引中移除
-                capabilitiesMap.values.forEach { runnerList ->
-                    runnerList.removeAll { it.name == name }
-                }
-                
-                logger.d(TAG, "Unregistered runner: $name")
-            } catch (e: Exception) {
-                logger.e(TAG, "Failed to unregister runner: $name", e)
+    fun unregister(runnerName: String): Boolean {
+        return indexLock.write {
+            val runner = runnersByName.remove(runnerName)
+            if (runner != null) {
+                removeFromCapabilityIndex(runner)
+                logger.d(TAG, "Unregistered runner: $runnerName")
+                true
+            } else {
+                logger.w(TAG, "Attempted to unregister unknown runner: $runnerName")
+                false
             }
         }
     }
     
     /**
-     * 創建 Runner 實例 (按名稱)
-     * @param name Runner 名稱
-     * @return Runner 實例，如果未找到則返回 null
+     * Get the first available runner for a specific capability.
+     * Priority-based selection should be handled by RunnerPriorityResolver.
+     * 
+     * @param capability The AI capability needed
+     * @return First available runner supporting the capability, or null if none found
      */
-    fun createRunner(name: String): BaseRunner? {
+    fun getRunner(capability: CapabilityType): BaseRunner? {
         return indexLock.read {
-            try {
-                runnersByName[name]?.factory?.create()?.also {
-                    logger.d(TAG, "Created runner instance by name: $name")
-                }
-            } catch (e: Exception) {
-                logger.e(TAG, "Failed to create runner by name: $name", e)
+            val runners = runnersByCapability[capability]
+            if (runners.isNullOrEmpty()) {
+                logger.d(TAG, "No runners available for capability: $capability")
                 null
+            } else {
+                val runner = runners.first()
+                logger.d(TAG, "Found runner '${runner.getRunnerInfo().name}' for capability $capability")
+                runner
             }
         }
     }
     
     /**
-     * 根據能力獲取最佳的 Runner 實例
-     * @param capability 能力類型
-     * @return 優先級最高的 Runner 實例，如果未找到則返回 null
+     * Get all runners that support a specific capability.
+     * 
+     * @param capability The AI capability to search for
+     * @return List of runners supporting the capability (may be empty)
      */
-    fun getRunnerForCapability(capability: CapabilityType): BaseRunner? {
+    fun getAllRunners(capability: CapabilityType): List<BaseRunner> {
         return indexLock.read {
-            try {
-                // 因為列表已經排序，直接取第一個
-                capabilitiesMap[capability]?.firstOrNull()?.factory?.create()?.also {
-                    logger.d(TAG, "Created best runner for capability $capability: ${it.getRunnerInfo().name}")
-                }
-            } catch (e: Exception) {
-                logger.e(TAG, "Failed to create runner for capability: $capability", e)
-                null
-            }
+            runnersByCapability[capability]?.toList() ?: emptyList()
         }
     }
     
     /**
-     * 檢查 Runner 是否已註冊
-     * @param name Runner 名稱
-     * @return 是否已註冊
+     * Get all registered runners regardless of capability.
+     * 
+     * @return List of all registered runners
      */
-    fun isRegistered(name: String): Boolean {
-        return runnersByName.containsKey(name)
+    fun getAllRunners(): List<BaseRunner> {
+        return indexLock.read {
+            runnersByName.values.toList()
+        }
     }
     
     /**
-     * 取得所有已註冊的 Runner 名稱
-     * @return Runner 名稱列表
+     * Get a runner by its exact name.
+     * 
+     * @param runnerName The name of the runner to find
+     * @return The runner with the specified name, or null if not found
      */
-    fun getRegisteredRunners(): List<String> {
+    fun getRunnerByName(runnerName: String): BaseRunner? {
+        return indexLock.read {
+            runnersByName[runnerName]
+        }
+    }
+    
+    /**
+     * Check if a runner with the specified name is registered.
+     * 
+     * @param runnerName The runner name to check
+     * @return true if a runner with that name is registered
+     */
+    fun isRegistered(runnerName: String): Boolean {
+        return runnersByName.containsKey(runnerName)
+    }
+    
+    /**
+     * Get the total number of registered runners.
+     * 
+     * @return Total count of registered runners
+     */
+    fun getTotalRunnerCount(): Int {
+        return runnersByName.size
+    }
+    
+    /**
+     * Get the list of capabilities that have at least one registered runner.
+     * 
+     * @return List of supported capability types
+     */
+    fun getSupportedCapabilities(): List<CapabilityType> {
+        return indexLock.read {
+            runnersByCapability.keys
+                .filter { capability -> runnersByCapability[capability]?.isNotEmpty() == true }
+                .toList()
+        }
+    }
+    
+    /**
+     * Get the names of all registered runners.
+     * 
+     * @return List of runner names
+     */
+    fun getRegisteredRunnerNames(): List<String> {
         return runnersByName.keys.toList()
     }
     
     /**
-     * 根據能力類型查詢支援的 Runner (按優先級排序)
-     * @param capability 能力類型
-     * @return 支援該能力的 RunnerRegistration 列表
+     * Get registry statistics for debugging and monitoring.
+     * 
+     * @return RegistryStats containing current registry state
      */
-    fun getRunnersForCapability(capability: CapabilityType): List<RunnerRegistration> {
-        return indexLock.read {
-            capabilitiesMap[capability]?.toList() ?: emptyList()
-        }
-    }
-    
-    /**
-     * 取得所有支援的能力類型
-     * @return 能力類型列表
-     */
-    fun getSupportedCapabilities(): List<CapabilityType> {
-        return capabilitiesMap.keys.toList()
-    }
-    
-    /**
-     * 清空所有註冊的 Runner
-     */
-    fun clear() {
-        indexLock.write {
-            runnersByName.clear()
-            capabilitiesMap.clear()
-            logger.d(TAG, "Cleared all registered runners")
-        }
-    }
-    
-    /**
-     * 取得註冊統計資訊
-     */
-    fun getRegistryStats(): RegistryStats {
+    fun getStats(): RegistryStats {
         return indexLock.read {
             RegistryStats(
                 totalRunners = runnersByName.size,
-                capabilityCount = capabilitiesMap.size,
-                runnersPerCapability = capabilitiesMap.mapValues { it.value.size }
+                capabilityCount = runnersByCapability.size,
+                runnersPerCapability = runnersByCapability.mapValues { it.value.size },
+                supportedCapabilities = getSupportedCapabilities()
             )
         }
     }
     
     /**
-     * 驗證 Runner 是否正常
-     * @param name Runner 名稱
-     * @return 驗證結果
+     * Clear all registered runners.
+     * This is typically used during shutdown or testing.
      */
-    fun validateRunner(name: String): ValidationResult {
-        return try {
-            val runner = createRunner(name)
-                ?: return ValidationResult.failure("Runner not found: $name")
+    fun clear() {
+        indexLock.write {
+            runnersByName.clear()
+            runnersByCapability.clear()
+            logger.d(TAG, "Cleared all registered runners")
+        }
+    }
+    
+    /**
+     * Check if the registry is empty.
+     * 
+     * @return true if no runners are registered
+     */
+    fun isEmpty(): Boolean {
+        return runnersByName.isEmpty()
+    }
+    
+    /**
+     * Validate the internal consistency of the registry.
+     * This is primarily used for debugging and testing.
+     * 
+     * @return ValidationResult indicating if the registry is consistent
+     */
+    fun validateConsistency(): ValidationResult {
+        return indexLock.read {
+            val errors = mutableListOf<String>()
             
-            // 基本驗證
-            val info = runner.getRunnerInfo()
-            val capabilities = runner.getCapabilities()
+            // Check that all runners in capability index are also in name index
+            runnersByCapability.forEach { (capability, runners) ->
+                runners.forEach { runner ->
+                    val runnerName = runner.getRunnerInfo().name
+                    if (!runnersByName.containsKey(runnerName)) {
+                        errors.add("Runner '$runnerName' in capability $capability but not in name index")
+                    }
+                }
+            }
             
-            runner.unload() // 清理測試實例
+            // Check that all runners in name index support their indexed capabilities
+            runnersByName.forEach { (name, runner) ->
+                val capabilities = runner.getCapabilities()
+                capabilities.forEach { capability ->
+                    val runnersForCapability = runnersByCapability[capability] ?: emptyList()
+                    if (!runnersForCapability.contains(runner)) {
+                        errors.add("Runner '$name' supports $capability but not indexed for it")
+                    }
+                }
+            }
             
-            ValidationResult.success("Runner validation passed", mapOf(
-                "name" to info.name,
-                "version" to info.version,
-                "capabilities" to capabilities.map { it.name }
-            ))
-        } catch (e: Exception) {
-            ValidationResult.failure("Runner validation failed: ${e.message}")
+            if (errors.isEmpty()) {
+                ValidationResult.success("Registry consistency validation passed")
+            } else {
+                ValidationResult.failure("Registry consistency errors: ${errors.joinToString("; ")}")
+            }
+        }
+    }
+    
+    // Private helper methods
+    
+    /**
+     * Remove a runner from all capability indexes.
+     */
+    private fun removeFromCapabilityIndex(runner: BaseRunner) {
+        val capabilities = runner.getCapabilities()
+        capabilities.forEach { capability ->
+            runnersByCapability[capability]?.remove(runner)
+            // Clean up empty lists
+            if (runnersByCapability[capability]?.isEmpty() == true) {
+                runnersByCapability.remove(capability)
+            }
         }
     }
 }
 
 /**
- * 註冊統計資訊
+ * Data class containing registry statistics.
  */
 data class RegistryStats(
     val totalRunners: Int,
     val capabilityCount: Int,
-    val runnersPerCapability: Map<CapabilityType, Int>
+    val runnersPerCapability: Map<CapabilityType, Int>,
+    val supportedCapabilities: List<CapabilityType>
 )
 
 /**
- * 驗證結果
+ * Data class representing validation results.
  */
 data class ValidationResult(
     val isValid: Boolean,
@@ -314,9 +321,3 @@ data class ValidationResult(
         fun failure(message: String) = ValidationResult(false, message)
     }
 }
-
-/**
- * Runner 註冊異常
- */
-class RunnerRegistrationException(message: String, cause: Throwable? = null) : 
-    Exception(message, cause)

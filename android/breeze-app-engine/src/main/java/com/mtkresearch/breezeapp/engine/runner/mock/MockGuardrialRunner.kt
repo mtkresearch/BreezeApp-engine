@@ -1,6 +1,10 @@
 package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
+import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
+import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
@@ -19,6 +23,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 可配置的檢測嚴格程度
  * - 快速回應設計
  */
+@AIRunner(
+    name = "Mock Guardrail Runner",
+    vendor = VendorType.UNKNOWN,
+    priority = RunnerPriority.LOW,
+    capabilities = [CapabilityType.GUARDIAN],
+    hardwareRequirements = [HardwareRequirement.CPU],
+)
 class MockGuardrailRunner : BaseRunner {
     
     companion object {

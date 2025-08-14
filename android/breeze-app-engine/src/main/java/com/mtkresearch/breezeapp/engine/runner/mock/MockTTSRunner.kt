@@ -1,6 +1,10 @@
 package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
+import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
+import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
@@ -23,6 +27,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 不同語音參數模擬
  * - 音訊格式支援
  */
+@AIRunner(
+    name = "Mock TTS Runner",
+    vendor = VendorType.UNKNOWN,
+    priority = RunnerPriority.LOW,
+    capabilities = [CapabilityType.TTS],
+    hardwareRequirements = [HardwareRequirement.CPU],
+)
 class MockTTSRunner : BaseRunner, FlowStreamingRunner {
     
     companion object {
