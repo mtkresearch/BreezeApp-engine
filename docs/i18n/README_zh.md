@@ -21,6 +21,8 @@ BreezeApp-engine/
 │   ├── CONTRIBUTING.md        # 貢獻指南
 │   ├── ARCHITECTURE.md        # 架構指南
 │   ├── RUNNER_DEVELOPMENT.md  # Runner 開發指南
+│   ├── MODEL_DOWNLOAD_UI_TUTORIAL.md  # 模型下載 UI 教程
+│   ├── PERMISSION_SYSTEM.md   # 權限系統文件
 │   ├── internal/              # 內部開發文件
 │   └── i18n/                  # 國際化
 │       ├── README_zh.md       # 中文 README

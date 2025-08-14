@@ -26,6 +26,8 @@ BreezeApp-engine/
 │   ├── CONTRIBUTING.md        # Contribution guidelines
 │   ├── ARCHITECTURE.md        # Architecture guidelines
 │   ├── RUNNER_DEVELOPMENT.md  # Runner development guide
+│   ├── MODEL_DOWNLOAD_UI_TUTORIAL.md  # Model download UI tutorial
+│   ├── PERMISSION_SYSTEM.md   # Permission system documentation
 │   ├── internal/              # Internal development docs
 │   └── i18n/                  # Internationalization
 │       ├── README_zh.md       # Chinese README
