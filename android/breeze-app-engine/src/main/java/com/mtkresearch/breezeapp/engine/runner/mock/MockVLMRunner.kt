@@ -8,7 +8,6 @@ import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -31,12 +30,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 )
 class MockVLMRunner : BaseRunner, FlowStreamingRunner {
     
-    companion object : BaseRunnerCompanion {
+    companion object {
         private const val TAG = "MockVLMRunner"
         private const val DEFAULT_ANALYSIS_DELAY = 400L
-        
-        @JvmStatic
-        override fun isSupported(): Boolean = true // Mock runners always supported
     }
     
     private val isLoaded = AtomicBoolean(false)
@@ -149,6 +145,8 @@ class MockVLMRunner : BaseRunner, FlowStreamingRunner {
         capabilities = getCapabilities(),
         description = "Mock implementation for Vision Language Model analysis"
     )
+    
+    override fun isSupported(): Boolean = true // Mock runners always supported
     
     /**
      * 圖像分析結果數據類

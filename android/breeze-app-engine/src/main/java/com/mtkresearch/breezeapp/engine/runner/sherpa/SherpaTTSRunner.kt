@@ -10,7 +10,6 @@ import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaTtsRunner
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
@@ -39,11 +38,8 @@ import kotlinx.coroutines.flow.flow
     enabled = true
 )
 class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStreamingRunner {
-    companion object : BaseRunnerCompanion {
+    companion object {
         private const val TAG = "SherpaTTSRunner"
-        
-        @JvmStatic
-        override fun isSupported(): Boolean = BaseSherpaRunner.isSupported() // Delegate to parent
     }
 
     private var tts: OfflineTts? = null

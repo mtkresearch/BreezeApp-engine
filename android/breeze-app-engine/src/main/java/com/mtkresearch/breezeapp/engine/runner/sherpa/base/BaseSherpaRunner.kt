@@ -3,7 +3,6 @@ package com.mtkresearch.breezeapp.engine.runner.sherpa.base
 import android.content.Context
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,11 +22,8 @@ abstract class BaseSherpaRunner(protected val context: Context) : BaseRunner {
     protected val isLoaded = AtomicBoolean(false)
     protected var modelName: String = ""
     
-    companion object : BaseRunnerCompanion {
+    companion object {
         private const val TAG = "BaseSherpaRunner"
-        
-        @JvmStatic
-        override fun isSupported(): Boolean = true
     }
     
     /**
@@ -60,6 +56,12 @@ abstract class BaseSherpaRunner(protected val context: Context) : BaseRunner {
      * @return Runner information containing name, version, and capabilities
      */
     abstract override fun getRunnerInfo(): RunnerInfo
+    
+    override fun isSupported(): Boolean {
+        // Sherpa runners are generally supported on most devices
+        // Subclasses can override for specific hardware requirements
+        return true
+    }
     
     override fun load(): Boolean {
         val defaultConfig = ModelConfig(

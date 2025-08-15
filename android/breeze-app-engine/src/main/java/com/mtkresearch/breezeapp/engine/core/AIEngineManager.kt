@@ -305,13 +305,19 @@ class AIEngineManager(
             return Result.failure(RunnerSelectionException(RunnerError("E405", "Runner ${runner.getRunnerInfo().name} does not support capability: ${capability.name}")))
         }
 
-        // 3. Load runner if needed
+        // 3. Runtime hardware validation
+        if (!isRunnerSupported(runner)) {
+            logger.w(TAG, "Runner ${runner.getRunnerInfo().name} not supported on this device hardware")
+            return Result.failure(RunnerSelectionException(RunnerError("E503", "Runner ${runner.getRunnerInfo().name} hardware requirements not met on this device")))
+        }
+
+        // 4. Load runner if needed
         if (!runner.isLoaded()) {
             logger.d(TAG, "Runner ${runner.getRunnerInfo().name} not loaded, attempting to load...")
 
             // Memory Management Logic
             val modelInfo = modelInfoProvider.getModelInfoByRunner(runner.getRunnerInfo().name)
-            val requiredRamGB = modelInfo?.ramGB ?: 4 // Default to 2GB if model info is not found
+            val requiredRamGB = modelInfo?.ramGB ?: 2 // Default to 2GB if model info is not found
 
             var availableRamGB = systemResourceMonitor.getAvailableRamGB()
             logger.d(TAG, "Runner ${runner.getRunnerInfo().name} requires ~${requiredRamGB}GB RAM. Available: ${"%.2f".format(availableRamGB)}GB.")
@@ -357,6 +363,29 @@ class AIEngineManager(
         }
         
         return Result.success(runner)
+    }
+
+    /**
+     * Runtime hardware validation for runners.
+     * 
+     * Validates that a runner's hardware requirements are met on the current device.
+     * This provides an additional safety check beyond discovery-time validation.
+     * Uses clean architecture approach with direct method calls instead of reflection.
+     * 
+     * @param runner The runner to validate
+     * @return true if the runner is supported on current hardware, false otherwise
+     */
+    private fun isRunnerSupported(runner: BaseRunner): Boolean {
+        return try {
+            // Direct method call - clean architecture approach
+            val isSupported = runner.isSupported()
+            logger.d(TAG, "Runtime hardware support check for ${runner.javaClass.simpleName}: $isSupported")
+            return isSupported
+            
+        } catch (e: Exception) {
+            logger.d(TAG, "Runtime hardware support check failed for ${runner.javaClass.simpleName}, assuming supported")
+            return true  // Fail safe - if we can't verify support, assume supported for compatibility
+        }
     }
 
 }

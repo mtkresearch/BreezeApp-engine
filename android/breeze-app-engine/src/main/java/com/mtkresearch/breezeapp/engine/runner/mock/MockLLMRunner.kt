@@ -8,7 +8,6 @@ import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -34,13 +33,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 )
 class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     
-    companion object : BaseRunnerCompanion {
+    companion object {
         private const val TAG = "MockLLMRunner"
         private const val DEFAULT_RESPONSE_DELAY = 100L
         private const val DEFAULT_STREAM_CHUNK_DELAY = 50L
-        
-        @JvmStatic
-        override fun isSupported(): Boolean = true // Mock runners always supported
     }
     
     private val isLoaded = AtomicBoolean(false)
@@ -177,6 +173,8 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
         capabilities = getCapabilities(),
         description = "Mock implementation for Large Language Model inference"
     )
+    
+    override fun isSupported(): Boolean = true // Mock runners always supported
     
     /**
      * 根據輸入選擇適當的回應

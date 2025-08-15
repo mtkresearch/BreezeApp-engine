@@ -10,7 +10,6 @@ import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 
 /**
@@ -27,12 +26,9 @@ import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
     capabilities = [CapabilityType.ASR]
 )
 class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
-    companion object : BaseRunnerCompanion {
+    companion object {
         private const val TAG = "SherpaOfflineASRRunner"
         private const val DEFAULT_SAMPLE_RATE = 16000
-        
-        @JvmStatic
-        override fun isSupported(): Boolean = BaseSherpaRunner.isSupported() // Delegate to parent
     }
 
     private var recognizer: OfflineRecognizer? = null

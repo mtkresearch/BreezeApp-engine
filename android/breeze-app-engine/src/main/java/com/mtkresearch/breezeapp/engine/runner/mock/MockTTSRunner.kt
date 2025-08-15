@@ -8,7 +8,6 @@ import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -34,15 +33,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 )
 class MockTTSRunner : BaseRunner, FlowStreamingRunner {
     
-    companion object : BaseRunnerCompanion {
+    companion object {
         private const val TAG = "MockTTSRunner"
         private const val DEFAULT_SYNTHESIS_DELAY = 250L
         private const val DEFAULT_STREAM_CHUNK_DELAY = 100L
         private const val MOCK_SAMPLE_RATE = 16000 // 16kHz
         private const val BYTES_PER_SAMPLE = 2 // 16-bit
-        
-        @JvmStatic
-        override fun isSupported(): Boolean = true // Mock runners always supported
     }
     
     private val isLoaded = AtomicBoolean(false)
@@ -207,6 +203,8 @@ class MockTTSRunner : BaseRunner, FlowStreamingRunner {
         capabilities = getCapabilities(),
         description = "Mock implementation for Text-to-Speech synthesis"
     )
+    
+    override fun isSupported(): Boolean = true // Mock runners always supported
     
     /**
      * 生成模擬的音訊資料

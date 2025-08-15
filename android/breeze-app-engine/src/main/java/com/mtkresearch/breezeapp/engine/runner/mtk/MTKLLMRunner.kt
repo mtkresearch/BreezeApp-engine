@@ -7,7 +7,6 @@ import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.system.NativeLibraryManager
@@ -52,25 +51,11 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
     private lateinit var config: MTKConfig
     private val nativeLibraryManager = NativeLibraryManager.getInstance()
 
-    companion object : BaseRunnerCompanion {
+    companion object {
         private const val TAG = "MTKLLMRunner"
         private const val MODEL_NAME = "Breeze2-3B-8W16A-250630-npu"
         private const val RUNNER_VERSION = "1.0.0"
         private val initAttemptCount = AtomicInteger(0)
-
-        @JvmStatic
-        override fun isSupported(): Boolean {
-            return try {
-                val hardwareSupported = MTKUtils.isMTKNPUSupported()
-                val libraryAvailable = NativeLibraryManager.getInstance().isLibraryAvailable("llm_jni")
-                val supported = hardwareSupported && libraryAvailable
-                Log.d(TAG, "MTK NPU support check: hardware=$hardwareSupported, library=$libraryAvailable, result=$supported")
-                supported
-            } catch (e: Exception) {
-                Log.e(TAG, "Error checking MTK NPU support", e)
-                false
-            }
-        }
     }
     
     override fun load(): Boolean {
@@ -316,6 +301,19 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
         capabilities = getCapabilities(),
         description = "MTK NPU accelerated language model runner with streaming support"
     )
+    
+    override fun isSupported(): Boolean {
+        return try {
+            val hardwareSupported = MTKUtils.isMTKNPUSupported()
+            val libraryAvailable = NativeLibraryManager.getInstance().isLibraryAvailable("llm_jni")
+            val supported = hardwareSupported && libraryAvailable
+            Log.d(TAG, "MTK NPU support check: hardware=$hardwareSupported, library=$libraryAvailable, result=$supported")
+            supported
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking MTK NPU support", e)
+            false
+        }
+    }
 
     // --- 與舊版 LLMEngineService 對應的初始化邏輯 ---
     private fun initializeMTKBackend(): InitializationResult {

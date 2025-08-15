@@ -138,30 +138,19 @@ interface BaseRunner {
      */
     fun getRunnerInfo(): RunnerInfo
 
-}
-
-/**
- * Companion interface for hardware validation.
- * 
- * Every AI runner MUST implement this interface in their companion object
- * to provide hardware compatibility checking.
- * 
- * The engine will call isSupported() during discovery phase and only
- * register runners that return true.
- */
-interface BaseRunnerCompanion {
     /**
      * Checks if this runner is supported on the current hardware.
      * 
-     * Implementation should check:
+     * This method should validate hardware requirements such as:
      * - Required hardware availability (NPU, GPU, etc.)
-     * - Native library availability
+     * - Native library availability  
      * - System API compatibility
-     * - Any other runtime requirements
+     * - Memory requirements
      * 
      * @return true if runner can operate on current device, false otherwise
      */
     fun isSupported(): Boolean
+
 }
 
 /**

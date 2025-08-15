@@ -11,7 +11,6 @@ import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaAsrRunner
 import com.mtkresearch.breezeapp.engine.core.ExceptionHandler
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -31,12 +30,9 @@ import kotlinx.coroutines.flow.flow
     capabilities = [CapabilityType.ASR]
 )
 class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStreamingRunner {
-    companion object : BaseRunnerCompanion {
+    companion object {
         private const val TAG = "SherpaASRRunner"
         private const val MODEL_TYPE = "zipformer"
-        
-        @JvmStatic
-        override fun isSupported(): Boolean = BaseSherpaRunner.isSupported() // Delegate to parent
     }
 
     private var modelType: Int = 0 // Default to bilingual zh-en (Type 0 from official API)

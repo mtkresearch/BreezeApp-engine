@@ -362,20 +362,34 @@ class RunnerAnnotationDiscovery(
     }
     
     /**
-     * Validates hardware support for a runner via its companion object.
+     * Validates hardware support for a runner by creating a temporary instance.
+     * Uses clean architecture approach with direct method calls instead of reflection.
      * 
      * @param runnerClass The runner class to validate
      * @return true if hardware is supported, false if not supported
      */
     private fun validateHardwareSupport(runnerClass: Class<out BaseRunner>): Boolean {
         return try {
-            val companionClass = runnerClass.declaredClasses.find { it.simpleName == "Companion" }
-            val companionField = companionClass?.getField("INSTANCE")
-            val companion = companionField?.get(null) as? BaseRunnerCompanion
+            // Create temporary instance to check hardware support
+            val runnerInstance = factory.createRunner(runnerClass)
+            if (runnerInstance == null) {
+                logger.d(TAG, "Cannot create instance of ${runnerClass.simpleName}, assuming not supported")
+                return false
+            }
             
-            companion?.isSupported() ?: true
+            // Direct method call - clean architecture approach
+            val isSupported = runnerInstance.isSupported()
+            logger.d(TAG, "Hardware support validation for ${runnerClass.simpleName}: $isSupported")
+            
+            if (!isSupported) {
+                logger.d(TAG, "Runner ${runnerClass.simpleName} not supported on this device, skipping registration")
+            }
+            
+            return isSupported
+            
         } catch (e: Exception) {
-            true // Default to supported if check fails
+            logger.d(TAG, "Hardware support validation failed for ${runnerClass.simpleName}, assuming not supported")
+            return false // Fail safe - if we can't verify support, don't register the runner
         }
     }
     

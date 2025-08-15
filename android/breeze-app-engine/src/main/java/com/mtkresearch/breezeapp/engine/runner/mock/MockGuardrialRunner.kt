@@ -7,7 +7,6 @@ import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
-import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -30,12 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 )
 class MockGuardrailRunner : BaseRunner {
     
-    companion object : BaseRunnerCompanion {
+    companion object {
         private const val TAG = "MockGuardrailRunner"
         private const val DEFAULT_SCAN_DELAY = 50L // 快速檢測
-        
-        @JvmStatic
-        override fun isSupported(): Boolean = true // Mock runners always supported
     }
     
     private val isLoaded = AtomicBoolean(false)
@@ -151,6 +147,8 @@ class MockGuardrailRunner : BaseRunner {
         capabilities = getCapabilities(),
         description = "Mock implementation for content safety and guardrail analysis"
     )
+    
+    override fun isSupported(): Boolean = true // Mock runners always supported
     
     /**
      * 安全分析結果
