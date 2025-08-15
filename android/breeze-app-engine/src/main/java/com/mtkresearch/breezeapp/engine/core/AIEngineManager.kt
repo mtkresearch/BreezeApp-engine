@@ -380,9 +380,36 @@ class AIEngineManager(
      * 建立預設配置
      */
     private fun createDefaultConfig(runnerName: String): ModelConfig {
+        // For MTK runners, find the proper model ID from fullModelList.json
+        val modelPath = if (runnerName.contains("MTK", ignoreCase = true)) {
+            try {
+                val jsonString = context.assets.open("fullModelList.json").bufferedReader().use { it.readText() }
+                val json = JSONObject(jsonString)
+                val modelsArray = json.getJSONArray("models")
+                
+                // Find MTK model (runner="mediatek") 
+                var mtkModelPath: String? = null
+                for (i in 0 until modelsArray.length()) {
+                    val modelObject = modelsArray.getJSONObject(i)
+                    if (modelObject.getString("runner") == "mediatek") {
+                        val modelId = modelObject.getString("id")
+                        val baseDir = "/data/user/0/com.mtkresearch.breezeapp.engine/files/models"
+                        mtkModelPath = "$baseDir/$modelId/config_breezetiny_3b_instruct.yaml"
+                        break
+                    }
+                }
+                mtkModelPath ?: "/data/local/tmp/models/$runnerName"
+            } catch (e: Exception) {
+                logger.e(TAG, "Failed to resolve MTK model path", e)
+                "/data/local/tmp/models/$runnerName"
+            }
+        } else {
+            "/data/local/tmp/models/$runnerName"
+        }
+        
         return ModelConfig(
             modelName = runnerName,
-            modelPath = "/data/local/tmp/models/$runnerName"
+            modelPath = modelPath
         )
     }
 }

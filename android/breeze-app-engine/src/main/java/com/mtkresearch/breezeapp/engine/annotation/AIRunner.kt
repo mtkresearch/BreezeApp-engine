@@ -13,8 +13,7 @@ import com.mtkresearch.breezeapp.engine.model.CapabilityType
  * @AIRunner(
  *     capabilities = [CapabilityType.LLM],
  *     vendor = VendorType.MEDIATEK,
- *     priority = RunnerPriority.HIGH,
- *     hardwareRequirements = [HardwareRequirement.MTK_NPU, HardwareRequirement.HIGH_MEMORY]
+ *     priority = RunnerPriority.HIGH
  * )
  * class MediaTekLLMRunner : BaseRunner {
  *     // Runner implementation
@@ -25,7 +24,7 @@ import com.mtkresearch.breezeapp.engine.model.CapabilityType
  * - Uses runtime retention for reflection-based discovery via ClassGraph
  * - Enables compile-time validation of runner configurations
  * - Supports multiple capabilities per runner (e.g., LLM + TTS)
- * - Hardware requirements are validated at runtime during registration
+ * - Hardware requirements are validated via companion object methods
  * 
  * @since Engine API v2.0
  * @see com.mtkresearch.breezeapp.engine.runner.core.RunnerRegistry
@@ -72,18 +71,6 @@ annotation class AIRunner(
      */
     val priority: RunnerPriority = RunnerPriority.NORMAL,
     
-    /**
-     * Hardware requirements this runner needs to function properly.
-     * 
-     * The system validates these requirements against device capabilities
-     * during registration. Runners with unmet requirements are excluded
-     * from selection.
-     * 
-     * Empty array means no special hardware requirements (CPU-only).
-     * 
-     * @see HardwareRequirement for available requirement types
-     */
-    val hardwareRequirements: Array<HardwareRequirement> = [],
     
     /**
      * Whether this runner is enabled for registration.

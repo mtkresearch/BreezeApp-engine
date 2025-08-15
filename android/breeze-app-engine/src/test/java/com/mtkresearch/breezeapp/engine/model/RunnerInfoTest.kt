@@ -2,7 +2,6 @@ package com.mtkresearch.breezeapp.engine.model
 
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import android.os.Parcel
 import android.os.Parcelable
 import org.junit.Test
@@ -33,7 +32,7 @@ class RunnerInfoTest {
             runnerInfo.capabilities.contains(CapabilityType.LLM))
         assertEquals("Vendor must be set correctly", VendorType.MEDIATEK, runnerInfo.vendor)
         assertEquals("Priority must default to NORMAL", RunnerPriority.NORMAL, runnerInfo.priority)
-        assertTrue("Hardware requirements must be empty", runnerInfo.hardwareRequirements.isEmpty())
+        // Hardware requirements removed - validation now via companion objects
         assertTrue("Must be enabled by default", runnerInfo.enabled)
     }
 
@@ -45,7 +44,7 @@ class RunnerInfoTest {
             .capabilities(CapabilityType.LLM, CapabilityType.TTS)
             .vendor(VendorType.SHERPA)
             .priority(RunnerPriority.HIGH)
-            .hardwareRequirements(HardwareRequirement.HIGH_MEMORY, HardwareRequirement.MICROPHONE)
+            // Hardware requirements removed - validation now via companion objects
             .description("Test description")
             .enabled(false)
             .apiLevel(2)
@@ -61,7 +60,7 @@ class RunnerInfoTest {
         assertTrue("Must contain TTS capability", runnerInfo.capabilities.contains(CapabilityType.TTS))
         assertEquals("Vendor must be set", VendorType.SHERPA, runnerInfo.vendor)
         assertEquals("Priority must be set", RunnerPriority.HIGH, runnerInfo.priority)
-        assertEquals("Must have 2 hardware requirements", 2, runnerInfo.hardwareRequirements.size)
+        // Hardware requirements removed - validation now via companion objects
         assertEquals("Description must be set", "Test description", runnerInfo.description)
         assertFalse("Must be disabled", runnerInfo.enabled)
         assertEquals("API level must be set", 2, runnerInfo.apiLevel)
@@ -83,7 +82,7 @@ class RunnerInfoTest {
         assertThrows("Builder must require description", IllegalArgumentException::class.java) {
             builder.capabilities(CapabilityType.LLM).build()
         }
-        
+
         // Should fail with empty description
         assertThrows("Builder must require non-blank description", IllegalArgumentException::class.java) {
             builder.capabilities(CapabilityType.LLM).description("   ").build()
@@ -197,7 +196,6 @@ class RunnerInfoTest {
             .capabilities(CapabilityType.LLM, CapabilityType.ASR)
             .vendor(VendorType.MEDIATEK)
             .priority(RunnerPriority.HIGH)
-            .hardwareRequirements(HardwareRequirement.MTK_NPU, HardwareRequirement.HIGH_MEMORY)
             .description("Test description")
             .enabled(false)
             .apiLevel(2)

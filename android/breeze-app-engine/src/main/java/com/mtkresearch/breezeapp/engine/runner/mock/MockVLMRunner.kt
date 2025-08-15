@@ -2,13 +2,13 @@ package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -27,14 +27,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 @AIRunner(
     vendor = VendorType.UNKNOWN,
     priority = RunnerPriority.LOW,
-    capabilities = [CapabilityType.VLM],
-    hardwareRequirements = [HardwareRequirement.CPU]
+    capabilities = [CapabilityType.VLM]
 )
 class MockVLMRunner : BaseRunner, FlowStreamingRunner {
     
-    companion object {
+    companion object : BaseRunnerCompanion {
         private const val TAG = "MockVLMRunner"
         private const val DEFAULT_ANALYSIS_DELAY = 400L
+        
+        @JvmStatic
+        override fun isSupported(): Boolean = true // Mock runners always supported
     }
     
     private val isLoaded = AtomicBoolean(false)
@@ -137,8 +139,7 @@ class MockVLMRunner : BaseRunner, FlowStreamingRunner {
         name = "MockVLMRunner",
         version = "1.0.0",
         capabilities = getCapabilities(),
-        description = "Mock implementation for Vision Language Model analysis",
-        isMock = true
+        description = "Mock implementation for Vision Language Model analysis"
     )
     
     /**

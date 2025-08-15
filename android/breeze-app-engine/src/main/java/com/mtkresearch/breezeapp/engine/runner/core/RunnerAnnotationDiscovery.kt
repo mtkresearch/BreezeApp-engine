@@ -3,9 +3,7 @@ package com.mtkresearch.breezeapp.engine.runner.core
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.core.Logger
-import com.mtkresearch.breezeapp.engine.system.HardwareCompatibility
 import dalvik.system.DexFile
 import io.github.classgraph.ClassGraph
 import kotlinx.coroutines.Dispatchers
@@ -259,9 +257,8 @@ class RunnerAnnotationDiscovery(
             return false
         }
         
-        // Check hardware requirements
-        if (!validateHardwareRequirements(runnerClass, annotation)) {
-            logger.d(TAG, "Hardware requirements not met for ${runnerClass.simpleName}, skipping")
+        // Check hardware support via companion object
+        if (!validateHardwareSupport(runnerClass)) {
             return false
         }
         
@@ -365,41 +362,21 @@ class RunnerAnnotationDiscovery(
     }
     
     /**
-     * Validate that hardware requirements are met on the current device.
+     * Validates hardware support for a runner via its companion object.
      * 
-     * @param runnerClass The runner class
-     * @param annotation The runner annotation containing hardware requirements
-     * @return true if all hardware requirements are met
+     * @param runnerClass The runner class to validate
+     * @return true if hardware is supported, false if not supported
      */
-    private fun validateHardwareRequirements(
-        runnerClass: Class<out BaseRunner>,
-        annotation: AIRunner
-    ): Boolean {
-        if (annotation.hardwareRequirements.isEmpty()) {
-            logger.d(TAG, "Runner ${runnerClass.simpleName} has no hardware requirements")
-            return true
+    private fun validateHardwareSupport(runnerClass: Class<out BaseRunner>): Boolean {
+        return try {
+            val companionClass = runnerClass.declaredClasses.find { it.simpleName == "Companion" }
+            val companionField = companionClass?.getField("INSTANCE")
+            val companion = companionField?.get(null) as? BaseRunnerCompanion
+            
+            companion?.isSupported() ?: true
+        } catch (e: Exception) {
+            true // Default to supported if check fails
         }
-        
-        val unmetRequirements = mutableListOf<HardwareRequirement>()
-        
-        for (requirement in annotation.hardwareRequirements) {
-            try {
-                if (!requirement.isSatisfied(context)) {
-                    unmetRequirements.add(requirement)
-                }
-            } catch (e: Exception) {
-                logger.w(TAG, "Error checking hardware requirement $requirement for ${runnerClass.simpleName}: ${e.message}")
-                unmetRequirements.add(requirement)
-            }
-        }
-        
-        if (unmetRequirements.isNotEmpty()) {
-            logger.d(TAG, "Runner ${runnerClass.simpleName} has unmet hardware requirements: ${unmetRequirements.joinToString()}")
-            return false
-        }
-        
-        logger.d(TAG, "All hardware requirements met for ${runnerClass.simpleName}")
-        return true
     }
     
     /**

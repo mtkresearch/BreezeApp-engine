@@ -2,13 +2,13 @@ package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -30,15 +30,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 @AIRunner(
     vendor = VendorType.UNKNOWN,
     priority = RunnerPriority.LOW,
-    capabilities = [CapabilityType.ASR],
-    hardwareRequirements = [HardwareRequirement.CPU]
+    capabilities = [CapabilityType.ASR]
 )
 class MockASRRunner : BaseRunner, FlowStreamingRunner {
     
-    companion object {
+    companion object : BaseRunnerCompanion {
         private const val TAG = "MockASRRunner"
         private const val DEFAULT_PROCESSING_DELAY = 300L
         private const val DEFAULT_STREAM_SEGMENT_DELAY = 200L
+        
+        @JvmStatic
+        override fun isSupported(): Boolean = true // Mock runners always supported
     }
     
     private val isLoaded = AtomicBoolean(false)
@@ -189,8 +191,7 @@ class MockASRRunner : BaseRunner, FlowStreamingRunner {
         name = "MockASRRunner",
         version = "1.0.0",
         capabilities = getCapabilities(),
-        description = "Mock implementation for Automatic Speech Recognition",
-        isMock = true
+        description = "Mock implementation for Automatic Speech Recognition"
     )
     
     /**

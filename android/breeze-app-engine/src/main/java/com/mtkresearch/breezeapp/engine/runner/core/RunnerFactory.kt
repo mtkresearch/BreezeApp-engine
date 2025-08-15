@@ -2,7 +2,6 @@ package com.mtkresearch.breezeapp.engine.runner.core
 
 import android.content.Context
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.core.Logger
 import java.lang.reflect.Constructor
 
@@ -73,37 +72,6 @@ class RunnerFactory(
         }
     }
     
-    /**
-     * Validate that hardware requirements are satisfied.
-     * 
-     * @param annotation The @AIRunner annotation containing requirements
-     * @return true if all hardware requirements are met
-     */
-    fun validateHardwareRequirements(annotation: AIRunner): Boolean {
-        if (annotation.hardwareRequirements.isEmpty()) {
-            return true
-        }
-        
-        val unmetRequirements = mutableListOf<HardwareRequirement>()
-        
-        for (requirement in annotation.hardwareRequirements) {
-            try {
-                if (!requirement.isSatisfied(context)) {
-                    unmetRequirements.add(requirement)
-                }
-            } catch (e: Exception) {
-                logger.w(TAG, "Error validating hardware requirement $requirement: ${e.message}")
-                unmetRequirements.add(requirement)
-            }
-        }
-        
-        if (unmetRequirements.isNotEmpty()) {
-            logger.d(TAG, "Unmet hardware requirements: ${unmetRequirements.joinToString()}")
-            return false
-        }
-        
-        return true
-    }
     
     /**
      * Check if a runner class is supported on the current device.
@@ -121,7 +89,7 @@ class RunnerFactory(
             return false
         }
         
-        return validateHardwareRequirements(annotation)
+        return true
     }
     
     /**

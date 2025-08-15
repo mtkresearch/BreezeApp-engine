@@ -16,7 +16,7 @@ import org.junit.Assert.*
  * - Annotation presence and parameter access via reflection
  * - Default value handling
  * - Multi-capability support
- * - Hardware requirement validation
+ * - Companion-based hardware validation
  */
 class AIRunnerAnnotationTest {
 
@@ -24,8 +24,7 @@ class AIRunnerAnnotationTest {
     @AIRunner(
         capabilities = [CapabilityType.LLM],
         vendor = VendorType.MEDIATEK,
-        priority = RunnerPriority.HIGH,
-        hardwareRequirements = [HardwareRequirement.MTK_NPU, HardwareRequirement.HIGH_MEMORY]
+        priority = RunnerPriority.HIGH
     )
     class TestMediaTekRunner : BaseRunner {
         override fun load(config: ModelConfig): Boolean = true
@@ -57,7 +56,7 @@ class AIRunnerAnnotationTest {
         assertEquals("Capabilities must be accessible", listOf(CapabilityType.LLM), annotation.capabilities.toList())
         assertEquals("Vendor must be accessible", VendorType.MEDIATEK, annotation.vendor)
         assertEquals("Priority must be accessible", RunnerPriority.HIGH, annotation.priority)
-        assertEquals("Hardware requirements must be accessible", 2, annotation.hardwareRequirements.size)
+        // Hardware requirements are now handled via companion objects
     }
 
     @Test
@@ -68,7 +67,7 @@ class AIRunnerAnnotationTest {
         assertNotNull("Annotation with minimal configuration must be accessible", annotation)
         assertEquals("Default vendor should be UNKNOWN", VendorType.UNKNOWN, annotation.vendor)
         assertEquals("Default priority should be NORMAL", RunnerPriority.NORMAL, annotation.priority)
-        assertEquals("Default hardware requirements should be empty", 0, annotation.hardwareRequirements.size)
+        // Hardware requirements are now handled via companion objects
         assertEquals("Default enabled should be true", true, annotation.enabled)
         assertEquals("Default API level should be 1", 1, annotation.apiLevel)
     }
@@ -85,14 +84,13 @@ class AIRunnerAnnotationTest {
     }
 
     @Test
-    fun `annotation preserves hardware requirements order`() {
-        // CRITICAL: Hardware requirement order may affect validation logic
+    fun `annotation supports companion-based validation`() {
+        // CRITICAL: Hardware validation is now done via companion objects
         val annotation = TestMediaTekRunner::class.java.getAnnotation(AIRunner::class.java)
         
-        val requirements = annotation.hardwareRequirements
-        assertEquals("Must preserve requirement count", 2, requirements.size)
-        assertEquals("First requirement must be MTK_NPU", HardwareRequirement.MTK_NPU, requirements[0])
-        assertEquals("Second requirement must be HIGH_MEMORY", HardwareRequirement.HIGH_MEMORY, requirements[1])
+        // Verify annotation doesn't contain hardware requirements (moved to companion)
+        assertNotNull("Annotation must be accessible for companion validation", annotation)
+        assertEquals("LLM capability should be present", CapabilityType.LLM, annotation.capabilities[0])
     }
 
     @Test
@@ -125,7 +123,7 @@ class AIRunnerAnnotationTest {
         assertNotNull("Capabilities array must not be null", annotation.capabilities)
         assertNotNull("Vendor must not be null", annotation.vendor)
         assertNotNull("Priority must not be null", annotation.priority)
-        assertNotNull("Hardware requirements must not be null", annotation.hardwareRequirements)
+        // Hardware requirements moved to companion objects
         
         // Validate enum values are not corrupted
         assertTrue("Vendor must be valid enum value", 

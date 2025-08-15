@@ -130,8 +130,28 @@ interface BaseRunner {
 
 }
 
+/**
+ * Companion interface for hardware validation.
+ * 
+ * Every AI runner MUST implement this interface in their companion object
+ * to provide hardware compatibility checking.
+ * 
+ * The engine will call isSupported() during discovery phase and only
+ * register runners that return true.
+ */
 interface BaseRunnerCompanion {
-    fun isSupported(): Boolean = true
+    /**
+     * Checks if this runner is supported on the current hardware.
+     * 
+     * Implementation should check:
+     * - Required hardware availability (NPU, GPU, etc.)
+     * - Native library availability
+     * - System API compatibility
+     * - Any other runtime requirements
+     * 
+     * @return true if runner can operate on current device, false otherwise
+     */
+    fun isSupported(): Boolean
 }
 
 /**
@@ -141,6 +161,5 @@ data class RunnerInfo(
     val name: String,
     val version: String,
     val capabilities: List<CapabilityType>,
-    val description: String = "",
-    val isMock: Boolean = false
+    val description: String = ""
 ) 

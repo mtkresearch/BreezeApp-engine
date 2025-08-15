@@ -2,12 +2,12 @@ package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -26,14 +26,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 @AIRunner(
     vendor = VendorType.UNKNOWN,
     priority = RunnerPriority.LOW,
-    capabilities = [CapabilityType.GUARDIAN],
-    hardwareRequirements = [HardwareRequirement.CPU]
+    capabilities = [CapabilityType.GUARDIAN]
 )
 class MockGuardrailRunner : BaseRunner {
     
-    companion object {
+    companion object : BaseRunnerCompanion {
         private const val TAG = "MockGuardrailRunner"
         private const val DEFAULT_SCAN_DELAY = 50L // 快速檢測
+        
+        @JvmStatic
+        override fun isSupported(): Boolean = true // Mock runners always supported
     }
     
     private val isLoaded = AtomicBoolean(false)
@@ -139,8 +141,7 @@ class MockGuardrailRunner : BaseRunner {
         name = "MockGuardrailRunner",
         version = "1.0.0",
         capabilities = getCapabilities(),
-        description = "Mock implementation for content safety and guardrail analysis",
-        isMock = true
+        description = "Mock implementation for content safety and guardrail analysis"
     )
     
     /**

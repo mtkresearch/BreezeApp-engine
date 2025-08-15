@@ -5,12 +5,13 @@ import android.media.AudioTrack
 import android.util.Log
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
+import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaTtsRunner
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
 import com.mtkresearch.breezeapp.engine.util.SherpaTtsConfigUtil
@@ -34,13 +35,15 @@ import kotlinx.coroutines.flow.flow
 @AIRunner(
     vendor = VendorType.SHERPA,
     capabilities = [CapabilityType.TTS],
-    hardwareRequirements = [HardwareRequirement.CPU],
     apiLevel = 1,
     enabled = true
 )
 class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStreamingRunner {
-    companion object {
+    companion object : BaseRunnerCompanion {
         private const val TAG = "SherpaTTSRunner"
+        
+        @JvmStatic
+        override fun isSupported(): Boolean = BaseSherpaRunner.isSupported() // Delegate to parent
     }
 
     private var tts: OfflineTts? = null
@@ -244,8 +247,7 @@ class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStre
         name = "SherpaTTSRunner",
         version = "1.0.0",
         capabilities = getCapabilities(),
-        description = "Sherpa ONNX TTS runner with real-time streaming audio playback",
-        isMock = false
+        description = "Sherpa ONNX TTS runner with real-time streaming audio playback"
     )
 
     private fun initializeTts() {

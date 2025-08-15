@@ -3,14 +3,13 @@ package com.mtkresearch.breezeapp.engine.runner.mtk
 import android.content.Context
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
-import com.mtkresearch.breezeapp.engine.system.HardwareCompatibility
 import com.mtkresearch.breezeapp.engine.system.NativeLibraryManager
 import kotlinx.coroutines.flow.Flow
 import java.util.concurrent.atomic.AtomicBoolean
@@ -39,10 +38,9 @@ import java.io.File
 @AIRunner(
     vendor = VendorType.MEDIATEK,
     priority = RunnerPriority.HIGH,
-    capabilities = [CapabilityType.LLM],
-    hardwareRequirements = [HardwareRequirement.MTK_NPU]
+    capabilities = [CapabilityType.LLM]
 )
-class MTKLLMRunner : BaseRunner, FlowStreamingRunner {
+class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStreamingRunner {
 
     private val isLoaded = AtomicBoolean(false)
     private val isGenerating = AtomicBoolean(false)
@@ -52,19 +50,18 @@ class MTKLLMRunner : BaseRunner, FlowStreamingRunner {
 
     // Dependencies are now initialized later or are singletons
     private lateinit var config: MTKConfig
-    private val hardwareCompatibility = HardwareCompatibility
     private val nativeLibraryManager = NativeLibraryManager.getInstance()
 
-    companion object {
+    companion object : BaseRunnerCompanion {
         private const val TAG = "MTKLLMRunner"
         private const val RUNNER_NAME = "MTK NPU Runner"
         private const val RUNNER_VERSION = "1.0.0"
         private val initAttemptCount = AtomicInteger(0)
 
         @JvmStatic
-        fun isSupported(): Boolean {
+        override fun isSupported(): Boolean {
             return try {
-                val hardwareSupported = HardwareCompatibility.isMTKNPUSupported()
+                val hardwareSupported = MTKUtils.isMTKNPUSupported()
                 val libraryAvailable = NativeLibraryManager.getInstance().isLibraryAvailable("llm_jni")
                 val supported = hardwareSupported && libraryAvailable
                 Log.d(TAG, "MTK NPU support check: hardware=$hardwareSupported, library=$libraryAvailable, result=$supported")
@@ -80,6 +77,9 @@ class MTKLLMRunner : BaseRunner, FlowStreamingRunner {
         Log.d(TAG, "Loading MTKLLMRunner with config: ${config.modelName}")
         if (isLoaded.get()) return true
 
+        // Initialize MTK config from ModelConfig
+        this.config = MTKConfig.fromModelConfig(config)
+
         // 1. 驗證硬體支援
         if (!isSupported()) {
             Log.e(TAG, "MTK NPU not supported on this device")
@@ -93,10 +93,14 @@ class MTKLLMRunner : BaseRunner, FlowStreamingRunner {
             return false
         }
 
-        // 3. 解析模型路徑 (Refactored: directly from config)
-        val modelPath = config.modelPath
-        if (modelPath.isNullOrEmpty() || !File(modelPath).exists()) {
-            Log.e(TAG, "Model path from config is invalid or file does not exist: $modelPath")
+        // 3. 解析模型路徑 (Refactored: use MTK utility with context)
+        val modelPath = if (context != null) {
+            MTKUtils.resolveModelPath(context, config)
+        } else {
+            config.modelPath ?: return false
+        }
+        if (!File(modelPath).exists()) {
+            Log.e(TAG, "Model path does not exist: $modelPath")
             return false
         }
         resolvedModelPath = modelPath
@@ -302,8 +306,7 @@ class MTKLLMRunner : BaseRunner, FlowStreamingRunner {
         name = RUNNER_NAME,
         version = RUNNER_VERSION,
         capabilities = getCapabilities(),
-        description = "MTK NPU accelerated language model runner with streaming support",
-        isMock = false
+        description = "MTK NPU accelerated language model runner with streaming support"
     )
 
     // --- 與舊版 LLMEngineService 對應的初始化邏輯 ---

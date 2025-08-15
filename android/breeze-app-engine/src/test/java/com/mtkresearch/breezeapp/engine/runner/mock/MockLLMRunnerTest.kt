@@ -45,7 +45,6 @@ class MockLLMRunnerTest {
         assertEquals("MockLLMRunner", info.name)
         assertEquals("1.0.0", info.version)
         assertTrue(info.capabilities.contains(CapabilityType.LLM))
-        assertTrue(info.isMock)
     }
 
     @Test

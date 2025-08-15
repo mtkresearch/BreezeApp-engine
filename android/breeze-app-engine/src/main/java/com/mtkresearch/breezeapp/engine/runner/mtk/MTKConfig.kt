@@ -182,6 +182,23 @@ data class MTKConfig(
     
     companion object {
         /**
+         * 從 ModelConfig 建立 MTKConfig
+         * 
+         * @param modelConfig 模型配置
+         * @return MTKConfig MTK配置
+         */
+        fun fromModelConfig(modelConfig: com.mtkresearch.breezeapp.engine.model.ModelConfig): MTKConfig {
+            return MTKConfig(
+                modelPath = modelConfig.modelPath ?: "",
+                // Extract other parameters from modelConfig.parameters if available
+                defaultTemperature = (modelConfig.parameters["temperature"] as? Number)?.toFloat() ?: 0.8f,
+                defaultTopK = (modelConfig.parameters["top_k"] as? Number)?.toInt() ?: 40,
+                defaultMaxTokens = (modelConfig.parameters["max_tokens"] as? Number)?.toInt() ?: 2048,
+                defaultRepetitionPenalty = (modelConfig.parameters["repetition_penalty"] as? Number)?.toFloat() ?: 1.1f
+            )
+        }
+        
+        /**
          * 建立預設配置
          * 
          * @param modelPath 模型路徑

@@ -5,12 +5,12 @@ import android.util.Log
 import com.k2fsa.sherpa.onnx.*
 import com.k2fsa.sherpa.onnx.WaveReader
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 
 /**
@@ -24,13 +24,15 @@ import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 @AIRunner(
     vendor = VendorType.SHERPA,
     priority = RunnerPriority.HIGH,
-    capabilities = [CapabilityType.ASR],
-    hardwareRequirements = [HardwareRequirement.CPU]
+    capabilities = [CapabilityType.ASR]
 )
 class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
-    companion object {
+    companion object : BaseRunnerCompanion {
         private const val TAG = "SherpaOfflineASRRunner"
         private const val DEFAULT_SAMPLE_RATE = 16000
+        
+        @JvmStatic
+        override fun isSupported(): Boolean = BaseSherpaRunner.isSupported() // Delegate to parent
     }
 
     private var recognizer: OfflineRecognizer? = null
@@ -183,8 +185,7 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
         name = "SherpaOfflineASRRunner",
         version = "1.0.0",
         capabilities = getCapabilities(),
-        description = "Sherpa ONNX offline ASR runner",
-        isMock = false
+        description = "Sherpa ONNX offline ASR runner"
     )
 
     /**

@@ -2,13 +2,13 @@ package com.mtkresearch.breezeapp.engine.runner.mock
 
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunnerCompanion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -30,15 +30,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 @AIRunner(
     vendor = VendorType.UNKNOWN,
     priority = RunnerPriority.LOW,
-    capabilities = [CapabilityType.LLM],
-    hardwareRequirements = [HardwareRequirement.CPU]
+    capabilities = [CapabilityType.LLM]
 )
 class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     
-    companion object {
+    companion object : BaseRunnerCompanion {
         private const val TAG = "MockLLMRunner"
         private const val DEFAULT_RESPONSE_DELAY = 100L
         private const val DEFAULT_STREAM_CHUNK_DELAY = 50L
+        
+        @JvmStatic
+        override fun isSupported(): Boolean = true // Mock runners always supported
     }
     
     private val isLoaded = AtomicBoolean(false)
@@ -165,8 +167,7 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
         name = "MockLLMRunner",
         version = "1.0.0",
         capabilities = getCapabilities(),
-        description = "Mock implementation for Large Language Model inference",
-        isMock = true
+        description = "Mock implementation for Large Language Model inference"
     )
     
     /**

@@ -2,7 +2,6 @@ package com.mtkresearch.breezeapp.engine.model
 
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
-import com.mtkresearch.breezeapp.engine.annotation.HardwareRequirement
 import kotlinx.parcelize.Parcelize
 import android.os.Parcelable
 import kotlinx.parcelize.RawValue
@@ -71,12 +70,6 @@ data class RunnerInfo(
      */
     val priority: RunnerPriority,
     
-    /**
-     * Hardware requirements needed by this runner.
-     * 
-     * Used for device compatibility validation during registration.
-     */
-    val hardwareRequirements: List<HardwareRequirement>,
     
     /**
      * Detailed description of this runner's functionality.
@@ -247,7 +240,6 @@ data class RunnerInfo(
                 capabilities = listOf(capability),
                 vendor = vendor,
                 priority = RunnerPriority.NORMAL,
-                hardwareRequirements = emptyList(),
                 description = "Basic $name runner for ${capability.name}"
             )
         }
@@ -267,7 +259,6 @@ class RunnerInfoBuilder internal constructor(
     private var capabilities: MutableList<CapabilityType> = mutableListOf()
     private var vendor: VendorType = VendorType.UNKNOWN
     private var priority: RunnerPriority = RunnerPriority.NORMAL
-    private var hardwareRequirements: MutableList<HardwareRequirement> = mutableListOf()
     private var description: String = ""
     private var enabled: Boolean = true
     private var apiLevel: Int = 1
@@ -279,9 +270,6 @@ class RunnerInfoBuilder internal constructor(
     }
     fun vendor(vendor: VendorType) = apply { this.vendor = vendor }
     fun priority(priority: RunnerPriority) = apply { this.priority = priority }
-    fun hardwareRequirements(vararg requirements: HardwareRequirement) = apply {
-        this.hardwareRequirements.addAll(requirements)
-    }
     fun description(description: String) = apply { this.description = description }
     fun enabled(enabled: Boolean) = apply { this.enabled = enabled }
     fun apiLevel(apiLevel: Int) = apply { this.apiLevel = apiLevel }
@@ -299,7 +287,6 @@ class RunnerInfoBuilder internal constructor(
             capabilities = capabilities.toList(),
             vendor = vendor,
             priority = priority,
-            hardwareRequirements = hardwareRequirements.toList(),
             description = description,
             enabled = enabled,
             apiLevel = apiLevel,
