@@ -72,6 +72,9 @@ dependencies {
     // sherpa-onnx
     implementation(files("libs/sherpa-onnx-1.12.6.aar"))
 
+    // ExecuTorch
+    implementation("org.pytorch:executorch-android:0.7.0")
+
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
