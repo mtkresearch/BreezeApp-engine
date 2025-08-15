@@ -319,12 +319,15 @@ class AIEngineManager(
             if (availableRamGB < requiredRamGB * 1.2f) {
                 logger.w(TAG, "Insufficient RAM. Attempting to unload other loaded runners.")
 
-                val runnersToUnload = activeRunners.values.toList()
-                runnersToUnload.forEach { otherRunner ->
+                val runnersToUnload = activeRunners.entries.toList()
+                runnersToUnload.forEach { (runnerName, otherRunner) ->
                     if (otherRunner != runner && otherRunner.isLoaded()) {
                         logger.d(TAG, "Unloading runner ${otherRunner.getRunnerInfo().name} to free up memory.")
                         try {
                             otherRunner.unload()
+                            // Remove unloaded runner from active collection to free memory references
+                            activeRunners.remove(runnerName)
+                            logger.d(TAG, "Removed unloaded runner ${otherRunner.getRunnerInfo().name} from active collection")
                         } catch (e: Exception) {
                             logger.e(TAG, "Error unloading runner ${otherRunner.getRunnerInfo().name}", e)
                         }
@@ -342,74 +345,18 @@ class AIEngineManager(
                 }
             }
 
-            val loaded = runner.load(createDefaultConfig(runner.getRunnerInfo().name))
+            val loaded = runner.load()
             if (!loaded) {
                 return Result.failure(RunnerSelectionException(RunnerError("E501", "Failed to load model for runner: ${runner.getRunnerInfo().name}")))
             }
         }
 
+        // Register successfully loaded runner in activeRunners collection
+        configLock.write {
+            activeRunners[runner.getRunnerInfo().name] = runner
+        }
+        
         return Result.success(runner)
     }
 
-    /**
-     * 取得或建立 Runner 實例
-     */
-    private fun getOrCreateRunner(name: String): BaseRunner? {
-        configLock.read {
-            activeRunners[name]?.let { return it }
-        }
-
-        return configLock.write {
-            // Double-check lock
-            activeRunners[name]?.let { return@write it }
-
-            // In the new system, runners are already created and managed by RunnerManager
-            // We just need to find the existing runner by name
-            val runner = runnerManager.getAllRunners().find { it.getRunnerInfo().name == name }
-            if (runner != null) {
-                activeRunners[name] = runner
-                logger.d(TAG, "Using existing runner instance: $name")
-            } else {
-                logger.e(TAG, "Failed to find runner: $name")
-            }
-            runner
-        }
-    }
-
-    /**
-     * 建立預設配置
-     */
-    private fun createDefaultConfig(runnerName: String): ModelConfig {
-        // For MTK runners, find the proper model ID from fullModelList.json
-        val modelPath = if (runnerName.contains("MTK", ignoreCase = true)) {
-            try {
-                val jsonString = context.assets.open("fullModelList.json").bufferedReader().use { it.readText() }
-                val json = JSONObject(jsonString)
-                val modelsArray = json.getJSONArray("models")
-                
-                // Find MTK model (runner="mediatek") 
-                var mtkModelPath: String? = null
-                for (i in 0 until modelsArray.length()) {
-                    val modelObject = modelsArray.getJSONObject(i)
-                    if (modelObject.getString("runner") == "mediatek") {
-                        val modelId = modelObject.getString("id")
-                        val baseDir = "/data/user/0/com.mtkresearch.breezeapp.engine/files/models"
-                        mtkModelPath = "$baseDir/$modelId/config_breezetiny_3b_instruct.yaml"
-                        break
-                    }
-                }
-                mtkModelPath ?: "/data/local/tmp/models/$runnerName"
-            } catch (e: Exception) {
-                logger.e(TAG, "Failed to resolve MTK model path", e)
-                "/data/local/tmp/models/$runnerName"
-            }
-        } else {
-            "/data/local/tmp/models/$runnerName"
-        }
-        
-        return ModelConfig(
-            modelName = runnerName,
-            modelPath = modelPath
-        )
-    }
 }

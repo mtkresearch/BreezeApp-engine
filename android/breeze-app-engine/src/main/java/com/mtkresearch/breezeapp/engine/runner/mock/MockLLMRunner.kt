@@ -53,6 +53,14 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
         "這是一個測試回應，用於驗證 Mock Runner 的串流功能是否正常運作。"
     )
     
+    override fun load(): Boolean {
+        val defaultConfig = ModelConfig(
+            modelName = "MockLLMModel",
+            modelPath = ""
+        )
+        return load(defaultConfig)
+    }
+    
     override fun load(config: ModelConfig): Boolean {
         return try {
             Log.d(TAG, "Loading MockLLMRunner with config: ${config.modelName}")

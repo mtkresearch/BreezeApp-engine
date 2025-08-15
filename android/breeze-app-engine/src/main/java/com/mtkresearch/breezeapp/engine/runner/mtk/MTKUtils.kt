@@ -24,20 +24,27 @@ object MTKUtils {
     }
     
     /**
-     * Resolve MTK model path from ModelConfig
-     * Dynamically finds MTK model from fullModelList.json
+     * Resolve MTK model path with smart fallback handling.
+     * 
+     * This function follows the same pattern as Sherpa's getModelConfig() approach:
+     * 1. If explicit modelPath provided and valid, use it
+     * 2. Otherwise, automatically find MTK model from fullModelList.json
+     * 
+     * @param context Android context for accessing assets
+     * @param explicitPath Optional explicit model path (can be null/blank)
+     * @return Resolved model path for MTK runner
      */
-    fun resolveModelPath(context: Context, config: ModelConfig): String {
-        return try {
-            val mtkModelId = findMTKModelId(context)
-            val baseDir = "/data/user/0/com.mtkresearch.breezeapp.engine/files/models"
-            val modelDir = "$baseDir/$mtkModelId"
-            val yamlConfig = "$modelDir/config_breezetiny_3b_instruct.yaml"
-            yamlConfig
-        } catch (e: Exception) {
-            // Fallback to config path if available
-            config.modelPath ?: throw e
+    fun resolveModelPath(context: Context, explicitPath: String? = null): String {
+        // If explicit path provided and not blank, use it
+        if (!explicitPath.isNullOrBlank()) {
+            return explicitPath
         }
+        
+        // Otherwise, find default MTK model from fullModelList.json
+        val mtkModelId = findMTKModelId(context)
+        val baseDir = "/data/user/0/com.mtkresearch.breezeapp.engine/files/models"
+        val modelDir = "$baseDir/$mtkModelId"
+        return "$modelDir/config_breezetiny_3b_instruct.yaml"
     }
     
     /**

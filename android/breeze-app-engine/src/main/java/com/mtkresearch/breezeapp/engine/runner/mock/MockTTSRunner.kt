@@ -51,6 +51,14 @@ class MockTTSRunner : BaseRunner, FlowStreamingRunner {
     private var speakingRate = 1.0f
     private var pitch = 1.0f
     
+    override fun load(): Boolean {
+        val defaultConfig = ModelConfig(
+            modelName = "MockTTSModel",
+            modelPath = ""
+        )
+        return load(defaultConfig)
+    }
+    
     override fun load(config: ModelConfig): Boolean {
         return try {
             Log.d(TAG, "Loading MockTTSRunner with config: ${config.modelName}")

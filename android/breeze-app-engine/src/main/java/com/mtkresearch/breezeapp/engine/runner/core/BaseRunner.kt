@@ -51,6 +51,16 @@ import com.mtkresearch.breezeapp.engine.model.*
 interface BaseRunner {
     
     /**
+     * Initializes the AI model with default configuration.
+     * 
+     * This method loads the runner's default model and prepares it for inference.
+     * Each runner defines its own default model path and configuration.
+     * 
+     * @return true if the default model was successfully loaded, false otherwise
+     */
+    fun load(): Boolean
+    
+    /**
      * Initializes the AI model and allocates necessary resources.
      * 
      * This method should load the AI model from the specified configuration

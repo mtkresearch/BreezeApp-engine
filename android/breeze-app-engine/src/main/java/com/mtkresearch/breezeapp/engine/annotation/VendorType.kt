@@ -15,7 +15,7 @@ package com.mtkresearch.breezeapp.engine.annotation
  * 
  * **Priority Ordering:**
  * Vendors are prioritized differently per capability type:
- * - **LLM**: MEDIATEK → META → OPENROUTER → UNKNOWN
+ * - **LLM**: MEDIATEK → EXECUTORCH → OPENROUTER → UNKNOWN
  * - **ASR**: SHERPA → OPENAI → UNKNOWN  
  * - **TTS**: SHERPA → OPENAI → UNKNOWN
  * 
@@ -112,7 +112,7 @@ enum class VendorType(
      * - Efficient resource usage
      * - Cross-platform support
      */
-    META(
+    EXECUTORCH(
         displayName = "Meta ExecuTorch",
         description = "Meta's mobile AI inference framework",
         requiresSpecialHardware = false,

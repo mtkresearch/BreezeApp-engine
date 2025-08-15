@@ -61,6 +61,14 @@ abstract class BaseSherpaRunner(protected val context: Context) : BaseRunner {
      */
     abstract override fun getRunnerInfo(): RunnerInfo
     
+    override fun load(): Boolean {
+        val defaultConfig = ModelConfig(
+            modelName = getRunnerInfo().name,
+            modelPath = ""
+        )
+        return load(defaultConfig)
+    }
+    
     override fun load(config: ModelConfig): Boolean {
         return try {
             Log.d(getTag(), "Loading ${getRunnerInfo().name} with config: ${config.modelName}")

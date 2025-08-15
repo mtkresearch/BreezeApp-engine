@@ -57,6 +57,14 @@ class MockVLMRunner : BaseRunner, FlowStreamingRunner {
         "default" to "這是一張圖片，AI 正在分析其內容和特徵。"
     )
     
+    override fun load(): Boolean {
+        val defaultConfig = ModelConfig(
+            modelName = "MockVLMModel",
+            modelPath = ""
+        )
+        return load(defaultConfig)
+    }
+    
     override fun load(config: ModelConfig): Boolean {
         return try {
             Log.d(TAG, "Loading MockVLMRunner with config: ${config.modelName}")

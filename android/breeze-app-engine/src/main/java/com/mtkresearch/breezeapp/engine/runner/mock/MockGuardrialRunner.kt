@@ -59,6 +59,14 @@ class MockGuardrailRunner : BaseRunner {
         "免費", "中獎", "free", "winner", "lottery"
     )
     
+    override fun load(): Boolean {
+        val defaultConfig = ModelConfig(
+            modelName = "MockGuardrailModel",
+            modelPath = ""
+        )
+        return load(defaultConfig)
+    }
+    
     override fun load(config: ModelConfig): Boolean {
         return try {
             Log.d(TAG, "Loading MockGuardrailRunner with config: ${config.modelName}")

@@ -60,6 +60,14 @@ class MockASRRunner : BaseRunner, FlowStreamingRunner {
         "default" to "這是預設的語音識別結果，系統已成功處理您的音頻輸入。"
     )
     
+    override fun load(): Boolean {
+        val defaultConfig = ModelConfig(
+            modelName = "MockASRModel",
+            modelPath = ""
+        )
+        return load(defaultConfig)
+    }
+    
     override fun load(config: ModelConfig): Boolean {
         return try {
             Log.d(TAG, "Loading MockASRRunner with config: ${config.modelName}")

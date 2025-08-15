@@ -54,7 +54,7 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
 
     companion object : BaseRunnerCompanion {
         private const val TAG = "MTKLLMRunner"
-        private const val RUNNER_NAME = "MTK NPU Runner"
+        private const val MODEL_NAME = "Breeze2-3B-8W16A-250630-npu"
         private const val RUNNER_VERSION = "1.0.0"
         private val initAttemptCount = AtomicInteger(0)
 
@@ -71,6 +71,14 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
                 false
             }
         }
+    }
+    
+    override fun load(): Boolean {
+        val defaultConfig = ModelConfig(
+            modelName = MODEL_NAME,
+            modelPath = "" // Empty path - will use MTKUtils default resolution
+        )
+        return load(defaultConfig)
     }
     
     override fun load(config: ModelConfig): Boolean {
@@ -93,9 +101,9 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
             return false
         }
 
-        // 3. 解析模型路徑 (Refactored: use MTK utility with context)
+        // 3. 解析模型路徑 (Smart path resolution like Sherpa's approach)
         val modelPath = if (context != null) {
-            MTKUtils.resolveModelPath(context, config)
+            MTKUtils.resolveModelPath(context, config.modelPath)
         } else {
             config.modelPath ?: return false
         }
@@ -144,7 +152,7 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
             InferenceResult.textOutput(
                 text = response,
                 metadata = mapOf(
-                    InferenceResult.META_MODEL_NAME to RUNNER_NAME,
+                    InferenceResult.META_MODEL_NAME to MODEL_NAME,
                     InferenceResult.META_PROCESSING_TIME_MS to System.currentTimeMillis(),
                     "temperature" to temperature,
                     "max_tokens" to maxTokens,
@@ -201,7 +209,7 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
                         InferenceResult.textOutput(
                             text = fullResponse.toString(),
                             metadata = mapOf(
-                                InferenceResult.META_MODEL_NAME to RUNNER_NAME,
+                                InferenceResult.META_MODEL_NAME to MODEL_NAME,
                                 InferenceResult.META_PARTIAL_TOKENS to token,
                                 "temperature" to temperature,
                                 "max_tokens" to maxTokens
@@ -229,7 +237,7 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
                 InferenceResult.textOutput(
                     text = response,
                     metadata = mapOf(
-                        InferenceResult.META_MODEL_NAME to RUNNER_NAME,
+                        InferenceResult.META_MODEL_NAME to MODEL_NAME,
                         InferenceResult.META_PROCESSING_TIME_MS to processingTime,
                         InferenceResult.META_TOKEN_COUNT to fullResponse.length,
                         "temperature" to temperature,
@@ -303,7 +311,7 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
     override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.LLM)
     override fun isLoaded(): Boolean = isLoaded.get()
     override fun getRunnerInfo(): RunnerInfo = RunnerInfo(
-        name = RUNNER_NAME,
+        name = MODEL_NAME,
         version = RUNNER_VERSION,
         capabilities = getCapabilities(),
         description = "MTK NPU accelerated language model runner with streaming support"

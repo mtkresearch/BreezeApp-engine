@@ -18,7 +18,7 @@ import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
  * - **MEDIATEK**: 0-9 (highest priority vendor)
  * - **SHERPA**: 10-19  
  * - **OPENROUTER**: 20-29
- * - **META**: 30-39
+ * - **EXECUTORCH**: 30-39
  * - **UNKNOWN**: 40-49 (lowest priority vendor)
  * 
  * ### Within-Vendor Priority (+ priority.ordinal):
