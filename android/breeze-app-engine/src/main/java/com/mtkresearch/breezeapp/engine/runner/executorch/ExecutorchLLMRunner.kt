@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 @AIRunner(
     vendor = VendorType.EXECUTORCH,
-    priority = RunnerPriority.NORMAL,
+    priority = RunnerPriority.HIGH,
     capabilities = [CapabilityType.LLM]
 )
 class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStreamingRunner {
@@ -110,20 +110,17 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
 
         val formattedPrompt = ExecutorchPromptFormatter.formatPrompt(modelType, prompt)
         val modelOutputBuffer = StringBuilder()
-        val generatedTextBuffer = StringBuilder()
         var promptEchoFullyReceived = false
 
         val callback = object : LlmCallback {
             override fun onResult(result: String) {
                 if (result == stopToken) {
                     Log.d(TAG, "Received stop token, sending final result and closing flow.")
-                    // Send the final, non-partial result before closing.
+                    // Send the final, non-partial result to signal completion
                     trySend(
                         InferenceResult.textOutput(
-                            text = generatedTextBuffer.toString(),
-                            metadata = mapOf(
-                                "partial" to false
-                            ),
+                            text = "",
+                            metadata = mapOf(),
                             partial = false
                         )
                     )
@@ -131,9 +128,11 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
                     return
                 }
 
+                var tokenToSend: String? = null
+
                 if (promptEchoFullyReceived) {
-                    // Echo already handled, just append and send
-                    generatedTextBuffer.append(result)
+                    // Echo already handled, send the new token
+                    tokenToSend = result
                 } else {
                     // Still handling the prompt echo
                     modelOutputBuffer.append(result)
@@ -149,19 +148,22 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
                         // Diverged from prompt, generation has started
                         promptEchoFullyReceived = true
                         val generatedPart = currentOutput.removePrefix(formattedPrompt)
-                        generatedTextBuffer.append(generatedPart)
+                        tokenToSend = generatedPart
                     }
                 }
 
-                val sendResult = trySend(
-                    InferenceResult.textOutput(
-                        text = generatedTextBuffer.toString(),
-                        metadata = mapOf("partial" to true),
-                        partial = true
+                // Send only the new token, not accumulated text
+                tokenToSend?.let { token ->
+                    val sendResult = trySend(
+                        InferenceResult.textOutput(
+                            text = token,
+                            metadata = mapOf(),
+                            partial = true
+                        )
                     )
-                )
-                if (!sendResult.isSuccess) {
-                    Log.w(TAG, "Failed to send partial result through flow")
+                    if (!sendResult.isSuccess) {
+                        Log.w(TAG, "Failed to send partial result through flow")
+                    }
                 }
             }
         }
