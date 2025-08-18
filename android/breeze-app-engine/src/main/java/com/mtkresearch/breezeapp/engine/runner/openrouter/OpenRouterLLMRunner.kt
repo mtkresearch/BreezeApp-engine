@@ -136,6 +136,9 @@ class OpenRouterLLMRunner(
                 Log.e(TAG, "Invalid API key format")
                 return false
             }
+            
+            // Log API key status (without exposing the key)
+            Log.d(TAG, "API key validation: length=${actualApiKey.length}, starts_with=${actualApiKey.take(8)}...")
 
             // Test connection (optional quick validation)
             if (config.parameters["validate_connection"] as? Boolean == true) {
@@ -266,6 +269,15 @@ class OpenRouterLLMRunner(
                 // Send request
                 connection.outputStream.use { outputStream ->
                     outputStream.write(requestBody.toByteArray())
+                }
+
+                // Check response code before reading stream
+                val responseCode = connection.responseCode
+                if (responseCode != 200) {
+                    val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error details"
+                    Log.e(TAG, "HTTP $responseCode: ${mapHttpErrorCode(responseCode)} - $errorResponse")
+                    onResult(InferenceResult.error(RunnerError.runtimeError("HTTP $responseCode: ${mapHttpErrorCode(responseCode)} - $errorResponse")))
+                    return@withContext
                 }
 
                 // Read streaming response
