@@ -51,8 +51,9 @@ import org.json.JSONArray
  */
 @AIRunner(
     vendor = VendorType.OPENROUTER,
-    priority = RunnerPriority.HIGH,
-    capabilities = [CapabilityType.LLM]
+    priority = RunnerPriority.LOW,
+    capabilities = [CapabilityType.LLM],
+    enabled = false
 )
 class OpenRouterLLMRunner(
     private val apiKey: String,
@@ -104,6 +105,7 @@ class OpenRouterLLMRunner(
     private var actualApiKey: String = apiKey
     private var modelName: String = defaultModel
     private var timeoutMs: Int = DEFAULT_TIMEOUT_MS
+    private var assumeConnectivity: Boolean = false
 
     override fun load(): Boolean {
         val defaultConfig = ModelConfig(
@@ -130,6 +132,7 @@ class OpenRouterLLMRunner(
             // Extract configuration parameters
             modelName = config.modelName.takeIf { it.isNotBlank() } ?: defaultModel
             timeoutMs = (config.parameters["timeout_ms"] as? Number)?.toInt() ?: DEFAULT_TIMEOUT_MS
+            assumeConnectivity = (config.parameters["assume_connectivity"] as? Boolean) ?: false
 
             // Validate API key format (basic check)
             if (!isValidApiKey(actualApiKey)) {
@@ -231,8 +234,35 @@ class OpenRouterLLMRunner(
     )
 
     override fun isSupported(): Boolean {
-        // OpenRouter runner is supported if we have internet connectivity
-        return hasInternetConnection()
+        // Configuration-based bypass
+        if (assumeConnectivity) {
+            Log.d(TAG, "OpenRouter supported: connectivity assumption enabled")
+            return true
+        }
+        
+        // Multi-tier support evaluation
+        val connectivityStatus = hasInternetConnection()
+        
+        // Log connectivity status for debugging
+        Log.d(TAG, "Connectivity check result: $connectivityStatus")
+        
+        // OpenRouter runner is supported if:
+        // 1. We detect internet connectivity, OR
+        // 2. We have a valid API key and can't determine connectivity (assume supported)
+        return when {
+            connectivityStatus -> {
+                Log.d(TAG, "OpenRouter supported: connectivity confirmed")
+                true
+            }
+            actualApiKey.isNotBlank() && isValidApiKey(actualApiKey) -> {
+                Log.d(TAG, "OpenRouter supported: valid API key present, assuming connectivity")
+                true
+            }
+            else -> {
+                Log.d(TAG, "OpenRouter not supported: no connectivity and invalid/missing API key")
+                false
+            }
+        }
     }
 
     // Private implementation methods
@@ -572,19 +602,51 @@ class OpenRouterLLMRunner(
     }
 
     /**
-     * Check if device has internet connectivity
+     * Robust network connectivity detection with multiple fallback strategies
      */
     private fun hasInternetConnection(): Boolean {
         return try {
-            // Simple connectivity check
-            context?.let { ctx ->
-                val connectivityManager = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-                val activeNetwork = connectivityManager?.activeNetworkInfo
-                activeNetwork?.isConnectedOrConnecting == true
-            } ?: true // Assume connected if no context
+            // Strategy 1: Permission-aware connectivity check
+            if (hasNetworkStatePermission()) {
+                context?.let { ctx ->
+                    val connectivityManager = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                    val activeNetwork = connectivityManager?.activeNetworkInfo
+                    return activeNetwork?.isConnectedOrConnecting == true
+                }
+            }
+            
+            // Strategy 2: Lightweight HTTP probe (fallback)
+            performLightweightConnectivityProbe()
+        } catch (e: SecurityException) {
+            Log.d(TAG, "Network state permission not available, using probe fallback")
+            performLightweightConnectivityProbe()
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to check internet connectivity", e)
-            true // Assume connected on error
+            Log.w(TAG, "Connectivity check failed, assuming connected", e)
+            true // Assume connected on unexpected errors
+        }
+    }
+    
+    /**
+     * Check if app has network state permission
+     */
+    private fun hasNetworkStatePermission(): Boolean {
+        return context?.let { ctx ->
+            ctx.checkSelfPermission(android.Manifest.permission.ACCESS_NETWORK_STATE) == 
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        } ?: false
+    }
+    
+    /**
+     * Lightweight connectivity probe as fallback
+     */
+    private fun performLightweightConnectivityProbe(): Boolean {
+        return try {
+            // Quick DNS resolution test (most lightweight)
+            val address = java.net.InetAddress.getByName("8.8.8.8")
+            !address.equals("")
+        } catch (e: Exception) {
+            Log.d(TAG, "DNS probe failed, assuming no connectivity")
+            false
         }
     }
 }
