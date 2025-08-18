@@ -133,8 +133,17 @@ The runner will be automatically discovered and registered by the BreezeApp Engi
 ### Next Steps for Users
 1. **Add API Key**: Configure OpenRouter API key through any supported method
 2. **Enable Network**: Ensure device has internet connectivity for cloud API access
-3. **Test Integration**: The runner will be available for LLM capability requests
-4. **Monitor Usage**: Check logs for runner registration and execution
+3. **Implement Client-Side Accumulation**: See `CLIENT_INTEGRATION_GUIDE.md` for proper streaming setup
+4. **Test Integration**: The runner will be available for LLM capability requests
+5. **Monitor Usage**: Check logs for runner registration and execution
+
+### 🏗️ **Streaming Architecture (Important)**
+The OpenRouter runner sends **raw tokens** to maintain clean architecture:
+- **Engine**: Focuses on AI inference, sends individual tokens
+- **Client**: Handles token accumulation, presentation, and user experience
+- **Benefits**: Better separation of concerns, flexible UI implementations, easier testing
+
+See `StreamingAccumulationHandler.kt` and `CLIENT_INTEGRATION_GUIDE.md` for implementation details.
 
 ## OpenRouter API Coverage
 

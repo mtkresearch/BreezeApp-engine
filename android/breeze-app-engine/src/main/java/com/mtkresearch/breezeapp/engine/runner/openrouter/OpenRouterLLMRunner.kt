@@ -66,14 +66,14 @@ class OpenRouterLLMRunner(
      * Secondary constructor for Context injection (used by RunnerFactory)
      */
     constructor(context: Context) : this(
-        apiKey = "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", // Will be set via configuration
+        apiKey = "", // Will be set via configuration
         context = context
     )
 
     /**
      * Default constructor for manual instantiation
      */
-    constructor() : this(apiKey = "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")
+    constructor() : this(apiKey = "")
 
     companion object {
         private const val TAG = "OpenRouterLLMRunner"
