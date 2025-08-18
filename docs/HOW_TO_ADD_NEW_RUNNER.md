@@ -46,7 +46,8 @@ import com.mtkresearch.breezeapp.engine.data.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.toList
 import java.util.concurrent.atomic.AtomicBoolean
 
 class OpenAILLMRunner(
@@ -73,32 +74,68 @@ class OpenAILLMRunner(
     }
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
-        if (!isLoaded.get()) {
-            return InferenceResult.error(RunnerError.modelNotLoaded())
-        }
-        
-        val prompt = input.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
+        // Always use streaming mode internally, regardless of the stream parameter
+        Log.d(TAG, "OpenAI runner called with stream=$stream, but forcing streaming mode internally")
         
         return try {
-            // Call OpenAI API here
-            val response = callOpenAIAPI(prompt)
+            // Collect all results from the flow and combine them
+            val results = runAsFlow(input).toList()
             
-            InferenceResult.success(
-                outputs = mapOf(InferenceResult.OUTPUT_TEXT to response),
-                metadata = mapOf(
-                    InferenceResult.META_MODEL_NAME to "gpt-3.5-turbo",
-                    InferenceResult.META_SESSION_ID to input.sessionId
-                )
-            )
+            // Find the final result (non-partial) or combine all partial results
+            val finalResult = results.find { !it.partial } ?: combinePartialResults(results)
+            finalResult
         } catch (e: Exception) {
-            Log.e(TAG, "Error in OpenAI API call", e)
-            InferenceResult.error(RunnerError.runtimeError(e.message ?: "API Error", e))
+            Log.e(TAG, "Error processing non-streaming request", e)
+            InferenceResult.error(RunnerError.runtimeError("Inference failed: ${e.message}", e))
         }
     }
     
-    override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = flow {
-        // Implement streaming response here
-        // This is where you'd handle OpenAI's streaming API
+    override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
+        if (!isLoaded.get()) {
+            trySend(InferenceResult.error(RunnerError.modelNotLoaded()))
+            close()
+            return@callbackFlow
+        }
+
+        val prompt = input.inputs[InferenceRequest.INPUT_TEXT] as? String
+            ?: run {
+                trySend(InferenceResult.error(RunnerError.invalidInput("Missing text input")))
+                close()
+                return@callbackFlow
+            }
+
+        try {
+            // Call OpenAI streaming API here
+            val response = callOpenAIStreamingAPI(prompt) { token ->
+                // Send partial result for each token
+                trySend(
+                    InferenceResult.textOutput(
+                        text = token,
+                        metadata = mapOf("partial" to true),
+                        partial = true
+                    )
+                )
+            }
+            
+            // Send final result
+            trySend(
+                InferenceResult.textOutput(
+                    text = response,
+                    metadata = mapOf("partial" to false),
+                    partial = false
+                )
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in OpenAI streaming API call", e)
+            trySend(InferenceResult.error(RunnerError.runtimeError("API Error: ${e.message}", e)))
+        } finally {
+            close()
+        }
+
+        awaitClose {
+            // Cleanup resources when flow is closed
+            Log.d(TAG, "Streaming flow closed, cleaning up resources")
+        }
     }
     
     override fun unload() {
@@ -118,10 +155,40 @@ class OpenAILLMRunner(
         isMock = false
     )
     
-    private fun callOpenAIAPI(prompt: String): String {
-        // Implement actual OpenAI API call here
-        // This is a placeholder
-        return "OpenAI response for: $prompt"
+    private fun callOpenAIStreamingAPI(prompt: String, onToken: (String) -> Unit): String {
+        // Implement actual OpenAI streaming API call here
+        // This is a placeholder that simulates streaming
+        val response = "OpenAI response for: $prompt"
+        response.forEach { char ->
+            onToken(char.toString())
+            Thread.sleep(10) // Simulate delay
+        }
+        return response
+    }
+    
+    /**
+     * Combines partial results into a single result
+     */
+    private fun combinePartialResults(partialResults: List<InferenceResult>): InferenceResult {
+        if (partialResults.isEmpty()) {
+            return InferenceResult.error(RunnerError.runtimeError("No results received from model"))
+        }
+        
+        // Combine all text outputs
+        val combinedText = partialResults
+            .filter { it.error == null }
+            .joinToString("") { it.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: "" }
+        
+        // Get metadata from the last result if available
+        val lastResult = partialResults.lastOrNull { it.error == null }
+        val metadata = lastResult?.metadata?.toMutableMap() ?: mutableMapOf()
+        metadata["partial"] = false
+        
+        return InferenceResult.textOutput(
+            text = combinedText,
+            metadata = metadata,
+            partial = false
+        )
     }
 }
 ```
@@ -303,16 +370,36 @@ cd android && ./gradlew :breeze-app-engine:build
 package com.mtkresearch.breezeapp.engine.data.runner.[vendor]
 
 import com.mtkresearch.breezeapp.engine.data.runner.core.BaseRunner
+import com.mtkresearch.breezeapp.engine.data.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.data.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.domain.model.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.toList
 
-class [Vendor][Capability]Runner : BaseRunner {
+class [Vendor][Capability]Runner : BaseRunner, FlowStreamingRunner {
     
     override fun load(config: ModelConfig): Boolean = true
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
-        // Implement your AI logic here
-        return InferenceResult.success(mapOf())
+        // For runners implementing FlowStreamingRunner, 
+        // always use streaming mode internally regardless of stream parameter
+        return try {
+            val results = runAsFlow(input).toList()
+            val finalResult = results.find { !it.partial } ?: combinePartialResults(results)
+            finalResult
+        } catch (e: Exception) {
+            InferenceResult.error(RunnerError.runtimeError("Inference failed: ${e.message}", e))
+        }
+    }
+    
+    override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
+        // Implement your AI logic here with proper streaming support
+        // Remember to use trySend() for results and close() when done
+        // Use awaitClose for resource cleanup
+        awaitClose {
+            // Cleanup resources
+        }
     }
     
     override fun unload() {}
@@ -328,6 +415,23 @@ class [Vendor][Capability]Runner : BaseRunner {
         description = "[Description]",
         isMock = false
     )
+    
+    private fun combinePartialResults(partialResults: List<InferenceResult>): InferenceResult {
+        // Combine partial results into a single final result
+        val combinedText = partialResults
+            .filter { it.error == null }
+            .joinToString("") { it.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: "" }
+        
+        val lastResult = partialResults.lastOrNull { it.error == null }
+        val metadata = lastResult?.metadata?.toMutableMap() ?: mutableMapOf()
+        metadata["partial"] = false
+        
+        return InferenceResult.textOutput(
+            text = combinedText,
+            metadata = metadata,
+            partial = false
+        )
+    }
 }
 ```
 
@@ -365,13 +469,295 @@ Before submitting your new runner:
 
 ### **Streaming Support**
 
-Implement `FlowStreamingRunner` for real-time responses:
+Implement `FlowStreamingRunner` for real-time responses. When implementing streaming support, consider these key principles:
+
+1. **Always implement both methods**: If your runner implements `FlowStreamingRunner`, you should implement both `run()` and `runAsFlow()` methods properly.
+
+2. **Handle the stream parameter correctly**: The `run()` method receives a `stream` parameter that indicates whether the client wants streaming responses. Your implementation should respect this parameter.
+
+3. **Use proper result marking**: Always mark partial results with `partial = true` and final results with `partial = false`.
+
+4. **Implement proper resource cleanup**: Use `awaitClose` in `callbackFlow` to ensure resources are cleaned up.
+
+Example of a robust streaming implementation:
 
 ```kotlin
-override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = flow {
-    // Emit partial results as they come
-    emit(InferenceResult.success(mapOf("partial" to "result"), partial = true))
-    emit(InferenceResult.success(mapOf("final" to "result"), partial = false))
+override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
+    return try {
+        if (stream) {
+            // For streaming requests, we could collect the flow or return an error
+            // indicating that streaming should be handled at a higher level
+            InferenceResult.error(RunnerError.runtimeError("Use runAsFlow for streaming requests"))
+        } else {
+            // For non-streaming, collect all results and combine them
+            val results = runAsFlow(input).toList()
+            val finalResult = results.find { !it.partial } ?: combinePartialResults(results)
+            finalResult
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "Error processing request", e)
+        InferenceResult.error(RunnerError.runtimeError("Inference failed: ${e.message}", e))
+    }
+}
+
+override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
+    // Validate input and setup
+    if (!isLoaded.get()) {
+        trySend(InferenceResult.error(RunnerError.modelNotLoaded()))
+        close()
+        return@callbackFlow
+    }
+
+    val prompt = input.inputs[InferenceRequest.INPUT_TEXT] as? String
+        ?: run {
+            trySend(InferenceResult.error(RunnerError.invalidInput("Missing text input")))
+            close()
+            return@callbackFlow
+        }
+
+    // Process the request with streaming callback
+    val responseBuffer = StringBuilder()
+    
+    // Example callback for an external API
+    val callback = object : ExternalAPICallback {
+        override fun onToken(token: String) {
+            responseBuffer.append(token)
+            // Send partial result
+            trySend(
+                InferenceResult.textOutput(
+                    text = token,  // Send just the new token
+                    metadata = mapOf("partial" to true),
+                    partial = true
+                )
+            )
+        }
+        
+        override fun onComplete() {
+            // Send final result
+            trySend(
+                InferenceResult.textOutput(
+                    text = responseBuffer.toString(),  // Send complete response
+                    metadata = mapOf("partial" to false),
+                    partial = false
+                )
+            )
+            close()
+        }
+        
+        override fun onError(error: Exception) {
+            trySend(InferenceResult.error(RunnerError.runtimeError("API Error: ${error.message}", error)))
+            close()
+        }
+    }
+    
+    // Start the external API call with callback
+    externalAPI.generate(prompt, callback)
+    
+    awaitClose {
+        // Cleanup resources when flow is closed
+        externalAPI.cancelCurrentRequest()
+    }
+}
+```
+
+### **Error Handling in Streaming**
+
+Proper error handling in streaming runners is crucial for a good user experience:
+
+1. **Immediate Errors**: Errors that occur before streaming starts should be returned directly or emitted as the first item in the flow.
+
+2. **Streaming Errors**: Errors that occur during streaming should be emitted through the flow and then the flow should be closed.
+
+3. **Resource Cleanup**: Always ensure resources are cleaned up using `awaitClose`.
+
+Example:
+
+```kotlin
+override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
+    try {
+        // Validate and setup
+        if (!isLoaded.get()) {
+            throw RunnerError.modelNotLoaded()
+        }
+        
+        // Process request...
+        
+    } catch (e: RunnerError) {
+        // Send runner-specific errors
+        trySend(InferenceResult.error(e))
+        close()
+        return@callbackFlow
+    } catch (e: Exception) {
+        // Send generic errors
+        trySend(InferenceResult.error(RunnerError.runtimeError("Unexpected error: ${e.message}", e)))
+        close()
+        return@callbackFlow
+    }
+    
+    awaitClose {
+        // Cleanup resources
+        cleanupResources()
+    }
+}
+```
+
+### **Resource Management**
+
+Proper resource management is essential for long-running services:
+
+1. **Native Resources**: Always clean up native resources in the `unload()` method.
+
+2. **Streaming Resources**: Use `awaitClose` to clean up resources when streaming completes or is cancelled.
+
+3. **Thread Safety**: Use atomic variables or locks when managing shared state.
+
+Example:
+
+```kotlin
+class MyRunner : BaseRunner, FlowStreamingRunner {
+    private val isLoaded = AtomicBoolean(false)
+    private var nativeHandle: Long = 0L
+    private val lock = ReentrantReadWriteLock()
+    
+    override fun load(config: ModelConfig): Boolean {
+        return lock.write {
+            try {
+                // Load model and get native handle
+                nativeHandle = loadNativeModel(config)
+                isLoaded.set(true)
+                true
+            } catch (e: Exception) {
+                isLoaded.set(false)
+                false
+            }
+        }
+    }
+    
+    override fun unload() {
+        lock.write {
+            if (isLoaded.get()) {
+                unloadNativeModel(nativeHandle)
+                nativeHandle = 0L
+                isLoaded.set(false)
+            }
+        }
+    }
+    
+    override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
+        val handle = lock.read {
+            if (!isLoaded.get()) {
+                throw RunnerError.modelNotLoaded()
+            }
+            nativeHandle
+        }
+        
+        // Use handle for inference...
+        
+        awaitClose {
+            // Clean up any request-specific resources
+            cleanupRequestResources()
+        }
+    }
+}
+```
+
+### **Testing Streaming Runners**
+
+When testing streaming runners, ensure you test both streaming and non-streaming modes:
+
+```kotlin
+@Test
+fun testStreamingInference() = runTest {
+    val runner = MyStreamingRunner()
+    runner.load(defaultConfig)
+    
+    val request = InferenceRequest(
+        sessionId = "test-stream",
+        inputs = mapOf(InferenceRequest.INPUT_TEXT to "Hello"),
+        params = emptyMap()
+    )
+    
+    // Test streaming mode
+    val results = mutableListOf<InferenceResult>()
+    runner.runAsFlow(request).toList(results)
+    
+    // Verify we got both partial and final results
+    assertTrue(results.any { it.partial })
+    assertTrue(results.any { !it.partial })
+    assertTrue(results.all { it.error == null })
+}
+
+@Test
+fun testNonStreamingInference() {
+    val runner = MyStreamingRunner()
+    runner.load(defaultConfig)
+    
+    val request = InferenceRequest(
+        sessionId = "test-non-stream",
+        inputs = mapOf(InferenceRequest.INPUT_TEXT to "Hello"),
+        params = mapOf("stream" to false)
+    )
+    
+    // Test non-streaming mode
+    val result = runner.run(request, stream = false)
+    
+    // Verify we got a final result directly
+    assertFalse(result.partial)
+    assertNull(result.error)
+    assertNotNull(result.outputs[InferenceResult.OUTPUT_TEXT])
+}
+```
+
+### **Performance and Best Practices**
+
+1. **Avoid Blocking Operations**: Use coroutines and non-blocking I/O for better performance.
+
+2. **Proper Logging**: Log important events but avoid excessive logging in hot paths.
+
+3. **Memory Management**: Be mindful of memory usage, especially with large models or long-running streams.
+
+4. **Connection Reuse**: Reuse connections when possible for remote APIs.
+
+5. **Timeout Handling**: Implement appropriate timeouts for external calls.
+
+Example with proper coroutine usage:
+
+```kotlin
+override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
+    val deferredResult = CoroutineScope(Dispatchers.IO).async {
+        // Perform non-blocking I/O operation
+        externalAPI.generateStream(input)
+    }
+    
+    try {
+        val stream = deferredResult.await()
+        stream.collect { token ->
+            trySend(
+                InferenceResult.textOutput(
+                    text = token,
+                    metadata = mapOf("partial" to true),
+                    partial = true
+                )
+            )
+        }
+        
+        // Send final result
+        trySend(
+            InferenceResult.textOutput(
+                text = "Complete response",
+                metadata = mapOf("partial" to false),
+                partial = false
+            )
+        )
+    } catch (e: Exception) {
+        trySend(InferenceResult.error(RunnerError.runtimeError(e.message ?: "Unknown error", e)))
+    } finally {
+        close()
+    }
+    
+    awaitClose {
+        deferredResult.cancel()
+    }
 }
 ```
 
