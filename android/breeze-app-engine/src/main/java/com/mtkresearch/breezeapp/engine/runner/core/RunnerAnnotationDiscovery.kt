@@ -336,6 +336,12 @@ class RunnerAnnotationDiscovery(
      * @return true if the annotation is valid
      */
     fun validateRunnerAnnotation(runnerClass: Class<out BaseRunner>, annotation: AIRunner): Boolean {
+        // Check if runner is enabled
+        if (!annotation.enabled) {
+            logger.d(TAG, "Runner ${runnerClass.simpleName} is disabled (enabled=false), skipping registration")
+            return false
+        }
+        
         // Check capabilities
         if (annotation.capabilities.isEmpty()) {
             logger.w(TAG, "Runner ${runnerClass.simpleName} has no capabilities defined")
