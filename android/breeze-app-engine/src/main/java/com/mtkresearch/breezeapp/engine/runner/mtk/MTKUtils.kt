@@ -2,7 +2,6 @@ package com.mtkresearch.breezeapp.engine.runner.mtk
 
 import android.content.Context
 import android.os.Build
-import com.mtkresearch.breezeapp.engine.model.ModelConfig
 import org.json.JSONObject
 import java.io.File
 

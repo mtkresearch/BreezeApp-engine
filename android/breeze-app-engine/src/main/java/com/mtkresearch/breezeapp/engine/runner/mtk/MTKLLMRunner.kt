@@ -6,9 +6,13 @@ import com.mtkresearch.breezeapp.engine.annotation.AIRunner
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
+import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
 import com.mtkresearch.breezeapp.engine.system.NativeLibraryManager
 import kotlinx.coroutines.flow.Flow
 import java.util.concurrent.atomic.AtomicBoolean
@@ -39,7 +43,10 @@ import java.io.File
     priority = RunnerPriority.HIGH,
     capabilities = [CapabilityType.LLM]
 )
-class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStreamingRunner {
+class MTKLLMRunner(
+    private val context: Context? = null,
+    private val modelRegistry: ModelRegistryService? = null
+) : BaseRunner, FlowStreamingRunner {
 
     private val isLoaded = AtomicBoolean(false)
     private val isGenerating = AtomicBoolean(false)
@@ -58,20 +65,23 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
         private val initAttemptCount = AtomicInteger(0)
     }
     
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = MODEL_NAME,
-            modelPath = "" // Empty path - will use MTKUtils default resolution
-        )
-        return load(defaultConfig)
-    }
-    
-    override fun load(config: ModelConfig): Boolean {
-        Log.d(TAG, "Loading MTKLLMRunner with config: ${config.modelName}")
+    // Load model using model ID from JSON registry
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        Log.d(TAG, "Loading MTKLLMRunner with model: $modelId")
         if (isLoaded.get()) return true
 
-        // Initialize MTK config from ModelConfig
-        this.config = MTKConfig.fromModelConfig(config)
+        // Get model definition from registry to resolve model path
+        val modelDef = modelRegistry?.getModelDefinition(modelId)
+        val modelPath = if (modelDef != null) {
+            val modelFile = modelDef.getFileByType("model")
+            "${context?.filesDir}/models/${modelDef.id}/${modelFile?.getEffectiveFileName() ?: "model.pt"}"
+        } else {
+            // Fallback for backward compatibility
+            "${context?.filesDir}/models/$modelId/model.pt"
+        }
+
+        // Initialize MTK config directly from model path
+        this.config = MTKConfig.createDefault(modelPath)
 
         // 1. 驗證硬體支援
         if (!isSupported()) {
@@ -86,18 +96,13 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
             return false
         }
 
-        // 3. 解析模型路徑 (Smart path resolution like Sherpa's approach)
-        val modelPath = if (context != null) {
-            MTKUtils.resolveModelPath(context, config.modelPath)
-        } else {
-            config.modelPath ?: return false
-        }
+        // 3. 解析模型路徑 (Smart path resolution like Sherpa's approach)  
         if (!File(modelPath).exists()) {
             Log.e(TAG, "Model path does not exist: $modelPath")
             return false
         }
         resolvedModelPath = modelPath
-        Log.d(TAG, "Model path resolved from config: $resolvedModelPath")
+        Log.d(TAG, "Model path resolved: $resolvedModelPath")
 
         // 4. 初始化 MTK 後端
         val initResult = initializeMTKBackend()
@@ -313,6 +318,119 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
             Log.e(TAG, "Error checking MTK NPU support", e)
             false
         }
+    }
+
+    override fun getParameterSchema(): List<ParameterSchema> {
+        return listOf(
+            ParameterSchema(
+                name = "temperature",
+                displayName = "Temperature",
+                description = "Controls randomness in text generation. Lower values (0.1) make output more focused, higher values (1.0) make it more creative.",
+                type = ParameterType.FloatType(
+                    minValue = 0.0,
+                    maxValue = 2.0,
+                    step = 0.1,
+                    precision = 1
+                ),
+                defaultValue = 0.8f,
+                isRequired = false,
+                category = "Generation Parameters"
+            ),
+            ParameterSchema(
+                name = "max_tokens",
+                displayName = "Max Tokens",
+                description = "Maximum number of tokens to generate in the response.",
+                type = ParameterType.IntType(
+                    minValue = 1,
+                    maxValue = 4096,
+                    step = 1
+                ),
+                defaultValue = 256,
+                isRequired = false,
+                category = "Generation Parameters"
+            ),
+            ParameterSchema(
+                name = "top_k",
+                displayName = "Top K",
+                description = "Limits the model to consider only the top K most likely tokens at each step.",
+                type = ParameterType.IntType(
+                    minValue = 1,
+                    maxValue = 100,
+                    step = 1
+                ),
+                defaultValue = 40,
+                isRequired = false,
+                category = "Generation Parameters"
+            ),
+            ParameterSchema(
+                name = "repetition_penalty",
+                displayName = "Repetition Penalty",
+                description = "Penalty applied to repeated tokens to reduce repetitive output. Values > 1.0 discourage repetition.",
+                type = ParameterType.FloatType(
+                    minValue = 0.1,
+                    maxValue = 2.0,
+                    step = 0.1,
+                    precision = 1
+                ),
+                defaultValue = 1.1f,
+                isRequired = false,
+                category = "Generation Parameters"
+            )
+        )
+    }
+
+    override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+        val temperature = parameters["temperature"] as? Number
+        val maxTokens = parameters["max_tokens"] as? Number
+        val topK = parameters["top_k"] as? Number
+        val repetitionPenalty = parameters["repetition_penalty"] as? Number
+
+        // Validate temperature
+        temperature?.let { temp ->
+            val tempValue = temp.toFloat()
+            if (tempValue < 0.0f || tempValue > 2.0f) {
+                return ValidationResult.invalid("Temperature must be between 0.0 and 2.0")
+            }
+        }
+
+        // Validate max tokens
+        maxTokens?.let { tokens ->
+            val tokensValue = tokens.toInt()
+            if (tokensValue < 1 || tokensValue > 4096) {
+                return ValidationResult.invalid("Max tokens must be between 1 and 4096")
+            }
+        }
+
+        // Validate top_k
+        topK?.let { k ->
+            val kValue = k.toInt()
+            if (kValue < 1 || kValue > 100) {
+                return ValidationResult.invalid("Top K must be between 1 and 100")
+            }
+        }
+
+        // Validate repetition penalty
+        repetitionPenalty?.let { penalty ->
+            val penaltyValue = penalty.toFloat()
+            if (penaltyValue < 0.1f || penaltyValue > 2.0f) {
+                return ValidationResult.invalid("Repetition penalty must be between 0.1 and 2.0")
+            }
+        }
+
+        // Cross-parameter validation
+        temperature?.let { temp ->
+            val tempValue = temp.toFloat()
+            if (tempValue > 1.5f) {
+                topK?.let { k ->
+                    val kValue = k.toInt()
+                    if (kValue > 80) {
+                        return ValidationResult.invalid("High temperature (>1.5) with high top_k (>80) may produce incoherent results. Consider reducing one of these values.")
+                    }
+                }
+            }
+        }
+
+        return ValidationResult.valid()
     }
 
     // --- 與舊版 LLMEngineService 對應的初始化邏輯 ---
@@ -573,4 +691,7 @@ class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStrea
     private external fun nativeResetLlmImpl()
     private external fun nativeReleaseLlmImpl()
     private external fun nativeSwapModelImpl(tokenSize: Int): Boolean
+    
+    // Helper methods for model configuration
+    // Removed ModelConfig helper methods - no longer needed with JSON-based architecture
 } 

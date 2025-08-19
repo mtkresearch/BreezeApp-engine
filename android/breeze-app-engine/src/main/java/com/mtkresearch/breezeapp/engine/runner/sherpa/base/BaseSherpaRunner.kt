@@ -4,7 +4,11 @@ import android.content.Context
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
-import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.EngineSettings
+import com.mtkresearch.breezeapp.engine.model.InferenceRequest
+import com.mtkresearch.breezeapp.engine.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.model.RunnerError
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -27,14 +31,15 @@ abstract class BaseSherpaRunner(protected val context: Context) : BaseRunner {
     }
     
     /**
-     * Initializes the Sherpa model with the provided configuration
+     * Initializes the Sherpa model with the provided model ID
      * 
      * This method should be implemented by subclasses to load their specific models
      * 
-     * @param config Model configuration containing paths, parameters, and metadata
+     * @param modelId Model identifier from fullModelList.json
+     * @param settings Engine settings containing runner-specific parameters
      * @return true if the model was successfully loaded, false otherwise
      */
-    protected abstract fun initializeModel(config: ModelConfig): Boolean
+    // Removed abstract initializeModel - subclasses now implement load directly
     
     /**
      * Releases all loaded models and allocated resources
@@ -63,35 +68,7 @@ abstract class BaseSherpaRunner(protected val context: Context) : BaseRunner {
         return true
     }
     
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = getRunnerInfo().name,
-            modelPath = ""
-        )
-        return load(defaultConfig)
-    }
-    
-    override fun load(config: ModelConfig): Boolean {
-        return try {
-            Log.d(getTag(), "Loading ${getRunnerInfo().name} with config: ${config.modelName}")
-            modelName = config.modelName
-            
-            val result = initializeModel(config)
-            isLoaded.set(result)
-            
-            if (result) {
-                Log.i(getTag(), "${getRunnerInfo().name} loaded successfully")
-            } else {
-                Log.e(getTag(), "Failed to load ${getRunnerInfo().name}")
-            }
-            
-            result
-        } catch (e: Exception) {
-            Log.e(getTag(), "Exception while loading ${getRunnerInfo().name}", e)
-            isLoaded.set(false)
-            false
-        }
-    }
+    // Removed default load implementation - subclasses now implement load directly with modelId
     
     override fun unload() {
         try {

@@ -7,6 +7,10 @@ import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
+import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
+import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
 import com.mtkresearch.breezeapp.engine.model.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -49,39 +53,21 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
         "這是一個測試回應，用於驗證 Mock Runner 的串流功能是否正常運作。"
     )
     
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = "MockLLMModel",
-            modelPath = ""
-        )
-        return load(defaultConfig)
-    }
-    
-    override fun load(config: ModelConfig): Boolean {
-        return try {
-            Log.d(TAG, "Loading MockLLMRunner with config: ${config.modelName}")
-            
-            // 模擬載入時間
-            Thread.sleep(500)
-            
-            // 從配置中讀取參數
-            config.parameters["response_delay_ms"]?.let { delay ->
-                responseDelay = (delay as? Number)?.toLong() ?: DEFAULT_RESPONSE_DELAY
-            }
-            
-            config.parameters["predefined_responses"]?.let { responses ->
-                @Suppress("UNCHECKED_CAST")
-                predefinedResponses = (responses as? List<String>) ?: predefinedResponses
-            }
-            
-            isLoaded.set(true)
-            Log.d(TAG, "MockLLMRunner loaded successfully")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load MockLLMRunner", e)
-            isLoaded.set(false)
-            false
+    // Load model using model ID from JSON registry
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        Log.d(TAG, "Loading MockLLMRunner with model: $modelId")
+        
+        // Extract parameters from settings for this runner
+        val runnerParams = settings.getRunnerParameters("MockLLMRunner")
+        responseDelay = runnerParams["response_delay_ms"] as? Long ?: DEFAULT_RESPONSE_DELAY
+        val customResponses = runnerParams["predefined_responses"] as? List<String>
+        if (customResponses != null) {
+            predefinedResponses = customResponses
         }
+        
+        isLoaded.set(true)
+        Log.d(TAG, "MockLLMRunner loaded successfully")
+        return true
     }
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
@@ -175,6 +161,116 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     )
     
     override fun isSupported(): Boolean = true // Mock runners always supported
+    
+    override fun getParameterSchema(): List<ParameterSchema> {
+        return listOf(
+            ParameterSchema(
+                name = "model_id",
+                displayName = "Mock Model",
+                description = "Select a mock model for testing (all models behave identically)",
+                type = ParameterType.SelectionType(
+                    options = listOf(
+                        SelectionOption("mock-llm-basic", "Mock LLM Basic", "Basic mock language model"),
+                        SelectionOption("mock-llm-advanced", "Mock LLM Advanced", "Advanced mock language model"),
+                        SelectionOption("mock-llm-creative", "Mock LLM Creative", "Creative mock language model")
+                    ),
+                    allowMultiple = false
+                ),
+                defaultValue = "mock-llm-basic",
+                isRequired = true,
+                category = "Model Configuration"
+            ),
+            ParameterSchema(
+                name = "response_delay_ms",
+                displayName = "Response Delay (ms)",
+                description = "Simulated delay before generating response (for testing purposes)",
+                type = ParameterType.IntType(
+                    minValue = 0,
+                    maxValue = 5000,
+                    step = 100
+                ),
+                defaultValue = DEFAULT_RESPONSE_DELAY,
+                isRequired = false,
+                category = "Simulation"
+            ),
+            ParameterSchema(
+                name = "stream_chunk_delay_ms",
+                displayName = "Stream Chunk Delay (ms)",
+                description = "Delay between streaming chunks (simulates real-time generation)",
+                type = ParameterType.IntType(
+                    minValue = 10,
+                    maxValue = 1000,
+                    step = 10
+                ),
+                defaultValue = DEFAULT_STREAM_CHUNK_DELAY,
+                isRequired = false,
+                category = "Simulation"
+            ),
+            ParameterSchema(
+                name = "response_style",
+                displayName = "Response Style",
+                description = "Style of mock responses to generate",
+                type = ParameterType.SelectionType(
+                    options = listOf(
+                        SelectionOption("formal", "Formal", "Professional, structured responses"),
+                        SelectionOption("casual", "Casual", "Friendly, conversational responses"),
+                        SelectionOption("technical", "Technical", "Detailed technical explanations"),
+                        SelectionOption("creative", "Creative", "Imaginative and varied responses"),
+                        SelectionOption("random", "Random", "Randomly selected from predefined responses")
+                    )
+                ),
+                defaultValue = "random",
+                isRequired = false,
+                category = "Content"
+            ),
+            ParameterSchema(
+                name = "simulate_errors",
+                displayName = "Simulate Errors",
+                description = "Enable simulation of random errors for testing error handling",
+                type = ParameterType.BooleanType,
+                defaultValue = false,
+                isRequired = false,
+                category = "Testing"
+            ),
+            ParameterSchema(
+                name = "error_rate",
+                displayName = "Error Rate (%)",
+                description = "Percentage chance of simulating an error (0-100)",
+                type = ParameterType.IntType(
+                    minValue = 0,
+                    maxValue = 100,
+                    step = 5
+                ),
+                defaultValue = 10,
+                isRequired = false,
+                category = "Testing"
+            )
+        )
+    }
+
+    override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+        // Validate error simulation parameters
+        val simulateErrors = parameters["simulate_errors"] as? Boolean ?: false
+        val errorRate = (parameters["error_rate"] as? Number)?.toInt() ?: 10
+        
+        if (simulateErrors && errorRate > 50) {
+            return ValidationResult.invalid("Error rate above 50% may make testing difficult")
+        }
+        
+        // Validate delay parameters for reasonable testing
+        val responseDelay = (parameters["response_delay_ms"] as? Number)?.toLong() ?: DEFAULT_RESPONSE_DELAY
+        val streamDelay = (parameters["stream_chunk_delay_ms"] as? Number)?.toLong() ?: DEFAULT_STREAM_CHUNK_DELAY
+        
+        if (responseDelay > 3000) {
+            return ValidationResult.invalid("Response delay above 3000ms may timeout in tests")
+        }
+        
+        if (streamDelay > 500) {
+            return ValidationResult.invalid("Stream chunk delay above 500ms creates poor user experience")
+        }
+        
+        return ValidationResult.valid()
+    }
     
     /**
      * 根據輸入選擇適當的回應

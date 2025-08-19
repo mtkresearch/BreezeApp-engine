@@ -125,6 +125,9 @@ class BreezeAppEngineService : Service() {
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand() - Simplified Architecture")
+
+        // Immediately start foreground to comply with Android requirements
+        startForegroundService()
         
         // Handle different start scenarios
         when (intent?.action) {

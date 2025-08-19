@@ -8,6 +8,10 @@ import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
+import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
+import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
 import com.mtkresearch.breezeapp.engine.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -53,7 +57,7 @@ import org.json.JSONArray
     vendor = VendorType.OPENROUTER,
     priority = RunnerPriority.LOW,
     capabilities = [CapabilityType.LLM],
-    enabled = false
+    enabled = true
 )
 class OpenRouterLLMRunner(
     private val apiKey: String,
@@ -107,57 +111,39 @@ class OpenRouterLLMRunner(
     private var timeoutMs: Int = DEFAULT_TIMEOUT_MS
     private var assumeConnectivity: Boolean = false
 
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = defaultModel,
-            modelPath = ""
-        )
-        return load(defaultConfig)
-    }
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        try {
+            val runnerName = getRunnerInfo().name
+            val runnerParams = settings.getRunnerParameters(runnerName)
+            Log.d(TAG, "Loading OpenRouterLLMRunner with model '${modelId}' and params: $runnerParams")
 
-    override fun load(config: ModelConfig): Boolean {
-        return try {
-            Log.d(TAG, "Loading OpenRouterLLMRunner with model: ${config.modelName}")
-            
-            // Validate API key
-            if (actualApiKey.isBlank()) {
-                // Try to get API key from configuration
-                actualApiKey = getApiKeyFromConfig(config)
-                if (actualApiKey.isBlank()) {
-                    Log.e(TAG, "API key is required for OpenRouter runner")
-                    return false
-                }
+            // 1. Get API Key from runner-specific settings
+            val keyFromSettings = runnerParams["api_key"] as? String ?: ""
+            if (keyFromSettings.isBlank()) {
+                Log.e(TAG, "API key not found in settings for $runnerName")
+                return false
             }
+            this.actualApiKey = keyFromSettings
 
-            // Extract configuration parameters
-            modelName = config.modelName.takeIf { it.isNotBlank() } ?: defaultModel
-            timeoutMs = (config.parameters["timeout_ms"] as? Number)?.toInt() ?: DEFAULT_TIMEOUT_MS
-            assumeConnectivity = (config.parameters["assume_connectivity"] as? Boolean) ?: false
+            // 2. Get model and other parameters from the specific model config and runner settings
+            this.modelName = modelId.takeIf { it.isNotBlank() } ?: defaultModel
+            this.timeoutMs = (runnerParams["timeout_ms"] as? Number)?.toInt() ?: DEFAULT_TIMEOUT_MS
+            this.assumeConnectivity = (runnerParams["assume_connectivity"] as? Boolean) ?: false
 
-            // Validate API key format (basic check)
+            // 3. Validate API key format
             if (!isValidApiKey(actualApiKey)) {
                 Log.e(TAG, "Invalid API key format")
                 return false
             }
-            
-            // Log API key status (without exposing the key)
-            Log.d(TAG, "API key validation: length=${actualApiKey.length}, starts_with=${actualApiKey.take(8)}...")
 
-            // Test connection (optional quick validation)
-            if (config.parameters["validate_connection"] as? Boolean == true) {
-                if (!validateConnection()) {
-                    Log.e(TAG, "Failed to validate connection to OpenRouter")
-                    return false
-                }
-            }
-
+            Log.d(TAG, "API key successfully loaded for OpenRouterLLMRunner.")
             isLoaded.set(true)
             Log.d(TAG, "OpenRouterLLMRunner loaded successfully with model: $modelName")
-            true
+            return true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load OpenRouterLLMRunner", e)
             isLoaded.set(false)
-            false
+            return false
         }
     }
 
@@ -263,6 +249,172 @@ class OpenRouterLLMRunner(
                 false
             }
         }
+    }
+
+    override fun getParameterSchema(): List<ParameterSchema> {
+        return listOf(
+            ParameterSchema(
+                name = "api_key",
+                displayName = "API Key",
+                description = "OpenRouter API key for authentication (starts with 'sk-or-v1-')",
+                type = ParameterType.StringType(
+                    minLength = 20,
+                    pattern = Regex("^sk-or-v1-[a-zA-Z0-9]+$")
+                ),
+                defaultValue = "",
+                isRequired = true,
+                isSensitive = true,
+                category = "Authentication"
+            ),
+            ParameterSchema(
+                name = "model",
+                displayName = "Model",
+                description = "OpenRouter model to use for text generation",
+                type = ParameterType.SelectionType(
+                    options = listOf(
+                        SelectionOption("openai/gpt-3.5-turbo", "GPT-3.5 Turbo", "Fast and efficient for most tasks"),
+                        SelectionOption("openai/gpt-4", "GPT-4", "Most capable model, higher cost"),
+                        SelectionOption("openai/gpt-4-turbo-preview", "GPT-4 Turbo", "Latest GPT-4 with improved performance"),
+                        SelectionOption("anthropic/claude-3-sonnet", "Claude 3 Sonnet", "Balanced performance and reasoning"),
+                        SelectionOption("anthropic/claude-3-opus", "Claude 3 Opus", "Most capable Claude model"),
+                        SelectionOption("meta-llama/llama-2-70b-chat", "Llama 2 70B", "Open source alternative"),
+                        SelectionOption("openai/gpt-oss-20b:free", "GPT-OSS 20B (Free)", "Free tier model")
+                    )
+                ),
+                defaultValue = DEFAULT_MODEL,
+                isRequired = false,
+                category = "Model Configuration"
+            ),
+            ParameterSchema(
+                name = "base_url",
+                displayName = "Base URL",
+                description = "OpenRouter API base URL (advanced users only)",
+                type = ParameterType.StringType(
+                    pattern = Regex("^https?://.+")
+                ),
+                defaultValue = DEFAULT_BASE_URL,
+                isRequired = false,
+                category = "Advanced"
+            ),
+            ParameterSchema(
+                name = "timeout_ms",
+                displayName = "Request Timeout (ms)",
+                description = "Maximum time to wait for API response",
+                type = ParameterType.IntType(
+                    minValue = 5000,
+                    maxValue = 300000,
+                    step = 5000
+                ),
+                defaultValue = DEFAULT_TIMEOUT_MS,
+                isRequired = false,
+                category = "Performance"
+            ),
+            ParameterSchema(
+                name = "temperature",
+                displayName = "Temperature",
+                description = "Control randomness in responses (0.0 = deterministic, 2.0 = very creative)",
+                type = ParameterType.FloatType(
+                    minValue = 0.0,
+                    maxValue = 2.0,
+                    step = 0.1,
+                    precision = 2
+                ),
+                defaultValue = DEFAULT_TEMPERATURE,
+                isRequired = false,
+                category = "Generation"
+            ),
+            ParameterSchema(
+                name = "max_tokens",
+                displayName = "Max Tokens",
+                description = "Maximum number of tokens to generate in response",
+                type = ParameterType.IntType(
+                    minValue = 1,
+                    maxValue = 8192,
+                    step = 128
+                ),
+                defaultValue = DEFAULT_MAX_TOKENS,
+                isRequired = false,
+                category = "Generation"
+            ),
+            ParameterSchema(
+                name = "top_p",
+                displayName = "Top P",
+                description = "Nucleus sampling parameter (0.0-1.0)",
+                type = ParameterType.FloatType(
+                    minValue = 0.0,
+                    maxValue = 1.0,
+                    step = 0.1,
+                    precision = 2
+                ),
+                defaultValue = 0.9f,
+                isRequired = false,
+                category = "Generation"
+            ),
+            ParameterSchema(
+                name = "frequency_penalty",
+                displayName = "Frequency Penalty",
+                description = "Reduce repetition of frequently used tokens",
+                type = ParameterType.FloatType(
+                    minValue = -2.0,
+                    maxValue = 2.0,
+                    step = 0.1,
+                    precision = 2
+                ),
+                defaultValue = 0.0f,
+                isRequired = false,
+                category = "Generation"
+            ),
+            ParameterSchema(
+                name = "presence_penalty",
+                displayName = "Presence Penalty",
+                description = "Reduce repetition of any tokens that appear",
+                type = ParameterType.FloatType(
+                    minValue = -2.0,
+                    maxValue = 2.0,
+                    step = 0.1,
+                    precision = 2
+                ),
+                defaultValue = 0.0f,
+                isRequired = false,
+                category = "Generation"
+            )
+        )
+    }
+
+    override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+        // Validate API key format
+        val apiKey = parameters["api_key"] as? String
+        if (apiKey.isNullOrBlank()) {
+            return ValidationResult.invalid("API key is required")
+        }
+        if (!apiKey.startsWith("sk-or-v1-")) {
+            return ValidationResult.invalid("OpenRouter API key must start with 'sk-or-v1-'")
+        }
+
+        // Validate temperature and top_p combination
+        val temperature = (parameters["temperature"] as? Number)?.toFloat() ?: DEFAULT_TEMPERATURE
+        val topP = (parameters["top_p"] as? Number)?.toFloat() ?: 0.9f
+        
+        if (temperature > 1.5f && topP > 0.95f) {
+            return ValidationResult.invalid("High temperature (>1.5) with high top_p (>0.95) may produce incoherent results")
+        }
+
+        // Validate model selection
+        val model = parameters["model"] as? String ?: DEFAULT_MODEL
+        val validModels = listOf(
+            "openai/gpt-3.5-turbo",
+            "openai/gpt-4", 
+            "openai/gpt-4-turbo-preview",
+            "anthropic/claude-3-sonnet",
+            "anthropic/claude-3-opus",
+            "meta-llama/llama-2-70b-chat",
+            "openai/gpt-oss-20b:free"
+        )
+        if (model !in validModels) {
+            return ValidationResult.invalid("Invalid model selection: $model")
+        }
+
+        return ValidationResult.valid()
     }
 
     // Private implementation methods
@@ -555,16 +707,7 @@ class OpenRouterLLMRunner(
         }
     }
 
-    /**
-     * Get API key from configuration or environment
-     */
-    private fun getApiKeyFromConfig(config: ModelConfig): String {
-        // Try different sources for API key
-        return config.parameters["api_key"] as? String
-            ?: config.parameters["openrouter_api_key"] as? String
-            ?: System.getProperty("openrouter.api.key", "")
-            ?: ""
-    }
+    
 
     /**
      * Basic API key validation

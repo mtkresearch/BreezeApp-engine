@@ -1,19 +1,23 @@
 package com.mtkresearch.breezeapp.engine.ui
 
 import android.os.Bundle
+import android.util.Log
 import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.tabs.TabLayout
+import com.mtkresearch.breezeapp.engine.BreezeAppEngineService
 import com.mtkresearch.breezeapp.engine.R
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.model.EngineSettings
-import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.model.ReloadResult
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
-import com.mtkresearch.breezeapp.engine.BreezeAppEngineService
-import android.util.Log
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
+import kotlinx.coroutines.launch
 
 /**
  * Engine Settings Activity
@@ -53,7 +57,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     private var runnerParameters: Map<String, List<ParameterSchema>> = emptyMap()
     
     // Direct RunnerManager access
-    private var runnerManager: com.mtkresearch.breezeapp.engine.runner.core.RunnerManager? = null
+    private var runnerManager: RunnerManager? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,6 +69,7 @@ class EngineSettingsActivity : AppCompatActivity() {
         initializeRunnerManager()
         loadSettings()
         setupEventListeners()
+        setupObservers()
     }
     
     private fun setupToolbar() {
@@ -146,6 +151,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                         loadSettings()
                         updateCapabilityUI()
                         loadRunnersForCapability()
+                        setupObservers()
                     }
                 }, 2000)
                 
@@ -176,7 +182,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     private fun loadAvailableRunners() {
         try {
             // Get available runners from RunnerManager
-            val allRunners = runnerManager?.getAvailableRunners() ?: emptyList()
+            val allRunners = runnerManager?.getAllRunners() ?: emptyList()
             
             // Group runners by capability
             availableRunners = allRunners
@@ -202,7 +208,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     private fun loadRunnerParameters() {
         try {
             // Get parameter schemas for each runner from RunnerManager
-            val allRunners = runnerManager?.getAvailableRunners() ?: emptyList()
+            val allRunners = runnerManager?.getAllRunners() ?: emptyList()
             val runnerParams = mutableMapOf<String, List<ParameterSchema>>()
             
             for (runner in allRunners) {
@@ -418,30 +424,46 @@ class EngineSettingsActivity : AppCompatActivity() {
         }
     }
     
-    private fun saveSettings() {
-        try {
-            // Get currently selected runner
-            val selectedRunnerName = spinnerRunners.selectedItem?.toString()
-            if (selectedRunnerName != null) {
-                // Update settings with selected runner
-                currentSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunnerName)
-                
-                // Update settings with runner parameters
-                if (currentRunnerParameters.isNotEmpty()) {
-                    currentSettings = currentSettings.withRunnerParameters(selectedRunnerName, currentRunnerParameters.toMap())
-                }
-                
-                // Save settings using RunnerManager
-                runnerManager?.saveSettings(currentSettings)
-                
-                Toast.makeText(this, "Settings saved successfully", Toast.LENGTH_SHORT).show()
-                
-                // Reset parameter values for next edit
-                currentRunnerParameters.clear()
+    private fun setupObservers() {
+        runnerManager?.observeSettingsChanges { _, result ->
+            runOnUiThread {
+                handleReloadResult(result)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving settings", e)
-            Toast.makeText(this, "Error saving settings: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun handleReloadResult(result: ReloadResult) {
+        val message = when (result) {
+            is ReloadResult.Success -> "Settings saved and runners reloaded successfully."
+            is ReloadResult.Failure -> "Settings saved, but failed to reload runners: ${result.error.message}"
+        }
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun saveSettings() {
+        lifecycleScope.launch {
+            try {
+                // Get currently selected runner
+                val selectedRunnerName = spinnerRunners.selectedItem?.toString()
+                if (selectedRunnerName != null) {
+                    // Update settings with selected runner
+                    currentSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunnerName)
+                    
+                    // Update settings with runner parameters
+                    if (currentRunnerParameters.isNotEmpty()) {
+                        currentSettings = currentSettings.withRunnerParameters(selectedRunnerName, currentRunnerParameters.toMap())
+                    }
+                    
+                    // Save settings using RunnerManager
+                    runnerManager?.saveSettings(currentSettings)
+                    
+                    // Reset parameter values for next edit
+                    currentRunnerParameters.clear()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving settings", e)
+                Toast.makeText(this@EngineSettingsActivity, "Error saving settings: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
     

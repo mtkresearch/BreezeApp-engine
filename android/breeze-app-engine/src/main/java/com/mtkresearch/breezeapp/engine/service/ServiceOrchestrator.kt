@@ -108,11 +108,9 @@ class ServiceOrchestrator(private val context: Context) {
     }
     
     /**
-     * Gets the current service type for microphone access
+     * Get the configurator instance
      */
-    fun getCurrentServiceType(): Int {
-        return currentServiceType
-    }
+    fun getConfigurator(): BreezeAppEngineConfigurator = configurator
     
     /**
      * Force foreground service state for microphone access
@@ -293,4 +291,16 @@ class ServiceOrchestrator(private val context: Context) {
      * Get the status manager for download progress updates
      */
     fun getStatusManager(): BreezeAppEngineStatusManager = statusManager
-} 
+    
+    /**
+     * Get current foreground service type
+     */
+    fun getCurrentServiceType(): Int {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        } else {
+            0
+        }
+    }
+    
+}

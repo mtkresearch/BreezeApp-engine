@@ -55,38 +55,11 @@ class MockGuardrailRunner : BaseRunner {
         "免費", "中獎", "free", "winner", "lottery"
     )
     
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = "MockGuardrailModel",
-            modelPath = ""
-        )
-        return load(defaultConfig)
-    }
-    
-    override fun load(config: ModelConfig): Boolean {
-        return try {
-            Log.d(TAG, "Loading MockGuardrailRunner with config: ${config.modelName}")
-            
-            // 模擬檢測引擎載入 (快速載入)
-            Thread.sleep(200)
-            
-            // 從配置中讀取參數
-            config.parameters["scan_delay_ms"]?.let { delay ->
-                scanDelay = (delay as? Number)?.toLong() ?: DEFAULT_SCAN_DELAY
-            }
-            
-            config.parameters["strictness_level"]?.let { level ->
-                strictnessLevel = level as? String ?: "medium"
-            }
-            
-            isLoaded.set(true)
-            Log.d(TAG, "MockGuardrailRunner loaded successfully with strictness: $strictnessLevel")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load MockGuardrailRunner", e)
-            isLoaded.set(false)
-            false
-        }
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        Log.d(TAG, "Loading MockGuardrailRunner with config: ${modelId}")
+        isLoaded.set(true)
+        Log.d(TAG, "MockGuardrailRunner loaded successfully")
+        return true
     }
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {

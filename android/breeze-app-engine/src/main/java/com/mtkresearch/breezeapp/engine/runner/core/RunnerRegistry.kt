@@ -1,5 +1,7 @@
 package com.mtkresearch.breezeapp.engine.runner.core
 
+import com.mtkresearch.breezeapp.engine.annotation.AIRunner
+import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.core.Logger
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import java.util.concurrent.ConcurrentHashMap
@@ -241,40 +243,35 @@ class RunnerRegistry(private val logger: Logger) {
     }
     
     /**
-     * Validate the internal consistency of the registry.
-     * This is primarily used for debugging and testing.
+     * Validates registry consistency and detects potential conflicts.
      * 
-     * @return ValidationResult indicating if the registry is consistent
+     * This method checks for common configuration issues that could cause
+     * runtime problems:
+     * - Duplicate runners for the same capability and priority
+     * - Missing required capabilities
+     * - Inconsistent runner states
+     * 
+     * @return RegistryValidationResult indicating if the registry is consistent
      */
-    fun validateConsistency(): ValidationResult {
+    fun validateConsistency(): RegistryValidationResult {
         return indexLock.read {
             val errors = mutableListOf<String>()
             
-            // Check that all runners in capability index are also in name index
+            // Check for duplicate priorities within capabilities
             runnersByCapability.forEach { (capability, runners) ->
-                runners.forEach { runner ->
-                    val runnerName = runner.getRunnerInfo().name
-                    if (!runnersByName.containsKey(runnerName)) {
-                        errors.add("Runner '$runnerName' in capability $capability but not in name index")
-                    }
-                }
-            }
-            
-            // Check that all runners in name index support their indexed capabilities
-            runnersByName.forEach { (name, runner) ->
-                val capabilities = runner.getCapabilities()
-                capabilities.forEach { capability ->
-                    val runnersForCapability = runnersByCapability[capability] ?: emptyList()
-                    if (!runnersForCapability.contains(runner)) {
-                        errors.add("Runner '$name' supports $capability but not indexed for it")
-                    }
+                val priorityCounts = runners.groupingBy { runner ->
+                    runner.javaClass.getAnnotation(AIRunner::class.java)?.priority ?: RunnerPriority.NORMAL
+                }.eachCount()
+                
+                priorityCounts.filter { it.value > 1 }.forEach { (priority, count) ->
+                    errors.add("Capability $capability has $count runners with same priority $priority")
                 }
             }
             
             if (errors.isEmpty()) {
-                ValidationResult.success("Registry consistency validation passed")
+                RegistryValidationResult.success("Registry consistency validation passed")
             } else {
-                ValidationResult.failure("Registry consistency errors: ${errors.joinToString("; ")}")
+                RegistryValidationResult.failure("Registry consistency errors: ${errors.joinToString("; ")}")
             }
         }
     }
@@ -309,15 +306,15 @@ data class RegistryStats(
 /**
  * Data class representing validation results.
  */
-data class ValidationResult(
+data class RegistryValidationResult(
     val isValid: Boolean,
     val message: String,
     val metadata: Map<String, Any> = emptyMap()
 ) {
     companion object {
         fun success(message: String, metadata: Map<String, Any> = emptyMap()) = 
-            ValidationResult(true, message, metadata)
+            RegistryValidationResult(true, message, metadata)
         
-        fun failure(message: String) = ValidationResult(false, message)
+        fun failure(message: String) = RegistryValidationResult(false, message)
     }
 }

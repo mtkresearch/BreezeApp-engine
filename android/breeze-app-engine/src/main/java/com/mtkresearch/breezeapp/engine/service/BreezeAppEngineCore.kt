@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 import com.mtkresearch.breezeapp.engine.core.AIEngineManager
+import com.mtkresearch.breezeapp.engine.core.InMemoryStorageService
 import com.mtkresearch.breezeapp.engine.core.Logger
 import com.mtkresearch.breezeapp.engine.model.*
 import kotlinx.coroutines.*
@@ -43,7 +44,8 @@ class BreezeAppEngineCore(
     // Core dependencies - using our enhanced runner system
     private val logger = Logger
     
-    private val runnerManager = RunnerManager(context, logger)
+    private val storageService = InMemoryStorageService(logger)
+    private val runnerManager = RunnerManager(context, logger, storageService)
     private val aiEngineManager = AIEngineManager(context, runnerManager, logger)
     
     // Request tracking for status management

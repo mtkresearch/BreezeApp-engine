@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
 import com.mtkresearch.breezeapp.engine.core.Logger
+import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
 import dalvik.system.DexFile
 import io.github.classgraph.ClassGraph
 import kotlinx.coroutines.Dispatchers
@@ -35,13 +36,15 @@ import java.lang.reflect.Modifier
  * 
  * @param context Android context for hardware validation
  * @param logger Logger instance for debugging and monitoring
+ * @param modelRegistry Optional ModelRegistryService for JSON-based model management
  * 
  * @since Engine API v2.0
  * @see com.mtkresearch.breezeapp.engine.annotation.AIRunner
  */
 class RunnerAnnotationDiscovery(
     private val context: Context,
-    private val logger: Logger
+    private val logger: Logger,
+    modelRegistry: ModelRegistryService? = null
 ) {
     companion object {
         private const val TAG = "RunnerAnnotationDiscovery"
@@ -49,7 +52,7 @@ class RunnerAnnotationDiscovery(
         private const val MAX_DISCOVERY_TIME_MS = 60000L // 1 minute timeout
     }
     
-    private val factory = RunnerFactory(context, logger)
+    private val factory = RunnerFactory(context, logger, modelRegistry)
     
     /**
      * Discover all @AIRunner annotated classes and register them with the registry.
@@ -294,7 +297,9 @@ class RunnerAnnotationDiscovery(
         }
         
         // Check for accessible constructor
-        val hasAccessibleConstructor = hasDefaultConstructor(runnerClass) || hasContextConstructor(runnerClass)
+        val hasAccessibleConstructor = hasDefaultConstructor(runnerClass) || 
+                                     hasContextConstructor(runnerClass) ||
+                                     hasEnhancedConstructor(runnerClass)
         
         if (!hasAccessibleConstructor) {
             logger.w(TAG, "Runner class ${runnerClass.simpleName} has no accessible constructor")
@@ -322,6 +327,18 @@ class RunnerAnnotationDiscovery(
     private fun hasContextConstructor(runnerClass: Class<out BaseRunner>): Boolean {
         return try {
             runnerClass.getConstructor(Context::class.java)
+            true
+        } catch (e: NoSuchMethodException) {
+            false
+        }
+    }
+    
+    /**
+     * Check if a runner class has an enhanced constructor (Context, ModelRegistryService).
+     */
+    private fun hasEnhancedConstructor(runnerClass: Class<out BaseRunner>): Boolean {
+        return try {
+            runnerClass.getDeclaredConstructor(Context::class.java, ModelRegistryService::class.java)
             true
         } catch (e: NoSuchMethodException) {
             false

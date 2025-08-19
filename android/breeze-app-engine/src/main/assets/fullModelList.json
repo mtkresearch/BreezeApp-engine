@@ -5,6 +5,7 @@
       "runner": "mediatek",
       "backend": "mtk",
       "ramGB": 4,
+      "capabilities": ["LLM"],
       "files": [
         { "group": "dla", "pattern": "BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_*_extracted.dla", "type": "dla", "urls": [
             "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_128t1024c_0_extracted.dla",
@@ -36,6 +37,7 @@
       "runner": "executorch",
       "backend": "cpu",
       "ramGB": 7,
+      "capabilities": ["LLM"],
       "files": [
         { "fileName": "llama3_2-4096.pte", "type": "model", "urls": [
           "https://huggingface.co/MediaTek-Research/Llama-3.2-3B-Instruct-executorch/resolve/main/llama3_2-4096.pte?download=true"
@@ -51,6 +53,7 @@
       "runner": "executorch",
       "backend": "cpu",
       "ramGB": 3,
+      "capabilities": ["LLM"],
       "files": [
         { "fileName": "llama3_2-4096-spin.pte", "type": "model", "urls": [
           "https://huggingface.co/MediaTek-Research/Llama-3.2-3B-Instruct-SpinQuant_INT4_EO8-executorch/resolve/main/llama3_2-4096-spin.pte?download=true"
@@ -66,6 +69,7 @@
       "runner": "sherpa_offline_asr_runner_v1",
       "backend": "cpu", 
       "ramGB": 4,
+      "capabilities": ["ASR"],
       "files": [
         { "fileName": "breeze-asr-25-half-encoder.int8.onnx", "type": "model", "urls": [
           "https://huggingface.co/MediaTek-Research/Breeze-ASR-25-onnx-250806/resolve/main/breeze-asr-25-half-encoder.int8.onnx"
@@ -84,6 +88,7 @@
       "runner": "sherpa_offline_asr_runner_v1",
       "backend": "cpu",
       "ramGB": 1,
+      "capabilities": ["ASR"],
       "files": [
         { "fileName": "base-encoder.onnx", "type": "model", "urls": [
           "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-encoder.onnx"

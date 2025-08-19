@@ -10,7 +10,12 @@ import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
+import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
+import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
 
 /**
  * SherpaOfflineASRRunner - Offline ASR runner using Sherpa ONNX
@@ -25,7 +30,10 @@ import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
     priority = RunnerPriority.HIGH,
     capabilities = [CapabilityType.ASR]
 )
-class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
+class SherpaOfflineASRRunner(
+    context: Context,
+    private val modelRegistry: ModelRegistryService? = null
+) : BaseSherpaRunner(context) {
     companion object {
         private const val TAG = "SherpaOfflineASRRunner"
         private const val DEFAULT_SAMPLE_RATE = 16000
@@ -36,21 +44,7 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
 
     override fun getTag(): String = TAG
 
-    override fun initializeModel(config: ModelConfig): Boolean {
-        return try {
-            // Parse model type from config
-            modelType = parseModelTypeFromConfig(config)
-            Log.i(TAG, "Using offline model type $modelType: ${getModelDescription(modelType)}")
-            
-            Log.i(TAG, "Start to initialize offline model")
-            initModel()
-            Log.i(TAG, "Finished initializing offline model")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize SherpaOfflineASRRunner", e)
-            false
-        }
-    }
+    // Remove the old initializeModel method - it's no longer needed
 
     private fun initModel() {
         Log.i(TAG, "Initializing offline model with type $modelType")
@@ -184,50 +178,50 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
         description = "Sherpa ONNX offline ASR runner"
     )
 
-    /**
-     * Parse model type from ModelConfig - auto-detect based on model name or parameters
-     * Automatically detects model type based on model ID/name
-     */
-    private fun parseModelTypeFromConfig(config: ModelConfig): Int {
-        // First try to parse from parameters
-        val modelTypeParam = config.parameters["model_type"]
-        if (modelTypeParam != null) {
-            val type = when (modelTypeParam) {
-                is Int -> modelTypeParam
-                is String -> modelTypeParam.toIntOrNull()
-                else -> null
-            }
-            if (type != null && isValidOfflineModelType(type)) {
-                Log.d(TAG, "Offline model type $type parsed from parameters: $modelTypeParam")
-                return type
-            }
-        }
-        
-        // Check for specific model ID parameter
-        val modelIdParam = config.parameters["model_id"] as? String
-        if (modelIdParam != null) {
-            val detectedType = when {
-                modelIdParam.contains("breeze-asr-25-onnx", ignoreCase = true) -> 0
-                modelIdParam.contains("sherpa-onnx-whisper-base", ignoreCase = true) -> 1
-                else -> -1
-            }
-            if (detectedType != -1) {
-                Log.d(TAG, "Detected offline model type $detectedType from model_id: $modelIdParam")
-                return detectedType
-            }
-        }
-        
-        // Auto-detect based on model name/ID
-        val modelName = config.modelName.lowercase()
-        val detectedType = when {
-            modelName.contains("breeze-asr-25-onnx") -> 0
-            modelName.contains("sherpa-onnx-whisper-base") -> 1
-            else -> 0 // Default to whisper-base instead of Breeze-ASR-25
-        }
-        
-        Log.d(TAG, "Auto-detected offline model type $detectedType for model: ${config.modelName}")
-        return detectedType
+    override fun getParameterSchema(): List<ParameterSchema> {
+        return listOf(
+            ParameterSchema(
+                name = "model_id",
+                displayName = "Offline ASR Model",
+                description = "Select the offline speech recognition model to use. These models process complete audio files for higher accuracy.",
+                type = ParameterType.SelectionType(
+                    options = getSupportedModels().map { model ->
+                        SelectionOption(
+                            key = model.id,
+                            displayName = "${model.id} (${model.ramGB}GB RAM)",
+                            description = "Backend: ${model.backend}"
+                        )
+                    },
+                    allowMultiple = false
+                ),
+                defaultValue = "Breeze-ASR-25-onnx",
+                isRequired = true,
+                category = "Model Configuration"
+            )
+        )
     }
+
+    override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+        val modelType = parameters["model_type"] as? String
+
+        // Validate model type
+        modelType?.let { type ->
+            val typeInt = type.toIntOrNull()
+            if (typeInt == null) {
+                return ValidationResult.invalid("Model type must be a valid integer")
+            }
+            
+            // Check if model type is supported (based on what's implemented in createOfflineModelConfig)
+            val supportedTypes = listOf(0, 1, 2, 3, 4)
+            if (typeInt !in supportedTypes) {
+                return ValidationResult.invalid("Unsupported model type: $typeInt. Supported types: ${supportedTypes.joinToString(", ")}")
+            }
+        }
+
+        return ValidationResult.valid()
+    }
+
+    // Removed parseModelTypeFromConfig - model type is now detected directly from model ID
 
     /**
      * Check if offline model type is valid/supported
@@ -268,5 +262,61 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
         }
         modelType = type
         Log.i(TAG, "Offline model type set to $type: ${getModelDescription(type)}")
+    }
+    
+    /**
+     * Load model using model ID from JSON registry
+     */
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        Log.d(TAG, "Loading SherpaOfflineASRRunner with model: $modelId")
+        
+        // Store model name for internal use
+        modelName = modelId
+        
+        // Initialize the model directly
+        return try {
+            // Parse model type from model ID for auto-detection
+            modelType = when {
+                modelId.contains("breeze-asr-25-onnx", ignoreCase = true) -> 0
+                modelId.contains("sherpa-onnx-whisper-base", ignoreCase = true) -> 1
+                else -> 0 // Default to Breeze-ASR-25
+            }
+            
+            Log.i(TAG, "Using offline model type $modelType: ${getModelDescription(modelType)}")
+            Log.i(TAG, "Start to initialize offline model")
+            initModel()
+            Log.i(TAG, "Finished initializing offline model")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize SherpaOfflineASRRunner", e)
+            false
+        }
+    }
+    
+    /**
+     * Get supported models for Sherpa Offline ASR runner
+     */
+    private fun getSupportedModels(): List<ModelDefinition> {
+        return modelRegistry?.getCompatibleModels("sherpa_offline_asr_runner_v1") ?: listOf(
+            // Fallback models if registry not available
+            ModelDefinition(
+                id = "Breeze-ASR-25-onnx",
+                runner = "sherpa_offline_asr_runner_v1",
+                backend = "cpu",
+                ramGB = 4,
+                files = emptyList(),
+                entryPoint = EntryPoint("whisper", "Breeze-ASR-25-onnx"),
+                capabilities = listOf(CapabilityType.ASR)
+            ),
+            ModelDefinition(
+                id = "sherpa-onnx-whisper-base",
+                runner = "sherpa_offline_asr_runner_v1",
+                backend = "cpu",
+                ramGB = 1,
+                files = emptyList(),
+                entryPoint = EntryPoint("whisper", "sherpa-onnx-whisper-base"),
+                capabilities = listOf(CapabilityType.ASR)
+            )
+        )
     }
 }

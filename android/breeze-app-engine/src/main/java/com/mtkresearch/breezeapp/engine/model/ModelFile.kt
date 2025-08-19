@@ -10,7 +10,14 @@ data class ModelFile(
     val pattern: String? = null,
     val type: String = "model",
     val urls: List<String>
-)
+) {
+    /**
+     * Get effective file name (fileName or first URL filename)
+     */
+    fun getEffectiveFileName(): String {
+        return fileName ?: urls.firstOrNull()?.substringAfterLast("/") ?: ""
+    }
+}
 
 /**
  * 模型資訊描述

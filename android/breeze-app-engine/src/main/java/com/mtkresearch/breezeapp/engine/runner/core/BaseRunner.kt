@@ -1,6 +1,9 @@
 package com.mtkresearch.breezeapp.engine.runner.core
 
-import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.EngineSettings
+import com.mtkresearch.breezeapp.engine.model.InferenceRequest
+import com.mtkresearch.breezeapp.engine.model.InferenceResult
 
 /**
  * Core interface for all AI Runner implementations.
@@ -26,9 +29,9 @@ import com.mtkresearch.breezeapp.engine.model.*
  * class MyCustomRunner : BaseRunner {
  *     private var isModelLoaded = false
  *     
- *     override fun load(config: ModelConfig): Boolean {
- *         // Load your AI model here
- *         isModelLoaded = loadModel(config.modelPath)
+ *     override fun load(modelId: String, settings: EngineSettings): Boolean {
+ *         // Load your AI model using model ID and settings
+ *         isModelLoaded = loadModelFromRegistry(modelId)
  *         return isModelLoaded
  *     }
  *     
@@ -51,29 +54,22 @@ import com.mtkresearch.breezeapp.engine.model.*
 interface BaseRunner {
     
     /**
-     * Initializes the AI model with default configuration.
-     * 
-     * This method loads the runner's default model and prepares it for inference.
-     * Each runner defines its own default model path and configuration.
-     * 
-     * @return true if the default model was successfully loaded, false otherwise
-     */
-    fun load(): Boolean
-    
-    /**
-     * Initializes the AI model and allocates necessary resources.
-     * 
-     * This method should load the AI model from the specified configuration
-     * and prepare it for inference. The implementation should be idempotent -
+     * Initializes the AI model and allocates necessary resources using model ID.
+     *
+     * This method loads the AI model from the ModelRegistryService using the provided
+     * model ID and prepares it for inference. The implementation should be idempotent -
      * calling load multiple times should not cause issues.
-     * 
-     * @param config Model configuration containing paths, parameters, and metadata
+     *
+     * @param modelId The model identifier from fullModelList.json
+     * @param settings The complete engine settings for runner-specific configurations
      * @return true if the model was successfully loaded, false otherwise
-     * 
-     * @see ModelConfig for configuration format
+     *
+     * @see ModelRegistryService for model resolution
+     * @see EngineSettings for runner configuration
      * @see unload to release resources
+     * @since Engine API v2.2
      */
-    fun load(config: ModelConfig): Boolean
+    fun load(modelId: String, settings: EngineSettings): Boolean
     
     /**
      * Executes AI inference on the provided input.
@@ -150,6 +146,92 @@ interface BaseRunner {
      * @return true if runner can operate on current device, false otherwise
      */
     fun isSupported(): Boolean
+
+    /**
+     * Returns the parameter schema for this runner's configuration.
+     * 
+     * This method enables self-describing runners that declare their own
+     * configuration parameters dynamically. The UI can use this schema to
+     * automatically generate parameter forms without hardcoded knowledge
+     * of each runner's specific requirements.
+     * 
+     * ## Benefits
+     * - **Zero UI Development**: Parameters automatically appear in settings
+     * - **Type Safety**: Parameter validation enforced by schema
+     * - **Maintainability**: Parameter changes only require runner updates
+     * - **Extensibility**: New runners automatically get UI support
+     * 
+     * ## Example Implementation
+     * ```kotlin
+     * override fun getParameterSchema(): List<ParameterSchema> {
+     *     return listOf(
+     *         ParameterSchema(
+     *             name = "api_key",
+     *             displayName = "API Key",
+     *             description = "Your API key for authentication",
+     *             type = ParameterType.StringType(minLength = 10),
+     *             defaultValue = "",
+     *             isRequired = true,
+     *             isSensitive = true,
+     *             category = "Authentication"
+     *         ),
+     *         ParameterSchema(
+     *             name = "temperature",
+     *             displayName = "Temperature",
+     *             description = "Controls randomness in responses",
+     *             type = ParameterType.FloatType(minValue = 0.0, maxValue = 2.0),
+     *             defaultValue = 0.7f,
+     *             category = "Generation"
+     *         )
+     *     )
+     * }
+     * ```
+     * 
+     * @return List of parameter schemas, or empty list if no additional parameters needed
+     * @see ParameterSchema for parameter definition format
+     * @see ParameterType for available parameter types
+     * @since Engine API v2.1
+     */
+    fun getParameterSchema(): List<ParameterSchema> = emptyList()
+
+    /**
+     * Validates user-provided parameters against this runner's requirements.
+     * 
+     * This method allows runners to perform custom validation logic beyond
+     * the basic type checking provided by ParameterSchema. Runners can
+     * validate parameter combinations, check external dependencies, or
+     * perform any other validation logic specific to their implementation.
+     * 
+     * ## Validation Process
+     * 1. UI validates individual parameters using ParameterSchema
+     * 2. This method validates the complete parameter set
+     * 3. Parameters are stored only if both validations pass
+     * 
+     * ## Example Implementation
+     * ```kotlin
+     * override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+     *     val apiKey = parameters["api_key"] as? String
+     *     if (apiKey?.startsWith("sk-") != true) {
+     *         return ValidationResult.invalid("API key must start with 'sk-'")
+     *     }
+     *     
+     *     val temperature = parameters["temperature"] as? Float ?: 0.7f
+     *     val topP = parameters["top_p"] as? Float ?: 0.9f
+     *     if (temperature > 1.0f && topP > 0.95f) {
+     *         return ValidationResult.invalid("High temperature and high top_p may produce incoherent results")
+     *     }
+     *     
+     *     return ValidationResult.valid()
+     * }
+     * ```
+     * 
+     * @param parameters Map of parameter names to values to validate
+     * @return ValidationResult indicating success or failure with error message
+     * @see ValidationResult for result format
+     * @see getParameterSchema for parameter definitions
+     * @since Engine API v2.1
+     */
+    fun validateParameters(parameters: Map<String, Any>): ValidationResult = ValidationResult.valid()
 
 }
 

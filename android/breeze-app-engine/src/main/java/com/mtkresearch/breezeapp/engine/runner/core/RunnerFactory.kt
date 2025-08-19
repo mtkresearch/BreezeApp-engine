@@ -3,6 +3,7 @@ package com.mtkresearch.breezeapp.engine.runner.core
 import android.content.Context
 import com.mtkresearch.breezeapp.engine.annotation.AIRunner
 import com.mtkresearch.breezeapp.engine.core.Logger
+import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
 import java.lang.reflect.Constructor
 
 /**
@@ -33,7 +34,8 @@ import java.lang.reflect.Constructor
  */
 class RunnerFactory(
     private val context: Context,
-    private val logger: Logger
+    private val logger: Logger,
+    private val modelRegistry: ModelRegistryService? = null
 ) {
     companion object {
         private const val TAG = "RunnerFactory"
@@ -114,7 +116,13 @@ class RunnerFactory(
      * @return New instance, or null if instantiation failed
      */
     private fun instantiateRunner(runnerClass: Class<out BaseRunner>): BaseRunner? {
-        // Try Context constructor first (preferred for Android runners)
+        // Try Context + ModelRegistry constructor first (new preferred pattern)
+        val enhancedConstructor = findEnhancedConstructor(runnerClass)
+        if (enhancedConstructor != null && modelRegistry != null) {
+            return tryCreateWithConstructor(enhancedConstructor, context, modelRegistry)
+        }
+        
+        // Try Context constructor (legacy pattern)
         val contextConstructor = findContextConstructor(runnerClass)
         if (contextConstructor != null) {
             return tryCreateWithConstructor(contextConstructor, context)
@@ -173,6 +181,20 @@ class RunnerFactory(
             constructor.newInstance(*args)
         } catch (e: Exception) {
             logger.w(TAG, "Failed to create instance using constructor ${constructor}: ${e.message}")
+            null
+        }
+    }
+    
+    /**
+     * Find a constructor that takes Context and ModelRegistryService parameters.
+     * 
+     * @param runnerClass The class to search
+     * @return Constructor(Context, ModelRegistryService) if found, null otherwise
+     */
+    private fun findEnhancedConstructor(runnerClass: Class<out BaseRunner>): Constructor<out BaseRunner>? {
+        return try {
+            runnerClass.getDeclaredConstructor(Context::class.java, ModelRegistryService::class.java)
+        } catch (e: NoSuchMethodException) {
             null
         }
     }

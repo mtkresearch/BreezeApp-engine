@@ -6,8 +6,13 @@ import com.mtkresearch.breezeapp.engine.annotation.AIRunner
 import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
+import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
+import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -22,7 +27,10 @@ import java.util.concurrent.atomic.AtomicBoolean
     priority = RunnerPriority.HIGH,
     capabilities = [CapabilityType.LLM]
 )
-class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStreamingRunner {
+class ExecutorchLLMRunner(
+    private val context: Context?,
+    private val modelRegistry: ModelRegistryService? = null
+) : BaseRunner, FlowStreamingRunner {
 
     private var llmModule: LlmModule? = null
     private val isLoaded = AtomicBoolean(false)
@@ -35,41 +43,39 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
         private const val DEFAULT_SEQ_LEN = 256
     }
 
-    override fun load(): Boolean {
-        if (context == null) {
-            Log.e(TAG, "Context is null, cannot perform default load.")
-            return false
-        }
-
-        val paths = ExecutorchUtils.resolveDefaultModelPaths(context, DEFAULT_MODEL_ID)
-        if (paths == null) {
-            Log.e(TAG, "Could not resolve paths for default model: $DEFAULT_MODEL_ID")
-            return false
-        }
-
-        val defaultConfig = ModelConfig(
-            modelName = DEFAULT_MODEL_ID,
-            modelPath = paths.modelPath,
-            parameters = mapOf(
-                "tokenizerPath" to paths.tokenizerPath,
-                "temperature" to 0.0f
-            )
-        )
-        return load(defaultConfig)
-    }
-
-    override fun load(config: ModelConfig): Boolean {
-        Log.d(TAG, "Loading Executorch LLM Runner with model: ${config.modelName}")
+    // Load model using model ID from JSON registry
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        Log.d(TAG, "Loading Executorch LLM Runner with model: $modelId")
         if (isLoaded.get()) {
             unload() // Unload previous model if any
         }
         return try {
-            modelType = ExecutorchModelType.fromString(config.modelName)
+            modelType = ExecutorchModelType.fromString(modelId)
             stopToken = ExecutorchPromptFormatter.getStopToken(modelType)
 
-            val modelPath = config.modelPath ?: throw IllegalArgumentException("Model path is missing in ModelConfig")
-            val tokenizerPath = config.parameters["tokenizerPath"] as? String ?: throw IllegalArgumentException("Tokenizer path is missing in ModelConfig parameters")
-            val temperature = (config.parameters["temperature"] as? Number)?.toFloat() ?: 0.8f
+            // Get model definition from registry or use default paths
+            val modelDef = modelRegistry?.getModelDefinition(modelId)
+            val modelPath = if (modelDef != null) {
+                val modelFile = modelDef.getFileByType("model")
+                    ?: throw IllegalArgumentException("Model file not found for $modelId")
+                "${context?.filesDir?.absolutePath}/models/$modelId/${modelFile.getEffectiveFileName()}"
+            } else {
+                // Fallback for backward compatibility
+                getDefaultModelPath(modelId)
+            }
+            
+            val tokenizerPath = if (modelDef != null) {
+                val tokenizerFile = modelDef.getFileByType("tokenizer")
+                    ?: throw IllegalArgumentException("Tokenizer file not found for $modelId")
+                "${context?.filesDir?.absolutePath}/models/$modelId/${tokenizerFile.getEffectiveFileName()}"
+            } else {
+                // Fallback for backward compatibility
+                getDefaultTokenizerPath(modelId)
+            }
+
+            // Get temperature from settings
+            val runnerParams = settings.getRunnerParameters("ExecutorchLLMRunner")
+            val temperature = runnerParams["temperature"] as? Float ?: 0.8f
 
             llmModule = LlmModule(modelPath, tokenizerPath, temperature)
             val loadResult = llmModule?.load()
@@ -79,7 +85,7 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
                 isLoaded.set(false)
                 false
             } else {
-                Log.d(TAG, "Executorch model loaded successfully: ${config.modelName}")
+                Log.d(TAG, "Executorch model loaded successfully: $modelId")
                 isLoaded.set(true)
                 true
             }
@@ -88,6 +94,21 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
             isLoaded.set(false)
             false
         }
+    }
+    
+    // Helper methods for backward compatibility
+    private fun getDefaultModelPath(modelId: String): String {
+        val baseDir = context?.filesDir?.absolutePath ?: ""
+        return when (modelId) {
+            "Llama3_2-3b-4096-250606-cpu" -> "$baseDir/models/$modelId/llama3_2-4096.pte"
+            "Llama3_2-3b-4096-spin-250605-cpu" -> "$baseDir/models/$modelId/llama3_2-4096-spin.pte"
+            else -> "$baseDir/models/$modelId/model.pte"
+        }
+    }
+    
+    private fun getDefaultTokenizerPath(modelId: String): String {
+        val baseDir = context?.filesDir?.absolutePath ?: ""
+        return "$baseDir/models/$modelId/tokenizer.bin"
     }
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
@@ -113,6 +134,12 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
         var promptEchoFullyReceived = false
 
         val callback = object : LlmCallback {
+            // Note: onStats method signature may vary by ExecuTorch version
+            // This implementation handles the interface requirement
+            fun onStats(stats: Float) {
+                Log.v(TAG, "Inference stats: $stats")
+            }
+            
             override fun onResult(result: String) {
                 if (result == stopToken) {
                     Log.d(TAG, "Received stop token, sending final result and closing flow.")
@@ -128,7 +155,7 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
                     return
                 }
 
-                var tokenToSend: String? = null
+                var tokenToSend: String?
 
                 if (promptEchoFullyReceived) {
                     // Echo already handled, send the new token
@@ -166,6 +193,7 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
                     }
                 }
             }
+
         }
 
         Log.d(TAG, "Starting generation with prompt: $formattedPrompt")
@@ -207,6 +235,79 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
     override fun isSupported(): Boolean {
         return true // run using XNNPACK
     }
+
+    override fun getParameterSchema(): List<ParameterSchema> {
+        return listOf(
+            ParameterSchema(
+                name = "model_id",
+                displayName = "Executorch Model",
+                description = "Select the Executorch LLM model to use for inference",
+                type = ParameterType.SelectionType(
+                    options = getSupportedModels().map { model ->
+                        SelectionOption(
+                            key = model.id,
+                            displayName = "${model.id} (${model.ramGB}GB RAM)",
+                            description = "Backend: ${model.backend}"
+                        )
+                    },
+                    allowMultiple = false
+                ),
+                defaultValue = DEFAULT_MODEL_ID,
+                isRequired = true,
+                category = "Model Configuration"
+            ),
+            ParameterSchema(
+                name = "temperature",
+                displayName = "Temperature",
+                description = "Controls randomness in text generation. Lower values (0.1) make output more focused, higher values (1.0) make it more creative.",
+                type = ParameterType.FloatType(
+                    minValue = 0.0,
+                    maxValue = 2.0,
+                    step = 0.1,
+                    precision = 1
+                ),
+                defaultValue = 0.8f,
+                isRequired = false,
+                category = "Generation Parameters"
+            ),
+            ParameterSchema(
+                name = "max_sequence_length",
+                displayName = "Max Sequence Length",
+                description = "Maximum number of tokens to generate in the response.",
+                type = ParameterType.IntType(
+                    minValue = 1,
+                    maxValue = 4096,
+                    step = 1
+                ),
+                defaultValue = DEFAULT_SEQ_LEN,
+                isRequired = false,
+                category = "Generation Parameters"
+            )
+        )
+    }
+
+    override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+        val temperature = parameters["temperature"] as? Number
+        val maxSeqLen = parameters["max_sequence_length"] as? Number
+
+        // Validate temperature range
+        temperature?.let { temp ->
+            val tempValue = temp.toFloat()
+            if (tempValue < 0.0f || tempValue > 2.0f) {
+                return ValidationResult.invalid("Temperature must be between 0.0 and 2.0")
+            }
+        }
+
+        // Validate sequence length
+        maxSeqLen?.let { seqLen ->
+            val seqLenValue = seqLen.toInt()
+            if (seqLenValue < 1 || seqLenValue > 4096) {
+                return ValidationResult.invalid("Max sequence length must be between 1 and 4096")
+            }
+        }
+
+        return ValidationResult.valid()
+    }
     
     /**
      * Combines partial results into a single result
@@ -230,6 +331,33 @@ class ExecutorchLLMRunner(private val context: Context?) : BaseRunner, FlowStrea
             text = combinedText,
             metadata = metadata,
             partial = false
+        )
+    }
+    
+    /**
+     * Get supported models for Executorch runner
+     */
+    private fun getSupportedModels(): List<ModelDefinition> {
+        return modelRegistry?.getCompatibleModels("executorch") ?: listOf(
+            // Fallback models if registry not available
+            ModelDefinition(
+                id = "Llama3_2-3b-4096-250606-cpu",
+                runner = "executorch",
+                backend = "cpu",
+                ramGB = 7,
+                files = emptyList(),
+                entryPoint = EntryPoint("file", "llama3_2-4096.pte"),
+                capabilities = listOf(CapabilityType.LLM)
+            ),
+            ModelDefinition(
+                id = "Llama3_2-3b-4096-spin-250605-cpu",
+                runner = "executorch", 
+                backend = "cpu",
+                ramGB = 3,
+                files = emptyList(),
+                entryPoint = EntryPoint("file", "llama3_2-4096-spin.pte"),
+                capabilities = listOf(CapabilityType.LLM)
+            )
         )
     }
 }

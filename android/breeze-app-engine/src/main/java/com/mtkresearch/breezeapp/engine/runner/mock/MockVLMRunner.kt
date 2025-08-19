@@ -53,34 +53,11 @@ class MockVLMRunner : BaseRunner, FlowStreamingRunner {
         "default" to "這是一張圖片，AI 正在分析其內容和特徵。"
     )
     
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = "MockVLMModel",
-            modelPath = ""
-        )
-        return load(defaultConfig)
-    }
-    
-    override fun load(config: ModelConfig): Boolean {
-        return try {
-            Log.d(TAG, "Loading MockVLMRunner with config: ${config.modelName}")
-            
-            // 模擬 VLM 模型載入時間 (通常較長)
-            Thread.sleep(1000)
-            
-            // 從配置中讀取參數
-            config.parameters["analysis_delay_ms"]?.let { delay ->
-                analysisDelay = (delay as? Number)?.toLong() ?: DEFAULT_ANALYSIS_DELAY
-            }
-            
-            isLoaded.set(true)
-            Log.d(TAG, "MockVLMRunner loaded successfully")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load MockVLMRunner", e)
-            isLoaded.set(false)
-            false
-        }
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        Log.d(TAG, "Loading MockVLMRunner with config: ${modelId}")
+        isLoaded.set(true)
+        Log.d(TAG, "MockVLMRunner loaded successfully")
+        return true
     }
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {

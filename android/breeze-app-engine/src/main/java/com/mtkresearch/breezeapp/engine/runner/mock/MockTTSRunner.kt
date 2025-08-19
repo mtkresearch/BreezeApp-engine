@@ -47,46 +47,11 @@ class MockTTSRunner : BaseRunner, FlowStreamingRunner {
     private var speakingRate = 1.0f
     private var pitch = 1.0f
     
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = "MockTTSModel",
-            modelPath = ""
-        )
-        return load(defaultConfig)
-    }
-    
-    override fun load(config: ModelConfig): Boolean {
-        return try {
-            Log.d(TAG, "Loading MockTTSRunner with config: ${config.modelName}")
-            
-            // 模擬 TTS 引擎載入時間
-            Thread.sleep(600)
-            
-            // 從配置中讀取參數
-            config.parameters["synthesis_delay_ms"]?.let { delay ->
-                synthesisDelay = (delay as? Number)?.toLong() ?: DEFAULT_SYNTHESIS_DELAY
-            }
-            
-            config.parameters["voice_id"]?.let { voice ->
-                voiceId = voice as? String ?: "default"
-            }
-            
-            config.parameters["speaking_rate"]?.let { rate ->
-                speakingRate = (rate as? Number)?.toFloat() ?: 1.0f
-            }
-            
-            config.parameters["pitch"]?.let { p ->
-                pitch = (p as? Number)?.toFloat() ?: 1.0f
-            }
-            
-            isLoaded.set(true)
-            Log.d(TAG, "MockTTSRunner loaded successfully with voice: $voiceId")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load MockTTSRunner", e)
-            isLoaded.set(false)
-            false
-        }
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        Log.d(TAG, "Loading MockTTSRunner with config: ${modelId}")
+        isLoaded.set(true)
+        Log.d(TAG, "MockTTSRunner loaded successfully")
+        return true
     }
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {

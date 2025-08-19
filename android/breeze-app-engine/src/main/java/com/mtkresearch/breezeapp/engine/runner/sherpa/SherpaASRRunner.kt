@@ -12,6 +12,10 @@ import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaAsrRunner
 import com.mtkresearch.breezeapp.engine.core.ExceptionHandler
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
+import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
+import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -40,15 +44,21 @@ class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStre
     override fun getTag(): String = TAG
 
     /**
-     * Initialize the Sherpa ONNX model using the official API functions
-     * Simplified to use existing functions from reference_api
+     * Load model using model ID from JSON registry
      */
-    override fun initializeModel(config: ModelConfig): Boolean {
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        // Store model name for internal use
+        modelName = modelId
+        
         return try {
-            // Parse model type from config if specified
-            modelType = parseModelTypeFromConfig(config)
-            Log.i(TAG, "Using model type $modelType: ${getModelDescription(modelType)}")
+            // Parse model type from model ID for auto-detection
+            modelType = when {
+                modelId.contains("sherpa-onnx-streaming-zipformer-bilingual-zh-en", ignoreCase = true) -> 0
+                modelId.contains("sherpa-onnx-streaming-zipformer-en", ignoreCase = true) -> 1
+                else -> 0 // Default to bilingual
+            }
             
+            Log.i(TAG, "Using model type $modelType: ${getModelDescription(modelType)}")
             Log.i(TAG, "Start to initialize model")
             initModel()
             Log.i(TAG, "Finished initializing model")
@@ -219,32 +229,53 @@ class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStre
         description = "Sherpa ONNX streaming ASR runner"
     )
 
-    // ========== Configuration Functions (from reference API) ==========
+    override fun getParameterSchema(): List<ParameterSchema> {
+        return listOf(
+            ParameterSchema(
+                name = "model_type",
+                displayName = "ASR Model Type",
+                description = "Select the speech recognition model to use. Different models are optimized for different languages and accuracy requirements.",
+                type = ParameterType.SelectionType(
+                    options = listOf(
+                        SelectionOption("0", "Bilingual zh-en zipformer (Default)", "Balanced performance for Chinese and English"),
+                        SelectionOption("8", "Bilingual zh-en zipformer (int8)", "Memory-optimized with int8 quantization - RECOMMENDED"),
+                        SelectionOption("1", "English-only zipformer", "Optimized for English speech recognition"),
+                        SelectionOption("2", "Chinese-only zipformer", "Optimized for Chinese speech recognition"),
+                        SelectionOption("14", "Korean zipformer", "Optimized for Korean speech recognition"),
+                        SelectionOption("7", "French zipformer", "Optimized for French speech recognition")
+                    ),
+                    allowMultiple = false
+                ),
+                defaultValue = "0",
+                isRequired = false,
+                category = "Model Configuration"
+            )
+        )
+    }
 
-    /**
-     * Parse model type from ModelConfig - using parameters map
-     * 1. parameters["model_type"] as integer (e.g., 0, 8, 14)
-     * 2. Falls back to default type 0 (bilingual zh-en)
-     */
-    private fun parseModelTypeFromConfig(config: ModelConfig): Int {
-        // Check if parameters contains model_type as integer
-        val modelTypeParam = config.parameters["model_type"]
-        if (modelTypeParam != null) {
-            val type = when (modelTypeParam) {
-                is Int -> modelTypeParam
-                is String -> modelTypeParam.toIntOrNull()
-                else -> null
+    override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+        val modelType = parameters["model_type"] as? String
+
+        // Validate model type
+        modelType?.let { type ->
+            val typeInt = type.toIntOrNull()
+            if (typeInt == null) {
+                return ValidationResult.invalid("Model type must be a valid integer")
             }
-            if (type != null && isValidModelType(type)) {
-                Log.d(TAG, "Model type $type parsed from parameters: $modelTypeParam")
-                return type
+            
+            // Check if model type is supported
+            val supportedTypes = listOf(0, 1, 2, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1000, 1001)
+            if (typeInt !in supportedTypes) {
+                return ValidationResult.invalid("Unsupported model type: $typeInt. Supported types: ${supportedTypes.joinToString(", ")}")
             }
         }
-        
-        // Default fallback to Type 0 (official bilingual zh-en model)
-        Log.d(TAG, "Using default model type 0 (bilingual zh-en)")
-        return 0
+
+        return ValidationResult.valid()
     }
+
+    // ========== Configuration Functions (from reference API) ==========
+
+    // Removed parseModelTypeFromConfig - model type is now detected directly from model ID
 
     /**
      * Check if model type is valid/supported

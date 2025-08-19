@@ -56,34 +56,11 @@ class MockASRRunner : BaseRunner, FlowStreamingRunner {
         "default" to "這是預設的語音識別結果，系統已成功處理您的音頻輸入。"
     )
     
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = "MockASRModel",
-            modelPath = ""
-        )
-        return load(defaultConfig)
-    }
-    
-    override fun load(config: ModelConfig): Boolean {
-        return try {
-            Log.d(TAG, "Loading MockASRRunner with config: ${config.modelName}")
-            
-            // 模擬 ASR 模型載入時間
-            Thread.sleep(800)
-            
-            // 從配置中讀取參數
-            config.parameters["processing_delay_ms"]?.let { delay ->
-                processingDelay = (delay as? Number)?.toLong() ?: DEFAULT_PROCESSING_DELAY
-            }
-            
-            isLoaded.set(true)
-            Log.d(TAG, "MockASRRunner loaded successfully")
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load MockASRRunner", e)
-            isLoaded.set(false)
-            false
-        }
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        Log.d(TAG, "Loading MockASRRunner with model: $modelId")
+        isLoaded.set(true)
+        Log.d(TAG, "MockASRRunner loaded successfully")
+        return true
     }
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {

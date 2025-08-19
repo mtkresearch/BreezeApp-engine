@@ -7,7 +7,6 @@ import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.model.ModelConfig
 import com.mtkresearch.breezeapp.engine.model.RunnerError
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 import kotlinx.coroutines.CancellationException
@@ -137,7 +136,7 @@ class AIEngineManager(
         }
 
         return try {
-            selectAndLoadRunner(capability, preferredRunner).fold(
+            selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     logger.d(TAG, "Processing request $requestId with runner: ${runner.getRunnerInfo().name}")
                     logger.d(TAG, "Runtime params for $requestId: ${request.params}")
@@ -178,7 +177,7 @@ class AIEngineManager(
         }
 
         try {
-            selectAndLoadRunner(capability, preferredRunner).fold(
+            selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     logger.d(TAG, "Processing stream request $requestId with runner: ${runner.getRunnerInfo().name}")
                     logger.d(TAG, "Runtime params for $requestId: ${request.params}")
@@ -279,6 +278,7 @@ class AIEngineManager(
      * 實現 Fallback 策略
      */
     private suspend fun selectAndLoadRunner(
+        request: InferenceRequest,
         capability: CapabilityType,
         preferredRunner: String?
     ): Result<BaseRunner> {
@@ -351,9 +351,21 @@ class AIEngineManager(
                 }
             }
 
-            val loaded = runner.load()
+            // --- New Model-Aware Loading Logic ---
+            val settings = runnerManager.getCurrentSettings()
+            val runnerName = runner.getRunnerInfo().name
+
+            // Determine which model to load. Priority: request -> settings default.
+            val modelId = request.params["model"] as? String
+                ?: settings.getRunnerParameters(runnerName)["model_id"] as? String
+                ?: modelInfo?.id // Fallback to model from fullModelList.json
+                ?: ""
+
+            logger.d(TAG, "Attempting to load runner $runnerName with model $modelId")
+
+            val loaded = runner.load(modelId, settings)
             if (!loaded) {
-                return Result.failure(RunnerSelectionException(RunnerError("E501", "Failed to load model for runner: ${runner.getRunnerInfo().name}")))
+                return Result.failure(RunnerSelectionException(RunnerError("E501", "Failed to load model '$modelId' for runner: $runnerName")))
             }
         }
 
