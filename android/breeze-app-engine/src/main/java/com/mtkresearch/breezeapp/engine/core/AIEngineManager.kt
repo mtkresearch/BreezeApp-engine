@@ -8,12 +8,13 @@ import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.model.RunnerError
+import com.mtkresearch.breezeapp.engine.model.ModelDefinition
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
+import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -56,46 +57,10 @@ private class SystemResourceMonitorImpl(private val context: Context) : SystemRe
     }
 }
 
-private data class ModelInfo(val id: String, val runner: String, val ramGB: Int)
-
-private interface ModelInfoProvider {
-    fun getModelInfoByRunner(runnerName: String): ModelInfo?
-}
-
-private class ModelInfoProviderImpl(private val context: Context, private val logger: Logger) : ModelInfoProvider {
-    private val modelList: List<ModelInfo> by lazy { parseModelList() }
-
-    private fun parseModelList(): List<ModelInfo> {
-        return try {
-            val jsonString = context.assets.open("fullModelList.json").bufferedReader().use { it.readText() }
-            val json = JSONObject(jsonString)
-            val modelsArray = json.getJSONArray("models")
-            val list = mutableListOf<ModelInfo>()
-            for (i in 0 until modelsArray.length()) {
-                val modelObject = modelsArray.getJSONObject(i)
-                list.add(ModelInfo(
-                    id = modelObject.getString("id"),
-                    runner = modelObject.getString("runner"),
-                    ramGB = modelObject.getInt("ramGB")
-                ))
-            }
-            list
-        } catch (e: Exception) {
-            logger.e("ModelInfoProvider", "Failed to parse fullModelList.json", e)
-            emptyList()
-        }
-    }
-
-    override fun getModelInfoByRunner(runnerName: String): ModelInfo? {
-        // Find all models for the runner and return the one with the highest RAM requirement.
-        return modelList.filter { it.runner == runnerName }.maxByOrNull { it.ramGB }
-    }
-}
-
-
 class AIEngineManager(
     private val context: Context,
     private val runnerManager: RunnerManager,
+    private val modelRegistryService: ModelRegistryService,
     private val logger: Logger
 ) {
 
@@ -104,7 +69,6 @@ class AIEngineManager(
     }
 
     private val systemResourceMonitor: SystemResourceMonitor = SystemResourceMonitorImpl(context)
-    private val modelInfoProvider: ModelInfoProvider = ModelInfoProviderImpl(context, logger)
 
     // 執行緒安全的 Runner 儲存
     private val activeRunners = ConcurrentHashMap<String, BaseRunner>()
@@ -315,8 +279,21 @@ class AIEngineManager(
         if (!runner.isLoaded()) {
             logger.d(TAG, "Runner ${runner.getRunnerInfo().name} not loaded, attempting to load...")
 
-            // Memory Management Logic
-            val modelInfo = modelInfoProvider.getModelInfoByRunner(runner.getRunnerInfo().name)
+            // Determine which model to load. Priority: request -> settings default.
+            val settings = runnerManager.getCurrentSettings()
+            val runnerName = runner.getRunnerInfo().name
+            val modelId = request.params["model"] as? String
+                ?: settings.getRunnerParameters(runnerName)["model_id"] as? String
+                ?: ""
+
+            // Get model info for RAM calculation
+            val modelInfo = if (modelId.isNotEmpty()) {
+                modelRegistryService.getModelDefinition(modelId)
+            } else {
+                // Find all models for the runner and return the one with the highest RAM requirement.
+                modelRegistryService.getCompatibleModels(runnerName).maxByOrNull { it.ramGB }
+            }
+            
             val requiredRamGB = modelInfo?.ramGB ?: 2 // Default to 2GB if model info is not found
 
             var availableRamGB = systemResourceMonitor.getAvailableRamGB()
@@ -352,15 +329,6 @@ class AIEngineManager(
             }
 
             // --- New Model-Aware Loading Logic ---
-            val settings = runnerManager.getCurrentSettings()
-            val runnerName = runner.getRunnerInfo().name
-
-            // Determine which model to load. Priority: request -> settings default.
-            val modelId = request.params["model"] as? String
-                ?: settings.getRunnerParameters(runnerName)["model_id"] as? String
-                ?: modelInfo?.id // Fallback to model from fullModelList.json
-                ?: ""
-
             logger.d(TAG, "Attempting to load runner $runnerName with model $modelId")
 
             val loaded = runner.load(modelId, settings)

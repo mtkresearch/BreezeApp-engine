@@ -29,7 +29,7 @@ class BreezeAppEngineConfigurator(context: Context) {
     val runnerManager: RunnerManager = RunnerManager(context, logger, storageService, modelRegistryService)
 
     /** The central use case for processing AI requests. */
-    val engineManager: AIEngineManager = AIEngineManager(context, runnerManager, logger)
+    val engineManager: AIEngineManager = AIEngineManager(context, runnerManager, modelRegistryService, logger)
 
     init {
         // Initialize the annotation-based runner system
