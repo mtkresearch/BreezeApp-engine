@@ -65,11 +65,19 @@
             android:name=".ui.BreezeAppEngineLauncherActivity"
             android:exported="true"
             android:label="BreezeApp Engine"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            android:theme="@style/Theme.BreezeApp">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <!-- Engine Settings Activity - Configures AI Runners and Parameters -->
+        <activity
+            android:name=".ui.EngineSettingsActivity"
+            android:exported="true"
+            android:label="AI Engine Settings"
+            android:theme="@style/Theme.BreezeApp">
         </activity>
 
         <!-- BreezeAppEngineService declaration - Foreground Service for AI Processing -->

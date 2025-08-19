@@ -234,6 +234,19 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
     
     
     /**
+     * Launch the Engine Settings Activity
+     */
+    private fun launchEngineSettings() {
+        try {
+            val intent = Intent(this, EngineSettingsActivity::class.java)
+            startActivity(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("BreezeAppEngineLauncher", "Failed to launch Engine Settings", e)
+            Toast.makeText(this, "Failed to open Engine Settings: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    /**
      * Shows detailed service information for advanced users.
      */
     private fun showServiceInfoDialog() {
@@ -319,11 +332,13 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         val statusText = findViewById<android.widget.TextView>(R.id.statusText)
         val btnViewNotifications = findViewById<android.widget.Button>(R.id.btnViewNotifications)
         val btnServiceInfo = findViewById<android.widget.Button>(R.id.btnServiceInfo)
+        val btnEngineSettings = findViewById<android.widget.Button>(R.id.btnEngineSettings)
         val fabClose = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.fabClose)
         
         // Set button text colors to primary orange
         btnViewNotifications?.setTextColor(ContextCompat.getColor(this, R.color.primary))
         btnServiceInfo?.setTextColor(ContextCompat.getColor(this, R.color.primary))
+        btnEngineSettings?.setTextColor(ContextCompat.getColor(this, R.color.primary))
         
         // Setup click listeners
         btnViewNotifications?.setOnClickListener {
@@ -332,6 +347,10 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         
         btnServiceInfo?.setOnClickListener {
             showServiceInfoDialog()
+        }
+        
+        btnEngineSettings?.setOnClickListener {
+            launchEngineSettings()
         }
         
         fabClose?.setOnClickListener {

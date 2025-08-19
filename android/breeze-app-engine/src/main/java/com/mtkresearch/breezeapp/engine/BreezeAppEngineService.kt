@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.os.Build
 import com.mtkresearch.breezeapp.engine.core.ModelManager
 import com.mtkresearch.breezeapp.engine.model.ServiceState
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 
 /**
  * BreezeAppEngineService - Simplified Android Service Implementation
@@ -35,6 +36,21 @@ class BreezeAppEngineService : Service() {
     companion object {
         private const val TAG = "BreezeAppEngineService"
         private const val PERMISSION = "com.mtkresearch.breezeapp.permission.BIND_AI_ROUTER_SERVICE"
+        
+        @Volatile
+        private var instance: BreezeAppEngineService? = null
+        
+        /**
+         * Get the current instance of the service
+         */
+        fun getInstance(): BreezeAppEngineService? = instance
+        
+        /**
+         * Get the RunnerManager from the service instance
+         */
+        fun getRunnerManager(): RunnerManager? {
+            return instance?.serviceOrchestrator?.getConfigurator()?.runnerManager
+        }
     }
     
     // Service orchestrator handles all component coordination
@@ -57,7 +73,10 @@ class BreezeAppEngineService : Service() {
     
     override fun onCreate() {
         super.onCreate()
-        Log.i(TAG, "BreezeAppEngineService onCreate() - Simplified Architecture")
+        Log.d(TAG, "BreezeAppEngineService creating...")
+        
+        // Store instance reference
+        instance = this
         
         try {
             // Initialize service orchestrator
@@ -67,19 +86,12 @@ class BreezeAppEngineService : Service() {
             
             // Initialize notification manager
             notificationManager = NotificationManager(this)
-            notificationManager.createNotificationChannel()
             
-            startForegroundService()
-            registerBroadcastReceiver()
-
-            // Ensure the default model is ready (download if needed)
-            ensureDefaultModelReadyWithLogging()
-
-            Log.i(TAG, "Simplified BreezeAppEngineService created successfully")
+            Log.i(TAG, "BreezeAppEngineService created successfully")
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error creating service", e)
-            throw e
+            Log.e(TAG, "Failed to create BreezeAppEngineService", e)
+            throw RuntimeException("Failed to initialize BreezeApp Engine", e)
         }
     }
     
@@ -126,19 +138,21 @@ class BreezeAppEngineService : Service() {
     }
     
     override fun onDestroy() {
-        Log.i(TAG, "BreezeAppEngineService onDestroy() - Simplified Architecture")
+        Log.i(TAG, "BreezeAppEngineService destroying...")
         
         try {
+            // Cleanup service orchestrator
             serviceOrchestrator.cleanup()
-            unregisterBroadcastReceiver()
             
-            Log.i(TAG, "Simplified BreezeAppEngineService destroyed successfully")
+            // Clear instance reference
+            instance = null
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error destroying service", e)
+            Log.e(TAG, "Error during BreezeAppEngineService cleanup", e)
+        } finally {
+            super.onDestroy()
+            Log.i(TAG, "BreezeAppEngineService destroyed")
         }
-        
-        super.onDestroy()
     }
     
     /**

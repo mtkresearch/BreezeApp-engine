@@ -246,44 +246,70 @@
                 android:id="@+id/actionButtons"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:gravity="center"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
 
+                <!-- First Row of Buttons -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginBottom="8dp">
+
+                    <Button
+                        android:id="@+id/btnViewNotifications"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:text="View Status"
+                        android:textSize="14sp"
+                        android:textColor="@color/primary"
+                        
+                        app:icon="@drawable/ic_notifications"
+                        app:iconGravity="textStart"
+                        app:cornerRadius="16dp"
+                        app:strokeColor="@color/primary"
+                        app:strokeWidth="2dp" />
+
+                    <Button
+                        android:id="@+id/btnServiceInfo"
+                        style="@style/Widget.Material3.Button"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:text="Learn More"
+                        android:textSize="14sp"
+                        android:textColor="@color/primary"
+                        
+                        app:icon="@drawable/ic_info"
+                        app:iconGravity="textStart"
+                        app:cornerRadius="16dp"
+                        app:backgroundTint="@color/primary" />
+
+                </LinearLayout>
+
+                <!-- Second Row - Engine Settings Button -->
                 <Button
-                    android:id="@+id/btnViewNotifications"
+                    android:id="@+id/btnEngineSettings"
                     style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="56dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="8dp"
-                    android:text="View Status"
+                    android:text="Configure AI Engine"
                     android:textSize="14sp"
                     android:textColor="@color/primary"
                     
-                    app:icon="@drawable/ic_notifications"
+                    app:icon="@drawable/ic_settings"
                     app:iconGravity="textStart"
                     app:cornerRadius="16dp"
                     app:strokeColor="@color/primary"
                     app:strokeWidth="2dp" />
-
-                <Button
-                    android:id="@+id/btnServiceInfo"
-                    style="@style/Widget.Material3.Button"
-                    android:layout_width="0dp"
-                    android:layout_height="56dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:text="Learn More"
-                    android:textSize="14sp"
-                    android:textColor="@color/primary"
-                    
-                    app:icon="@drawable/ic_info"
-                    app:iconGravity="textStart"
-                    app:cornerRadius="16dp"
-                    app:backgroundTint="@color/primary" />
 
             </LinearLayout>
 
