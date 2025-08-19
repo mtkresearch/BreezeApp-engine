@@ -61,10 +61,14 @@ class OpenAILLMRunner(
     
     private val isLoaded = AtomicBoolean(false)
     
-    override fun load(config: ModelConfig): Boolean {
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
         return try {
-            Log.d(TAG, "Loading OpenAI LLM Runner with model: ${config.modelName}")
+            Log.d(TAG, "Loading OpenAI LLM Runner with model: $modelId")
             // Initialize OpenAI client here
+            // Get runner-specific parameters from settings
+            val runnerParams = settings.getRunnerParameters("OpenAILLMRunner")
+            val apiKey = runnerParams["api_key"] as? String ?: ""
+            // Use modelId to determine which model to load
             isLoaded.set(true)
             true
         } catch (e: Exception) {
@@ -154,6 +158,75 @@ class OpenAILLMRunner(
         description = "OpenAI GPT-based LLM runner",
         isMock = false
     )
+    
+    // Enhanced Runtime Settings Support
+    override fun getParameterSchema(): List<ParameterSchema> {
+        return listOf(
+            ParameterSchema(
+                name = "api_key",
+                displayName = "API Key",
+                description = "Your OpenAI API key for authentication",
+                type = ParameterType.StringType(
+                    minLength = 10,
+                    isSensitive = true
+                ),
+                defaultValue = "",
+                isRequired = true,
+                category = "Authentication"
+            ),
+            ParameterSchema(
+                name = "model",
+                displayName = "Model",
+                description = "OpenAI model to use for text generation",
+                type = ParameterType.SelectionType(
+                    options = listOf(
+                        SelectionOption("gpt-3.5-turbo", "GPT-3.5 Turbo", "Fast and efficient for most tasks"),
+                        SelectionOption("gpt-4", "GPT-4", "Most capable model, higher cost"),
+                        SelectionOption("gpt-4-turbo", "GPT-4 Turbo", "Latest GPT-4 with improved performance")
+                    )
+                ),
+                defaultValue = "gpt-3.5-turbo",
+                isRequired = false,
+                category = "Model Configuration"
+            ),
+            ParameterSchema(
+                name = "temperature",
+                displayName = "Temperature",
+                description = "Controls randomness in text generation. Lower values (0.1) make output more focused, higher values (1.0) make it more creative.",
+                type = ParameterType.FloatType(
+                    minValue = 0.0,
+                    maxValue = 2.0,
+                    step = 0.1,
+                    precision = 1
+                ),
+                defaultValue = 0.7f,
+                isRequired = false,
+                category = "Generation Parameters"
+            )
+        )
+    }
+    
+    override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+        // Validate API key format
+        val apiKey = parameters["api_key"] as? String
+        if (apiKey.isNullOrBlank()) {
+            return ValidationResult.invalid("API key is required")
+        }
+        if (!apiKey.startsWith("sk-")) {
+            return ValidationResult.invalid("Invalid API key format")
+        }
+
+        // Validate temperature
+        val temperature = parameters["temperature"] as? Number
+        temperature?.let { temp ->
+            val tempValue = temp.toFloat()
+            if (tempValue < 0.0f || tempValue > 2.0f) {
+                return ValidationResult.invalid("Temperature must be between 0.0 and 2.0")
+            }
+        }
+
+        return ValidationResult.valid()
+    }
     
     private fun callOpenAIStreamingAPI(prompt: String, onToken: (String) -> Unit): String {
         // Implement actual OpenAI streaming API call here
@@ -379,7 +452,7 @@ import kotlinx.coroutines.flow.toList
 
 class [Vendor][Capability]Runner : BaseRunner, FlowStreamingRunner {
     
-    override fun load(config: ModelConfig): Boolean = true
+    override fun load(modelId: String, settings: EngineSettings): Boolean = true
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         // For runners implementing FlowStreamingRunner, 
@@ -415,6 +488,19 @@ class [Vendor][Capability]Runner : BaseRunner, FlowStreamingRunner {
         description = "[Description]",
         isMock = false
     )
+    
+    // Enhanced Runtime Settings Support
+    override fun getParameterSchema(): List<ParameterSchema> {
+        return listOf(
+            // Define your runner's parameters here
+            // See the OpenAI example for reference
+        )
+    }
+    
+    override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+        // Implement parameter validation logic here
+        return ValidationResult.valid()
+    }
     
     private fun combinePartialResults(partialResults: List<InferenceResult>): InferenceResult {
         // Combine partial results into a single final result
@@ -466,6 +552,109 @@ Before submitting your new runner:
 ---
 
 ## 🚀 Advanced Features
+
+### **Enhanced Runtime Settings Support**
+
+With the enhanced runtime settings system, runners can now provide self-describing parameter schemas that automatically generate UI controls in the Engine Settings Activity. This eliminates the need for clients to duplicate parameter configuration logic.
+
+Key features of the enhanced system:
+1. **Self-Describing Runners**: Each runner implements `getParameterSchema()` to define its parameters
+2. **Dynamic UI Generation**: The Engine automatically creates appropriate UI controls based on parameter types
+3. **Parameter Validation**: Built-in validation with real-time feedback
+4. **Type Safety**: Automatic parameter validation and constraint enforcement
+
+#### Parameter Schema Implementation
+
+Implement the `getParameterSchema()` method to define your runner's parameters:
+
+```kotlin
+override fun getParameterSchema(): List<ParameterSchema> {
+    return listOf(
+        // String parameter with sensitive data masking
+        ParameterSchema(
+            name = "api_key",
+            displayName = "API Key",
+            description = "Your API key for authentication",
+            type = ParameterType.StringType(
+                minLength = 10,
+                isSensitive = true  // Masks input in UI
+            ),
+            defaultValue = "",
+            isRequired = true,
+            category = "Authentication"
+        ),
+        
+        // Selection parameter with predefined options
+        ParameterSchema(
+            name = "model",
+            displayName = "Model",
+            description = "Model to use for inference",
+            type = ParameterType.SelectionType(
+                options = listOf(
+                    SelectionOption("model-a", "Model A", "Description for Model A"),
+                    SelectionOption("model-b", "Model B", "Description for Model B")
+                )
+            ),
+            defaultValue = "model-a",
+            isRequired = false,
+            category = "Model Configuration"
+        ), 
+        // Float parameter with precision control
+        ParameterSchema(
+            name = "temperature",
+            displayName = "Temperature",
+            description = "Controls randomness in generation",
+            type = ParameterType.FloatType(
+                minValue = 0.0,
+                maxValue = 2.0,
+                step = 0.1,
+                precision = 1
+            ),
+            defaultValue = 0.7f,
+            isRequired = false,
+            category = "Generation Parameters"
+        )
+    )
+}
+```
+
+#### Parameter Validation
+
+Implement the `validateParameters()` method to provide real-time validation:
+
+```kotlin
+override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
+    // Validate API key format
+    val apiKey = parameters["api_key"] as? String
+    if (apiKey.isNullOrBlank()) {
+        return ValidationResult.invalid("API key is required")
+    }
+    if (!apiKey.startsWith("sk-")) {
+        return ValidationResult.invalid("Invalid API key format")
+    }
+
+    // Cross-parameter validation
+    val temperature = parameters["temperature"] as? Number
+    
+    temperature?.let { temp ->
+        val tempValue = temp.toFloat()
+        if (tempValue < 0.0f || tempValue > 2.0f) {
+            return ValidationResult.invalid("Temperature must be between 0.0 and 2.0")
+        }
+        
+        // High temperature with high max_tokens warning
+        if (tempValue > 1.5f) {
+            maxTokens?.let { tokens ->
+                if (tokens.toInt() > 2048) {
+                    return ValidationResult.warning("High temperature with high token count may produce incoherent results")
+                }
+            }
+        }
+    }
+
+    return ValidationResult.valid()
+}
+```
 
 ### **Streaming Support**
 
@@ -796,5 +985,13 @@ For questions or issues:
 2. Review the architecture documentation
 3. Test with MockFirst strategy to ensure fallback works
 4. Ensure your runner follows the established patterns
+
+### **Enhanced Runtime Settings Integration**
+
+When implementing new runners, remember to:
+1. Implement `getParameterSchema()` to enable dynamic UI generation
+2. Implement `validateParameters()` for real-time validation
+3. Use runner-specific parameters from `EngineSettings` in your `load()` method
+4. Test parameter validation in the Engine Settings Activity
 
 **Total Time Estimate**: 30-60 minutes for a basic runner, 2-4 hours for a full-featured implementation.
