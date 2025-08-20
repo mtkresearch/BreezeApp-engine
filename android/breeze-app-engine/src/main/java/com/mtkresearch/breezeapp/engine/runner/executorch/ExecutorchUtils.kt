@@ -10,7 +10,7 @@ object ExecutorchUtils {
 
     data class ModelPaths(val modelPath: String, val tokenizerPath: String)
 
-    fun resolveDefaultModelPaths(context: Context, modelId: String): ModelPaths? {
+    fun resolveModelPaths(context: Context, modelId: String): ModelPaths? {
         return try {
             val baseDir = "${context.filesDir.absolutePath}/models/$modelId"
             Log.d(TAG, "Resolving paths from base directory: $baseDir")

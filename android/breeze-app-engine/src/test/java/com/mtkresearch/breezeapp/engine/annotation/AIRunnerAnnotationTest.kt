@@ -4,7 +4,7 @@ import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.model.ModelConfig
+import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import org.junit.Test
 import org.junit.Assert.*
@@ -27,7 +27,7 @@ class AIRunnerAnnotationTest {
         priority = RunnerPriority.HIGH
     )
     class TestMediaTekRunner : BaseRunner {
-        override fun load(config: ModelConfig): Boolean = true
+        override fun load(modelId: String, settings: EngineSettings): Boolean = true
         override fun run(input: InferenceRequest, stream: Boolean): InferenceResult = 
             InferenceResult.success(mapOf("test" to "result"))
         override fun unload() {}
@@ -38,7 +38,7 @@ class AIRunnerAnnotationTest {
 
     @AIRunner(capabilities = [CapabilityType.ASR, CapabilityType.TTS])
     class TestDefaultsRunner : BaseRunner {
-        override fun load(config: ModelConfig): Boolean = true
+        override fun load(modelId: String, settings: EngineSettings): Boolean = true
         override fun run(input: InferenceRequest, stream: Boolean): InferenceResult = 
             InferenceResult.success(mapOf("test" to "result"))
         override fun unload() {}

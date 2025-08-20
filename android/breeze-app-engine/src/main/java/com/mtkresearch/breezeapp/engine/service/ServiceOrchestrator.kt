@@ -10,20 +10,27 @@ import com.mtkresearch.breezeapp.engine.system.NotificationManager
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
 import com.mtkresearch.breezeapp.engine.system.PermissionManager
 import com.mtkresearch.breezeapp.engine.model.ServiceState
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Service Orchestrator - Coordinates service initialization and lifecycle
+ * Service Orchestrator - Simplified Service Lifecycle Management (Clean Architecture)
  * 
- * This class handles the complex initialization and coordination of all service components,
- * following Clean Architecture principles by separating concerns and providing clear interfaces.
+ * Following Clean Architecture principles, this class handles ONLY essential service
+ * initialization and coordination. Redundant components have been removed for clarity.
  * 
- * Responsibilities:
- * - Initialize all service components
- * - Manage component lifecycle
- * - Coordinate between different subsystems
- * - Provide cleanup and shutdown
+ * ## Simplified Responsibilities:
+ * - Initialize infrastructure components (notifications, permissions, visual state)
+ * - Initialize essential Clean Architecture components (ClientManager, EngineServiceBinder)
+ * - Manage service lifecycle and cleanup
+ * - Coordinate between infrastructure and core business logic
+ * 
+ * ## Removed Complexity:
+ * - RequestCoordinator (redundant - functionality moved to EngineServiceBinder)
+ * - RequestProcessor (redundant - functionality handled by AIEngineManager)
+ * - BreezeAppEngineCore (redundant - business logic in AIEngineManager)
+ * - Duplicate request tracking (consolidated in AIEngineManager)
+ * 
+ * ## Clean Architecture Flow:
+ * Client → EngineServiceBinder → AIEngineManager (Single Path)
  */
 class ServiceOrchestrator(private val context: Context) {
     
@@ -39,15 +46,9 @@ class ServiceOrchestrator(private val context: Context) {
     private lateinit var visualStateManager: VisualStateManager
     private lateinit var permissionManager: PermissionManager
     
-    // Clean Architecture Components
+    // Clean Architecture Components (Simplified)
     private lateinit var clientManager: ClientManager
-    private lateinit var requestCoordinator: RequestCoordinator
     private lateinit var engineServiceBinder: EngineServiceBinder
-    private lateinit var engineCore: BreezeAppEngineCore
-    
-    // Request tracking
-    private val activeRequestCount = AtomicInteger(0)
-    private val requestTracker = ConcurrentHashMap<String, Long>()
     
     // Service type tracking
     private var currentServiceType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
@@ -68,8 +69,8 @@ class ServiceOrchestrator(private val context: Context) {
             // Initialize clean architecture components
             initializeCleanArchitectureComponents()
             
-            // Initialize engine core
-            engineCore.initialize()
+            // AI Engine is initialized by configurator during infrastructure setup
+            Log.d(TAG, "AI Engine initialized via configurator")
             
             Log.i(TAG, "Service orchestrator initialized successfully")
             
@@ -147,8 +148,8 @@ class ServiceOrchestrator(private val context: Context) {
         Log.d(TAG, "Cleaning up service orchestrator")
         
         try {
-            // Shutdown engine core
-            engineCore.shutdown()
+            // Cleanup service binder
+            engineServiceBinder.cleanup()
             
             // Cleanup AI engine manager and runners
             Log.d(TAG, "Cleaning up AI engine manager and runners")
@@ -160,7 +161,7 @@ class ServiceOrchestrator(private val context: Context) {
             // Abandon audio focus through PermissionManager
             permissionManager.abandonAudioFocus()
             
-            Log.d(TAG, "Service orchestrator cleaned up successfully")
+            Log.d(TAG, "Simplified service orchestrator cleaned up successfully")
             
         } catch (e: Exception) {
             Log.e(TAG, "Error cleaning up service orchestrator", e)
@@ -214,42 +215,23 @@ class ServiceOrchestrator(private val context: Context) {
     }
     
     /**
-     * Initialize clean architecture components
+     * Initialize clean architecture components (Simplified)
+     * Following Single Responsibility and Clean Architecture principles.
      */
     private fun initializeCleanArchitectureComponents() {
-        Log.d(TAG, "Initializing clean architecture components")
+        Log.d(TAG, "Initializing simplified clean architecture components")
         
-        // Initialize client manager
+        // Initialize client manager (handles client connections only)
         clientManager = ClientManager()
         
-        // Initialize engine core
-        engineCore = BreezeAppEngineCore(context)
-        
-        // Initialize request processor
-        val requestProcessor = RequestProcessor(
-            engineManager = configurator.engineManager,
-            statusManager = statusManager,
-            activeRequestCount = activeRequestCount,
-            requestTracker = requestTracker,
-            updateStatusAfterRequestCompletion = { statusManager.updateState(ServiceState.Ready) },
-            notifyError = ::notifyError
-        )
-        
-        // Initialize request coordinator
-        requestCoordinator = RequestCoordinator(
-            requestProcessor = requestProcessor,
-            engineManager = configurator.engineManager,
-            clientManager = clientManager,
-            serviceInstance = null // Will be set by service
-        )
-        
-        // Initialize service binder
+        // Initialize service binder (AIDL interface + direct AIEngineManager integration)
         engineServiceBinder = EngineServiceBinder(
             clientManager = clientManager,
-            requestCoordinator = requestCoordinator
+            aiEngineManager = configurator.engineManager
         )
         
-        Log.d(TAG, "Clean architecture components initialized")
+        Log.d(TAG, "Simplified clean architecture components initialized")
+        Log.d(TAG, "Architecture: Client → EngineServiceBinder → AIEngineManager (Single Path)")
     }
     
     /**
@@ -272,19 +254,15 @@ class ServiceOrchestrator(private val context: Context) {
     /**
      * Notify error to clients
      */
-    private fun notifyError(requestId: String, error: String) {
-        clientManager.notifyError(requestId, error)
-    }
+    // notifyError method removed - now handled directly by EngineServiceBinder
     
     /**
-     * Set service instance for components that need it
+     * Set service instance for components that need it (Simplified)
      */
     fun setServiceInstance(service: android.app.Service) {
         statusManager.setServiceInstance(service)
-        // Set the service instance for RequestCoordinator if it's the correct type
-        if (service is com.mtkresearch.breezeapp.engine.BreezeAppEngineService) {
-            requestCoordinator.setServiceInstance(service)
-        }
+        // Note: EngineServiceBinder doesn't need service instance as it's stateless AIDL adapter
+        Log.d(TAG, "Service instance set for status manager")
     }
     
     /**
