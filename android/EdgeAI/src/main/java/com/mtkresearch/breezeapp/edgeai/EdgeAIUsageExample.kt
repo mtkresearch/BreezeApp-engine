@@ -254,7 +254,7 @@ class EdgeAIUsageExample(private val context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val request = ChatRequest(
-                    model = "breeze2",
+                    model = null, // Let engine use configured model
                     messages = listOf(
                         ChatMessage(role = "system", content = "You are a helpful assistant"),
                         ChatMessage(role = "user", content = "Explain quantum computing in simple terms")

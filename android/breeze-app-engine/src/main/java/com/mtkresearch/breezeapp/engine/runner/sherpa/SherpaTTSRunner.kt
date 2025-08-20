@@ -9,20 +9,9 @@ import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
-import com.mtkresearch.breezeapp.engine.model.CapabilityType
-import com.mtkresearch.breezeapp.engine.model.EngineSettings
-import com.mtkresearch.breezeapp.engine.model.InferenceRequest
-import com.mtkresearch.breezeapp.engine.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.model.ModelDefinition
-import com.mtkresearch.breezeapp.engine.model.EntryPoint
-import com.mtkresearch.breezeapp.engine.model.RunnerError
-import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
+import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaTtsRunner
-import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
-import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
-import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
-import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
 import com.mtkresearch.breezeapp.engine.util.SherpaTtsConfigUtil
 import kotlinx.coroutines.flow.Flow
@@ -42,16 +31,13 @@ import kotlinx.coroutines.flow.flow
  * - Global library management integration
  * - Robust audio playback management
  */
-@AIRunner(
+ @AIRunner(
     vendor = VendorType.SHERPA,
     capabilities = [CapabilityType.TTS],
     apiLevel = 1,
     enabled = true
 )
-class SherpaTTSRunner(
-    context: Context,
-    private val modelRegistry: ModelRegistryService? = null
-) : BaseSherpaTtsRunner(context), FlowStreamingRunner {
+class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStreamingRunner {
     companion object {
         private const val TAG = "SherpaTTSRunner"
     }
@@ -60,8 +46,23 @@ class SherpaTTSRunner(
 
     override fun getTag(): String = TAG
 
-    // Removed initializeModel method - initialization is now handled directly in load() method
-    
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        modelName = modelId
+        return try {
+            if (!SherpaLibraryManager.initializeGlobally()) throw Exception("Failed to initialize Sherpa ONNX library")
+            if (!SherpaLibraryManager.isLibraryReady()) throw Exception("Sherpa ONNX library not ready for use")
+            initializeTts()
+            
+            // CRITICAL FIX: Set isLoaded flag to true after successful initialization
+            isLoaded.set(true)
+            Log.i(TAG, "Model loaded successfully - isLoaded flag set to true")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize SherpaTTSRunner", e)
+            isLoaded.set(false) // Ensure flag is false on failure
+            false
+        }
+    }
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         // Validate model is loaded
@@ -251,79 +252,6 @@ class SherpaTTSRunner(
         description = "Sherpa ONNX TTS runner with real-time streaming audio playback"
     )
 
-    override fun getParameterSchema(): List<ParameterSchema> {
-        return listOf(
-            ParameterSchema(
-                name = "model_id",
-                displayName = "TTS Model",
-                description = "Select the text-to-speech model for voice synthesis. Different models support different languages and voice characteristics.",
-                type = ParameterType.SelectionType(
-                    options = getSupportedModels().map { model ->
-                        SelectionOption(
-                            key = model.id,
-                            displayName = "${model.id} (${model.ramGB}GB RAM)",
-                            description = "Backend: ${model.backend}"
-                        )
-                    },
-                    allowMultiple = false
-                ),
-                defaultValue = "vits-mr-20250709",
-                isRequired = true,
-                category = "Model Configuration"
-            ),
-            ParameterSchema(
-                name = "speaker_id",
-                displayName = "Speaker ID",
-                description = "Voice speaker/character selection for multi-speaker TTS models. Different IDs produce different voice characteristics.",
-                type = ParameterType.IntType(
-                    minValue = 0,
-                    maxValue = 50,
-                    step = 1
-                ),
-                defaultValue = 0,
-                isRequired = false,
-                category = "Voice Settings"
-            ),
-            ParameterSchema(
-                name = "speed",
-                displayName = "Speech Speed",
-                description = "Controls the speaking rate. Values less than 1.0 slow down speech, greater than 1.0 speed it up.",
-                type = ParameterType.FloatType(
-                    minValue = 0.1,
-                    maxValue = 3.0,
-                    step = 0.1,
-                    precision = 1
-                ),
-                defaultValue = 1.0f,
-                isRequired = false,
-                category = "Voice Settings"
-            )
-        )
-    }
-
-    override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
-        val speakerId = parameters["speaker_id"] as? Number
-        val speed = parameters["speed"] as? Number
-
-        // Validate speaker ID
-        speakerId?.let { id ->
-            val idValue = id.toInt()
-            if (idValue < 0 || idValue > 50) {
-                return ValidationResult.invalid("Speaker ID must be between 0 and 50")
-            }
-        }
-
-        // Validate speed
-        speed?.let { sp ->
-            val speedValue = sp.toFloat()
-            if (speedValue <= 0.0f || speedValue > 3.0f) {
-                return ValidationResult.invalid("Speech speed must be between 0.1 and 3.0")
-            }
-        }
-
-        return ValidationResult.valid()
-    }
-
     private fun initializeTts() {
         val modelType = when {
             modelName.contains("vits-mr-20250709", ignoreCase = true) ||
@@ -357,52 +285,5 @@ class SherpaTTSRunner(
             useExternalStorage = true
         ) ?: throw Exception("Failed to create TTS config for ${modelConfig.modelDir}")
         tts = OfflineTts(assetManager = context.assets, config = config)
-    }
-    
-    /**
-     * Load model using model ID from JSON registry
-     */
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
-        Log.d(TAG, "Loading SherpaTTSRunner with model: $modelId")
-        
-        // Store model name for internal use
-        modelName = modelId
-        
-        return try {
-            if (!SherpaLibraryManager.initializeGlobally()) throw Exception("Failed to initialize Sherpa ONNX library")
-            if (!SherpaLibraryManager.isLibraryReady()) throw Exception("Sherpa ONNX library not ready for use")
-            initializeTts()
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize SherpaTTSRunner", e)
-            false
-        }
-    }
-    
-    /**
-     * Get supported models for Sherpa TTS runner
-     */
-    private fun getSupportedModels(): List<ModelDefinition> {
-        return modelRegistry?.getCompatibleModels("sherpa_tts_runner_v1") ?: listOf(
-            // Fallback models if registry not available
-            ModelDefinition(
-                id = "vits-mr-20250709",
-                runner = "sherpa_tts_runner_v1",
-                backend = "cpu",
-                ramGB = 1,
-                files = emptyList(),
-                entryPoint = EntryPoint("vits", "vits-mr-20250709"),
-                capabilities = listOf(CapabilityType.TTS)
-            ),
-            ModelDefinition(
-                id = "vits-melo-zh-en",
-                runner = "sherpa_tts_runner_v1", 
-                backend = "cpu",
-                ramGB = 1,
-                files = emptyList(),
-                entryPoint = EntryPoint("vits", "vits-melo-zh-en"),
-                capabilities = listOf(CapabilityType.TTS)
-            )
-        )
     }
 }

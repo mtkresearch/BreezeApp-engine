@@ -57,7 +57,8 @@ import org.json.JSONArray
     vendor = VendorType.OPENROUTER,
     priority = RunnerPriority.LOW,
     capabilities = [CapabilityType.LLM],
-    enabled = true
+    enabled = true,
+    defaultModel = "openai/gpt-oss-20b:free"
 )
 class OpenRouterLLMRunner(
     private val apiKey: String,
@@ -267,7 +268,7 @@ class OpenRouterLLMRunner(
                 category = "Authentication"
             ),
             ParameterSchema(
-                name = "model",
+                name = InferenceRequest.PARAM_MODEL,
                 displayName = "Model",
                 description = "OpenRouter model to use for text generation",
                 type = ParameterType.SelectionType(
@@ -377,6 +378,33 @@ class OpenRouterLLMRunner(
                 defaultValue = 0.0f,
                 isRequired = false,
                 category = "Generation"
+            ),
+            ParameterSchema(
+                name = "top_k",
+                displayName = "Top K",
+                description = "Limit next token selection to top K tokens",
+                type = ParameterType.IntType(
+                    minValue = 1,
+                    maxValue = 100,
+                    step = 1
+                ),
+                defaultValue = 40,
+                isRequired = false,
+                category = "Generation"
+            ),
+            ParameterSchema(
+                name = "repetition_penalty",
+                displayName = "Repetition Penalty",
+                description = "Penalty for repeating tokens (1.0 = no penalty, >1.0 = reduce repetition)",
+                type = ParameterType.FloatType(
+                    minValue = 1.0,
+                    maxValue = 2.0,
+                    step = 0.1,
+                    precision = 2
+                ),
+                defaultValue = 1.1f,
+                isRequired = false,
+                category = "Generation"
             )
         )
     }
@@ -400,7 +428,7 @@ class OpenRouterLLMRunner(
         }
 
         // Validate model selection
-        val model = parameters["model"] as? String ?: DEFAULT_MODEL
+        val model = parameters[InferenceRequest.PARAM_MODEL] as? String ?: DEFAULT_MODEL
         val validModels = listOf(
             "openai/gpt-3.5-turbo",
             "openai/gpt-4", 
@@ -555,6 +583,8 @@ class OpenRouterLLMRunner(
             input.params["top_p"]?.let { put("top_p", it) }
             input.params["frequency_penalty"]?.let { put("frequency_penalty", it) }
             input.params["presence_penalty"]?.let { put("presence_penalty", it) }
+            input.params["top_k"]?.let { put("top_k", it) }
+            input.params["repetition_penalty"]?.let { put("repetition_penalty", it) }
         }
         
         return requestJson.toString()

@@ -19,8 +19,8 @@ class BreezeAppEngineConfigurator(context: Context) {
     /** Provides logging capabilities throughout the engine. */
     val logger = Logger
 
-    /** A default, in-memory storage service. A proper implementation (e.g., SharedPreferences) should be injected here. */
-    private val storageService: StorageService = InMemoryStorageService(logger)
+    /** SharedPreferences-based storage service for persistent Engine settings. */
+    private val storageService: StorageService = SharedPreferencesStorageService(context, logger)
 
     /** Provides model registry and metadata management from JSON configuration. */
     val modelRegistryService: ModelRegistryService = ModelRegistryService(context)

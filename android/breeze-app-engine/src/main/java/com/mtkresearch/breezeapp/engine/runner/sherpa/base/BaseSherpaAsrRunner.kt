@@ -92,43 +92,30 @@ abstract class BaseSherpaAsrRunner(context: Context) : BaseSherpaRunner(context)
             }
             
             val isEndpoint = recognizer!!.isEndpoint(stream)
-            var text = recognizer!!.getResult(stream).text
-            
-            // Handle endpoint detection and text accumulation like the official example
-            var textToDisplay = lastText
-            
-            if (text.isNotBlank()) {
-                textToDisplay = if (lastText.isBlank()) {
-                    "$idx: $text"
-                } else {
-                    "$lastText\n$idx: $text"
-                }
-            }
+            val text = recognizer!!.getResult(stream).text
             
             // Emit partial result for each chunk
-            emit(
-                InferenceResult.success(
-                    outputs = mapOf(InferenceResult.OUTPUT_TEXT to textToDisplay),
-                    metadata = mapOf(
-                        InferenceResult.META_CONFIDENCE to 0.95f,
-                        InferenceResult.META_SEGMENT_INDEX to idx,
-                        InferenceResult.META_SESSION_ID to sessionId,
-                        InferenceResult.META_MODEL_NAME to modelName,
-                        "is_endpoint" to isEndpoint
-                    ),
-                    partial = !isEndpoint
+            if (text.isNotBlank() && text != lastText) {
+                emit(
+                    InferenceResult.success(
+                        outputs = mapOf(InferenceResult.OUTPUT_TEXT to text),
+                        metadata = mapOf(
+                            InferenceResult.META_CONFIDENCE to 0.95f,
+                            InferenceResult.META_SEGMENT_INDEX to idx,
+                            InferenceResult.META_SESSION_ID to sessionId,
+                            InferenceResult.META_MODEL_NAME to modelName,
+                            "is_endpoint" to isEndpoint
+                        ),
+                        partial = !isEndpoint
+                    )
                 )
-            )
+                lastText = text
+            }
             
             // Reset stream at endpoint and update accumulated text
             if (isEndpoint) {
                 recognizer!!.reset(stream)
                 if (text.isNotBlank()) {
-                    lastText = if (lastText.isBlank()) {
-                        "$idx: $text"
-                    } else {
-                        "$lastText\n$idx: $text"
-                    }
                     idx += 1
                 }
             }
@@ -145,21 +132,12 @@ abstract class BaseSherpaAsrRunner(context: Context) : BaseSherpaRunner(context)
         }
         
         // Get final result and emit
-        val finalResult = recognizer!!.getResult(stream)
-        val finalText = if (finalResult.text.isNotBlank()) {
-            if (lastText.isBlank()) {
-                "$idx: ${finalResult.text}"
-            } else {
-                "$lastText\n$idx: ${finalResult.text}"
-            }
-        } else {
-            lastText
-        }
+        val finalResult = recognizer!!.getResult(stream).text
         
         val elapsed = System.currentTimeMillis() - startTime
         emit(
             InferenceResult.success(
-                outputs = mapOf(InferenceResult.OUTPUT_TEXT to finalText),
+                outputs = mapOf(InferenceResult.OUTPUT_TEXT to finalResult),
                 metadata = mapOf(
                     InferenceResult.META_CONFIDENCE to 0.95f,
                     InferenceResult.META_PROCESSING_TIME_MS to elapsed,

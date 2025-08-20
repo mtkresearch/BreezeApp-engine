@@ -9,7 +9,7 @@ package com.mtkresearch.breezeapp.edgeai
  * Simple chat completion builder for basic text conversations
  */
 fun chatRequest(
-    model: String = "breeze2",
+    model: String? = null, // Let engine decide based on configuration
     prompt: String,
     systemPrompt: String? = null,
     temperature: Float? = null,
@@ -39,7 +39,7 @@ fun chatRequest(
  * Chat completion builder with conversation history
  */
 fun chatRequestWithHistory(
-    model: String = "breeze2",
+    model: String? = null, // Let engine decide based on configuration  
     messages: List<ChatMessage>,
     temperature: Float? = null,
     maxTokens: Int? = null,

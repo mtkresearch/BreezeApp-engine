@@ -188,7 +188,7 @@ object EdgeAI {
 
                 // Process responses
                 for (aiResponse in responseChannel) {
-                    val chatResponse = convertAIResponseToChatResponse(aiResponse, request.stream ?: false)
+                    val chatResponse = convertAIResponseToChatResponse(aiResponse, request.stream ?: false, request.model)
                     send(chatResponse)
                 }
 
@@ -338,7 +338,8 @@ object EdgeAI {
      */
     private fun convertAIResponseToChatResponse(
         aiResponse: AIResponse,
-        isStreaming: Boolean
+        isStreaming: Boolean,
+        modelName: String? = null
     ): ChatResponse {
         val choice = if (isStreaming) {
             Choice(
@@ -358,7 +359,7 @@ object EdgeAI {
             id = aiResponse.requestId,
             `object` = if (isStreaming) "chat.completion.chunk" else "chat.completion",
             created = System.currentTimeMillis() / 1000,
-            model = "breeze2",
+            model = modelName ?: "default-llm",
             choices = listOf(choice),
             usage = if (!isStreaming && aiResponse.isComplete) {
                 Usage(promptTokens = 0, completionTokens = 0, totalTokens = 0)

@@ -435,7 +435,7 @@ class ModelManager private constructor(
     private fun isDefaultModel(model: ModelInfo, category: ModelCategory): Boolean {
         return when (category) {
             ModelCategory.ASR -> model.id == "Breeze-ASR-25-onnx"
-            ModelCategory.LLM -> model.id == "Breeze2-3B-8W16A-250630-npu"
+            ModelCategory.LLM -> model.id == "Llama3_2-3b-4096-spin-250605-cpu" // Updated to match ExecutorchLLMRunner annotation
             ModelCategory.TTS -> model.id == "vits-mr-20250709"
             else -> false
         }

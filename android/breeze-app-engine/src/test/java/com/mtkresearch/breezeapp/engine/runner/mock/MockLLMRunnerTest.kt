@@ -4,7 +4,7 @@ import android.util.Log
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
-import com.mtkresearch.breezeapp.engine.model.ModelConfig
+import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
@@ -19,10 +19,7 @@ import org.junit.Test
 class MockLLMRunnerTest {
 
     private lateinit var runner: MockLLMRunner
-    private val defaultConfig = ModelConfig(
-        modelName = "mock-llm",
-        modelPath = "/dev/null"
-    )
+    private val defaultSettings = EngineSettings()
 
     @Before
     fun setUp() {
@@ -30,7 +27,7 @@ class MockLLMRunnerTest {
         every { Log.d(any(), any()) } returns 0
         every { Log.e(any(), any<String>()) } returns 0
         runner = MockLLMRunner()
-        runner.load(defaultConfig)
+        runner.load("mock-llm", defaultSettings)
     }
 
     @After
@@ -49,7 +46,7 @@ class MockLLMRunnerTest {
 
     @Test
     fun `load returns true and sets model as loaded`() {
-        assertTrue(runner.load(defaultConfig))
+        assertTrue(runner.load("mock-llm", defaultSettings))
         assertTrue(runner.isLoaded())
     }
 

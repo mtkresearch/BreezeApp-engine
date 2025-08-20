@@ -16,9 +16,9 @@ data class ChatRequest(
     val messages: List<ChatMessage>,
     
     /**
-     * The model ID to use for generating responses
+     * The model ID to use for generating responses. If null, the engine will use the configured default.
      */
-    val model: String,
+    val model: String? = null,
     
     /**
      * Audio output parameters. Required when requesting audio output.

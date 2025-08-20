@@ -13,7 +13,8 @@ import com.mtkresearch.breezeapp.engine.model.CapabilityType
  * @AIRunner(
  *     capabilities = [CapabilityType.LLM],
  *     vendor = VendorType.MEDIATEK,
- *     priority = RunnerPriority.HIGH
+ *     priority = RunnerPriority.HIGH,
+ *     defaultModel = "Breeze2-3B-8W16A-250630-npu"
  * )
  * class MediaTekLLMRunner : BaseRunner {
  *     // Runner implementation
@@ -90,5 +91,16 @@ annotation class AIRunner(
      * 
      * Default: 1
      */
-    val apiLevel: Int = 1
+    val apiLevel: Int = 1,
+    
+    /**
+     * Default model ID for this runner.
+     * 
+     * Specifies the default model that should be loaded when no model
+     * is explicitly specified in request or settings. This ensures
+     * runners have a valid model to load during initial setup.
+     * 
+     * Default: "" (no default model specified)
+     */
+    val defaultModel: String = ""
 )

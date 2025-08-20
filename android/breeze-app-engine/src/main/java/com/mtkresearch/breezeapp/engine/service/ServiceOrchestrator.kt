@@ -10,6 +10,7 @@ import com.mtkresearch.breezeapp.engine.system.NotificationManager
 import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
 import com.mtkresearch.breezeapp.engine.system.PermissionManager
 import com.mtkresearch.breezeapp.engine.model.ServiceState
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Service Orchestrator - Simplified Service Lifecycle Management (Clean Architecture)
@@ -49,6 +50,9 @@ class ServiceOrchestrator(private val context: Context) {
     // Clean Architecture Components (Simplified)
     private lateinit var clientManager: ClientManager
     private lateinit var engineServiceBinder: EngineServiceBinder
+    
+    // Request lifecycle tracking for breathing border
+    private val activeRequests = ConcurrentHashMap<String, Boolean>()
     
     // Service type tracking
     private var currentServiceType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
@@ -185,9 +189,6 @@ class ServiceOrchestrator(private val context: Context) {
         // Initialize complete global library system
         SherpaLibraryManager.initializeCompleteSystem(context)
         
-        // Initialize configurator
-        configurator = BreezeAppEngineConfigurator(context)
-        
         // Initialize notification manager
         notificationManager = NotificationManager(context)
         notificationManager.createNotificationChannel()
@@ -205,11 +206,14 @@ class ServiceOrchestrator(private val context: Context) {
             notificationManager = notificationManager
         )
         
-        // Initialize status manager
+        // Initialize status manager (BEFORE configurator so it can be passed to AIEngineManager)
         statusManager = BreezeAppEngineStatusManager(
             service = null, // Will be set by service
             visualStateManager = visualStateManager
         )
+        
+        // Initialize configurator (AI processing core)
+        configurator = BreezeAppEngineConfigurator(context)
         
         Log.d(TAG, "Infrastructure components initialized")
     }
@@ -224,10 +228,11 @@ class ServiceOrchestrator(private val context: Context) {
         // Initialize client manager (handles client connections only)
         clientManager = ClientManager()
         
-        // Initialize service binder (AIDL interface + direct AIEngineManager integration)
+        // Initialize service binder (AIDL interface + direct AIEngineManager integration + request tracking)
         engineServiceBinder = EngineServiceBinder(
             clientManager = clientManager,
-            aiEngineManager = configurator.engineManager
+            aiEngineManager = configurator.engineManager,
+            serviceOrchestrator = this
         )
         
         Log.d(TAG, "Simplified clean architecture components initialized")
@@ -280,5 +285,70 @@ class ServiceOrchestrator(private val context: Context) {
             0
         }
     }
+    
+    // ========================================================================
+    // REQUEST LIFECYCLE MANAGEMENT FOR BREATHING BORDER
+    // ========================================================================
+    
+    /**
+     * Start tracking a request and update breathing border status.
+     * Called by EngineServiceBinder when requests begin.
+     */
+    fun startRequestTracking(requestId: String, requestType: String) {
+        try {
+            val wasAlreadyTracked = activeRequests.containsKey(requestId)
+            activeRequests[requestId] = true
+            val activeCount = activeRequests.size
+            
+            Log.i(TAG, "🚀 Request started: $requestId ($requestType) - Active: $activeCount (wasAlreadyTracked: $wasAlreadyTracked)")
+            
+            if (wasAlreadyTracked) {
+                Log.w(TAG, "⚠️ Request $requestId was already being tracked! Potential duplicate start.")
+                Log.w(TAG, "Current active requests: ${activeRequests.keys.toList()}")
+            }
+            
+            // Update status to Processing to show breathing border
+            statusManager.setProcessing(activeCount)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting request tracking for $requestId", e)
+        }
+    }
+    
+    /**
+     * End tracking a request and update breathing border status.
+     * Called by EngineServiceBinder when requests complete.
+     */
+    fun endRequestTracking(requestId: String, requestType: String) {
+        try {
+            val wasTracked = activeRequests.containsKey(requestId)
+            val removedValue = activeRequests.remove(requestId)
+            val activeCount = activeRequests.size
+            
+            Log.i(TAG, "🏁 Request ended: $requestId ($requestType) - Active: $activeCount (wasTracked: $wasTracked)")
+            
+            if (!wasTracked) {
+                Log.w(TAG, "⚠️ Request $requestId was not being tracked! Potential tracking mismatch.")
+                Log.w(TAG, "Current active requests: ${activeRequests.keys.toList()}")
+            }
+            
+            // Update status based on remaining active requests
+            if (activeCount > 0) {
+                Log.d(TAG, "Still have $activeCount active requests, keeping Processing state")
+                statusManager.setProcessing(activeCount)
+            } else {
+                Log.d(TAG, "No more active requests, setting Ready state")
+                statusManager.setReady()
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error ending request tracking for $requestId", e)
+        }
+    }
+    
+    /**
+     * Get count of active requests for debugging
+     */
+    fun getActiveRequestCount(): Int = activeRequests.size
     
 }

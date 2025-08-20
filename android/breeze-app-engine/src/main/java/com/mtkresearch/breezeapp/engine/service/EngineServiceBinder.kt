@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.catch
  * - Request/Response conversion (Adapter Pattern)
  * - Input validation and error handling
  * - Coroutine management for async operations
+ * - Request lifecycle tracking for breathing border
  * 
  * ## Clean Architecture Benefits
  * - Interface Adapter: Converts external AIDL to internal domain models
@@ -36,7 +37,8 @@ import kotlinx.coroutines.flow.catch
  */
 class EngineServiceBinder(
     private val clientManager: ClientManager,
-    private val aiEngineManager: AIEngineManager
+    private val aiEngineManager: AIEngineManager,
+    private val serviceOrchestrator: ServiceOrchestrator
 ) {
     companion object {
         private const val TAG = "EngineServiceBinder"
@@ -227,29 +229,44 @@ class EngineServiceBinder(
     private suspend fun processChatRequestInternal(requestId: String, request: ChatRequest) {
         Log.d(TAG, "Processing chat request internally: $requestId (streaming: ${request.stream})")
         
-        // Convert external request to internal domain model (Adapter Pattern)
-        val inferenceRequest = convertChatRequestToDomain(request, requestId)
+        // Start request tracking for breathing border
+        serviceOrchestrator.startRequestTracking(requestId, "Chat")
         
-        // Determine processing type based on stream parameter
-        val isStreaming = request.stream ?: false
-        
-        if (isStreaming) {
-            // Handle streaming chat request
-            aiEngineManager.processStream(inferenceRequest, CapabilityType.LLM)
-                .catch { error ->
-                    Log.e(TAG, "Chat stream processing error", error)
-                    clientManager.notifyError(requestId, "Chat streaming failed: ${error.message}")
-                }
-                .collect { result ->
-                    // Convert internal result to external response (Adapter Pattern)
-                    val aiResponse = convertInferenceResultToAIResponse(result, requestId, "chat")
-                    clientManager.notifyChatResponse(aiResponse)
-                }
-        } else {
-            // Handle non-streaming chat request
-            val result = aiEngineManager.process(inferenceRequest, CapabilityType.LLM)
-            val aiResponse = convertInferenceResultToAIResponse(result, requestId, "chat")
-            clientManager.notifyChatResponse(aiResponse)
+        try {
+            // Convert external request to internal domain model (Adapter Pattern)
+            val inferenceRequest = convertChatRequestToDomain(request, requestId)
+            
+            // Detect capability (LLM vs VLM) for proper routing
+            val capability = detectVLMCapability(request)
+            
+            // Determine processing type based on stream parameter
+            val isStreaming = request.stream ?: false
+            
+            if (isStreaming) {
+                // Handle streaming chat request with detected capability
+                aiEngineManager.processStream(inferenceRequest, capability)
+                    .catch { error ->
+                        Log.e(TAG, "Chat stream processing error", error)
+                        clientManager.notifyError(requestId, "Chat streaming failed: ${error.message}")
+                    }
+                    .collect { result ->
+                        // Convert internal result to external response (Adapter Pattern)
+                        val aiResponse = convertInferenceResultToAIResponse(result, requestId, "chat")
+                        clientManager.notifyChatResponse(aiResponse)
+                    }
+            } else {
+                // Handle non-streaming chat request with detected capability
+                Log.d(TAG, "💬 Processing non-streaming chat request: $requestId with capability: $capability")
+                val result = aiEngineManager.process(inferenceRequest, capability)
+                Log.d(TAG, "💬 Chat result received - requestId: $requestId, outputs: ${result.outputs.keys}, error: ${result.error}")
+                val aiResponse = convertInferenceResultToAIResponse(result, requestId, "chat")
+                Log.d(TAG, "💬 Chat response converted - text.length: ${aiResponse.text.length}, error: ${aiResponse.error}")
+                clientManager.notifyChatResponse(aiResponse)
+                Log.d(TAG, "💬 Chat response sent to clients")
+            }
+        } finally {
+            // End request tracking for breathing border
+            serviceOrchestrator.endRequestTracking(requestId, "Chat")
         }
     }
     
@@ -259,19 +276,30 @@ class EngineServiceBinder(
     private suspend fun processTTSRequestInternal(requestId: String, request: TTSRequest) {
         Log.d(TAG, "Processing TTS request internally: $requestId")
         
-        // Convert external request to internal domain model
-        val inferenceRequest = convertTTSRequestToDomain(request, requestId)
+        // Start request tracking for breathing border
+        serviceOrchestrator.startRequestTracking(requestId, "TTS")
         
-        // TTS is typically streaming for audio output
-        aiEngineManager.processStream(inferenceRequest, CapabilityType.TTS)
-            .catch { error ->
-                Log.e(TAG, "TTS processing error", error)
-                clientManager.notifyError(requestId, "TTS processing failed: ${error.message}")
-            }
-            .collect { result ->
-                val aiResponse = convertInferenceResultToAIResponse(result, requestId, "tts")
-                clientManager.notifyTTSResponse(aiResponse)
-            }
+        try {
+            // Convert external request to internal domain model
+            val inferenceRequest = convertTTSRequestToDomain(request, requestId)
+            
+            // TTS is typically streaming for audio output
+            aiEngineManager.processStream(inferenceRequest, CapabilityType.TTS)
+                .catch { error ->
+                    Log.e(TAG, "TTS processing error", error)
+                    clientManager.notifyError(requestId, "TTS processing failed: ${error.message}")
+                }
+                .collect { result ->
+                    Log.d(TAG, "🎵 TTS result received - requestId: $requestId, partial: ${result.partial}, outputs: ${result.outputs.keys}")
+                    val aiResponse = convertInferenceResultToAIResponse(result, requestId, "tts")
+                    Log.d(TAG, "🎵 TTS response converted - audioData: ${aiResponse.audioData?.size} bytes, error: ${aiResponse.error}")
+                    clientManager.notifyTTSResponse(aiResponse)
+                    Log.d(TAG, "🎵 TTS response sent to clients")
+                }
+        } finally {
+            // End request tracking for breathing border
+            serviceOrchestrator.endRequestTracking(requestId, "TTS")
+        }
     }
     
     /**
@@ -280,31 +308,156 @@ class EngineServiceBinder(
     private suspend fun processASRRequestInternal(requestId: String, request: ASRRequest) {
         Log.d(TAG, "Processing ASR request internally: $requestId")
         
-        // Convert external request to internal domain model
-        val inferenceRequest = convertASRRequestToDomain(request, requestId)
+        // Start request tracking for breathing border
+        serviceOrchestrator.startRequestTracking(requestId, "ASR")
         
-        // Determine if this is microphone mode (streaming) or file mode
-        val isMicrophoneMode = detectMicrophoneMode(request)
-        
-        if (isMicrophoneMode) {
-            // Handle streaming ASR (microphone input)
-            aiEngineManager.processStream(inferenceRequest, CapabilityType.ASR)
-                .catch { error ->
-                    Log.e(TAG, "ASR stream processing error", error)
-                    clientManager.notifyError(requestId, "ASR streaming failed: ${error.message}")
-                }
-                .collect { result ->
-                    val aiResponse = convertInferenceResultToAIResponse(result, requestId, "asr")
-                    clientManager.notifyASRResponse(aiResponse)
-                }
-        } else {
-            // Handle non-streaming ASR (file input)
-            val result = aiEngineManager.process(inferenceRequest, CapabilityType.ASR)
-            val aiResponse = convertInferenceResultToAIResponse(result, requestId, "asr")
-            clientManager.notifyASRResponse(aiResponse)
+        try {
+            // Convert external request to internal domain model
+            val inferenceRequest = convertASRRequestToDomain(request, requestId)
+            
+            // Determine if this is microphone mode (streaming) or file mode
+            val isMicrophoneMode = detectMicrophoneMode(request)
+            
+            if (isMicrophoneMode) {
+                // Handle streaming ASR (microphone input)
+                aiEngineManager.processStream(inferenceRequest, CapabilityType.ASR)
+                    .catch { error ->
+                        Log.e(TAG, "ASR stream processing error", error)
+                        clientManager.notifyError(requestId, "ASR streaming failed: ${error.message}")
+                    }
+                    .collect { result ->
+                        Log.d(TAG, "🎤 ASR result received - requestId: $requestId, partial: ${result.partial}, outputs: ${result.outputs.keys}")
+                        val aiResponse = convertInferenceResultToAIResponse(result, requestId, "asr")
+                        Log.d(TAG, "🎤 ASR response converted - text: '${aiResponse.text}', error: ${aiResponse.error}")
+                        clientManager.notifyASRResponse(aiResponse)
+                        Log.d(TAG, "🎤 ASR response sent to clients")
+                    }
+            } else {
+                // Handle non-streaming ASR (file input)
+                Log.d(TAG, "🎤 Processing non-streaming ASR request: $requestId")
+                val result = aiEngineManager.process(inferenceRequest, CapabilityType.ASR)
+                Log.d(TAG, "🎤 ASR result received - requestId: $requestId, outputs: ${result.outputs.keys}, error: ${result.error}")
+                val aiResponse = convertInferenceResultToAIResponse(result, requestId, "asr")
+                Log.d(TAG, "🎤 ASR response converted - text: '${aiResponse.text}', error: ${aiResponse.error}")
+                clientManager.notifyASRResponse(aiResponse)
+                Log.d(TAG, "🎤 ASR response sent to clients")
+            }
+        } finally {
+            // End request tracking for breathing border
+            serviceOrchestrator.endRequestTracking(requestId, "ASR")
         }
     }
     
+    // ========================================================================
+    // CENTRAL PARAMETER MERGING UTILITY (Clean Architecture - Single Responsibility)
+    // ========================================================================
+    
+    /**
+     * Complete Parameter Hierarchy: Build parameters with proper 3-layer precedence.
+     * This ensures all runners get complete parameter sets with proper defaults.
+     * 
+     * Parameter Hierarchy (lowest to highest precedence):
+     * 1. Runner ParameterSchema Defaults (e.g., temperature=0.8 for ExecutorchLLMRunner)
+     * 2. Engine Runtime Settings (from EngineSettingsActivity/SharedPreferences)
+     * 3. Selective Client Overrides (limited set only)
+     * 
+     * @param clientOverrides Client parameters that can override engine settings (limited set)
+     * @param capability The AI capability (LLM, VLM, TTS, ASR)
+     * @param requestId Request ID for logging
+     * @return Complete parameter map with proper hierarchy applied
+     */
+    private fun buildEngineFirstParameters(
+        clientOverrides: Map<String, Any>,
+        capability: CapabilityType,
+        requestId: String
+    ): Map<String, Any> {
+        return try {
+            val engineSettings = aiEngineManager.getCurrentEngineSettings()
+            
+            // Get the currently selected runner for this capability
+            val selectedRunner = engineSettings.selectedRunners[capability]
+            if (selectedRunner != null) {
+                // LAYER 1: Start with runner's ParameterSchema defaults
+                val runnerDefaults = aiEngineManager.getRunnerParameterDefaults(selectedRunner)
+                val finalParams = runnerDefaults.toMutableMap()
+                
+                // LAYER 2: Apply engine runtime settings (overrides defaults)
+                val engineParams = engineSettings.getRunnerParameters(selectedRunner)
+                var engineOverrides = 0
+                engineParams.forEach { (paramName, paramValue) ->
+                    finalParams[paramName] = paramValue
+                    engineOverrides++
+                }
+                
+                // LAYER 3: Apply selective client overrides (overrides everything)
+                val allowedOverrides = setOf(
+                    "stream",  // Streaming mode is a client choice
+                    "response_format",  // Response format for TTS/ASR
+                    "microphone_mode"   // ASR microphone mode
+                )
+                
+                var clientOverrideCount = 0
+                clientOverrides.forEach { (paramName, paramValue) ->
+                    if (allowedOverrides.contains(paramName)) {
+                        finalParams[paramName] = paramValue
+                        clientOverrideCount++
+                        Log.d(TAG, "💬 [$capability] Client override allowed: $paramName = $paramValue")
+                    } else {
+                        Log.d(TAG, "💬 [$capability] Client override ignored: $paramName = $paramValue (using engine/default value)")
+                    }
+                }
+                
+                Log.d(TAG, "💬 [$capability] Complete parameter hierarchy for runner: $selectedRunner")
+                Log.d(TAG, "💬 [$capability] - Runner defaults: ${runnerDefaults.size} parameters")
+                Log.d(TAG, "💬 [$capability] - Engine overrides: $engineOverrides parameters")
+                Log.d(TAG, "💬 [$capability] - Client overrides: $clientOverrideCount parameters")
+                Log.d(TAG, "💬 [$capability] Final parameters for $requestId: $finalParams")
+                
+                return finalParams.toMap()
+            } else {
+                Log.w(TAG, "💬 [$capability] No selected runner found - using client parameters as fallback")
+                return clientOverrides
+            }
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "💬 [$capability] Failed to build complete parameter hierarchy for $requestId", e)
+            return clientOverrides
+        }
+    }
+    
+    /**
+     * Detect if a ChatRequest should be routed to VLM based on model name or explicit indicators.
+     * This supports VLM requests via ChatRequest for unified API.
+     */
+    private fun detectVLMCapability(request: ChatRequest): CapabilityType {
+        val model = request.model?.lowercase() ?: ""
+        
+        return when {
+            // VLM model patterns
+            model.contains("vlm") || 
+            model.contains("vision") || 
+            model.contains("llava") ||
+            model.contains("multimodal") -> {
+                Log.d(TAG, "💬 Detected VLM capability from model: ${request.model}")
+                CapabilityType.VLM
+            }
+            // Check if request contains image/visual content
+            request.messages?.any { message ->
+                // Look for image content in messages (OpenAI format)
+                message.content?.contains("image") == true ||
+                message.content?.contains("vision") == true
+            } == true -> {
+                Log.d(TAG, "💬 Detected VLM capability from message content")
+                CapabilityType.VLM
+            }
+            // Default to LLM
+            else -> {
+                Log.d(TAG, "💬 Using LLM capability for model: ${request.model}")
+                CapabilityType.LLM
+            }
+        }
+    }
+
     // ========================================================================
     // REQUEST CONVERSION METHODS (Clean Architecture - Adapter Pattern)
     // ========================================================================
@@ -314,19 +467,25 @@ class EngineServiceBinder(
      * Following Clean Architecture principles: External -> Internal conversion.
      */
     private fun convertChatRequestToDomain(request: ChatRequest, requestId: String): InferenceRequest {
+        // DEBUG: Log what we received from client
+        Log.d(TAG, "💬 ChatRequest from client - model: '${request.model}', temperature: ${request.temperature}, stream: ${request.stream}")
+        
         // Extract the last message as the main input text
         val inputText = request.messages?.lastOrNull()?.content ?: ""
         
-        // Build parameters map with proper defaults
-        val params = mutableMapOf<String, Any>(
-            InferenceRequest.PARAM_TEMPERATURE to (request.temperature ?: 1.0f),
-            "stream" to (request.stream ?: false)
-        )
+        // Detect actual capability (LLM vs VLM) based on model and content
+        val detectedCapability = detectVLMCapability(request)
         
-        // Only add model parameter if provided - let engine decide default
-        request.model?.let { params[InferenceRequest.PARAM_MODEL] = it }
-        request.maxCompletionTokens?.let { params[InferenceRequest.PARAM_MAX_TOKENS] = it }
-        request.topP?.let { params["top_p"] = it }
+        // Build client overrides (ONLY allowed parameters)
+        val clientOverrides = mutableMapOf<String, Any>()
+        
+        // Only allow streaming mode as client override
+        request.stream?.let { clientOverrides["stream"] = it }
+        
+        Log.d(TAG, "💬 Client overrides: $clientOverrides")
+        
+        // Use engine-first parameter strategy
+        val finalParams = buildEngineFirstParameters(clientOverrides, detectedCapability, requestId)
         
         // Include all messages for context (not just last one)
         val inputs = mutableMapOf<String, Any>(
@@ -341,7 +500,7 @@ class EngineServiceBinder(
         return InferenceRequest(
             sessionId = requestId,
             inputs = inputs,
-            params = params
+            params = finalParams
         )
     }
     
@@ -349,16 +508,27 @@ class EngineServiceBinder(
      * Convert external TTSRequest to internal InferenceRequest.
      */
     private fun convertTTSRequestToDomain(request: TTSRequest, requestId: String): InferenceRequest {
+        // DEBUG: Log what we received from client
+        Log.d(TAG, "🎵 TTSRequest from client - voice: '${request.voice}', speed: ${request.speed}, responseFormat: '${request.responseFormat}'")
+        
+        // Build parameters map with client-provided values
+        val clientOverrides = mutableMapOf<String, Any>(
+            "voice" to (request.voice ?: "default"),
+            "speed" to (request.speed ?: 1.0f),
+            "response_format" to (request.responseFormat ?: "pcm")
+        )
+        
+        Log.d(TAG, "🎵 TTS Client overrides: $clientOverrides")
+        
+        // Use engine-first parameter strategy  
+        val finalParams = buildEngineFirstParameters(clientOverrides, CapabilityType.TTS, requestId)
+        
         return InferenceRequest(
             sessionId = requestId,
             inputs = mapOf(
                 InferenceRequest.INPUT_TEXT to (request.input ?: "")
             ),
-            params = mapOf(
-                "voice" to (request.voice ?: "default"),
-                "speed" to (request.speed ?: 1.0f),
-                "response_format" to (request.responseFormat ?: "pcm")
-            )
+            params = finalParams
         )
     }
     
@@ -368,6 +538,17 @@ class EngineServiceBinder(
     private fun convertASRRequestToDomain(request: ASRRequest, requestId: String): InferenceRequest {
         val isMicrophoneMode = detectMicrophoneMode(request)
         
+        // DEBUG: Log what we received from client
+        Log.d(TAG, "🎤 ASRRequest from client - language: '${request.language}', responseFormat: '${request.responseFormat}', stream: ${request.stream}, fileSize: ${request.file?.size ?: 0}")
+        Log.d(TAG, "🎤 Detected microphone mode: $isMicrophoneMode")
+        
+        // Helper function to create mutable params map with engine settings merged
+        fun createMutableParams(baseParams: Map<String, Any>): Map<String, Any> {
+            Log.d(TAG, "🎤 ASR Client overrides: $baseParams")
+            // Use engine-first parameter strategy
+            return buildEngineFirstParameters(baseParams, CapabilityType.ASR, requestId)
+        }
+        
         return if (isMicrophoneMode) {
             // Microphone mode: streaming ASR
             InferenceRequest(
@@ -375,13 +556,13 @@ class EngineServiceBinder(
                 inputs = mapOf(
                     InferenceRequest.INPUT_TEXT to "microphone_input"
                 ),
-                params = mapOf(
+                params = createMutableParams(mapOf(
                     "language" to (request.language ?: "auto"),
                     "stream" to true,
                     "microphone_mode" to true,
                     "sample_rate" to 16000,
                     "format" to "pcm16"
-                )
+                ))
             )
         } else {
             // File mode: non-streaming ASR
@@ -390,11 +571,11 @@ class EngineServiceBinder(
                 inputs = mapOf(
                     InferenceRequest.INPUT_AUDIO to (request.file ?: ByteArray(0))
                 ),
-                params = mapOf(
+                params = createMutableParams(mapOf(
                     "language" to (request.language ?: "auto"),
                     "stream" to false,
                     "input_format" to (request.responseFormat ?: "wav")
-                )
+                ))
             )
         }
     }

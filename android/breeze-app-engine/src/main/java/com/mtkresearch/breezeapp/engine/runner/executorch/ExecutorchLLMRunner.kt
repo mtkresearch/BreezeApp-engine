@@ -25,7 +25,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 @AIRunner(
     vendor = VendorType.EXECUTORCH,
     priority = RunnerPriority.HIGH,
-    capabilities = [CapabilityType.LLM]
+    capabilities = [CapabilityType.LLM],
+    defaultModel = "Llama3_2-3b-4096-spin-250605-cpu"
 )
 class ExecutorchLLMRunner(
     private val context: Context?,
@@ -53,25 +54,13 @@ class ExecutorchLLMRunner(
             modelType = ExecutorchModelType.fromString(modelId)
             stopToken = ExecutorchPromptFormatter.getStopToken(modelType)
 
-            // Get model definition from registry or use default paths
-            val modelDef = modelRegistry?.getModelDefinition(modelId)
-            val modelPath = if (modelDef != null) {
-                val modelFile = modelDef.getFileByType("model")
-                    ?: throw IllegalArgumentException("Model file not found for $modelId")
-                "${context?.filesDir?.absolutePath}/models/$modelId/${modelFile.getEffectiveFileName()}"
-            } else {
-                // Fallback for backward compatibility
-                getDefaultModelPath(modelId)
-            }
-            
-            val tokenizerPath = if (modelDef != null) {
-                val tokenizerFile = modelDef.getFileByType("tokenizer")
-                    ?: throw IllegalArgumentException("Tokenizer file not found for $modelId")
-                "${context?.filesDir?.absolutePath}/models/$modelId/${tokenizerFile.getEffectiveFileName()}"
-            } else {
-                // Fallback for backward compatibility
-                getDefaultTokenizerPath(modelId)
-            }
+            val modelPath: String
+            val tokenizerPath: String
+        
+            val paths = ExecutorchUtils.resolveModelPaths(context!!, modelId)
+                    ?: throw IllegalArgumentException("Could not resolve paths for model: $modelId")
+                modelPath = paths.modelPath
+                tokenizerPath = paths.tokenizerPath
 
             // Get temperature from settings
             val runnerParams = settings.getRunnerParameters("ExecutorchLLMRunner")
@@ -96,20 +85,7 @@ class ExecutorchLLMRunner(
         }
     }
     
-    // Helper methods for backward compatibility
-    private fun getDefaultModelPath(modelId: String): String {
-        val baseDir = context?.filesDir?.absolutePath ?: ""
-        return when (modelId) {
-            "Llama3_2-3b-4096-250606-cpu" -> "$baseDir/models/$modelId/llama3_2-4096.pte"
-            "Llama3_2-3b-4096-spin-250605-cpu" -> "$baseDir/models/$modelId/llama3_2-4096-spin.pte"
-            else -> "$baseDir/models/$modelId/model.pte"
-        }
-    }
-    
-    private fun getDefaultTokenizerPath(modelId: String): String {
-        val baseDir = context?.filesDir?.absolutePath ?: ""
-        return "$baseDir/models/$modelId/tokenizer.bin"
-    }
+    // No longer needed - using ExecutorchUtils instead
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         throw UnsupportedOperationException("Non-streaming run is not supported for LLM models. Use runAsFlow instead.")

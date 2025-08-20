@@ -189,4 +189,13 @@ class ModelRegistryService(
             else -> emptyList()
         }
     }
+    
+    /**
+     * Check if a runner is cloud-based by its ID
+     */
+    private fun isCloudRunner(runnerId: String): Boolean {
+        // Simple heuristic: check for "cloud" in the runner ID
+        // This can be expanded with a more robust mechanism if needed
+        return runnerId.contains("cloud", ignoreCase = true)
+    }
 }

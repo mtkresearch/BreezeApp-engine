@@ -15,6 +15,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.transform
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -72,7 +74,7 @@ class AIEngineManager(
 
     // 執行緒安全的 Runner 儲存
     private val activeRunners = ConcurrentHashMap<String, BaseRunner>()
-
+    
     // 讀寫鎖保護配置變更
     private val configLock = ReentrantReadWriteLock()
 
@@ -279,12 +281,46 @@ class AIEngineManager(
         if (!runner.isLoaded()) {
             logger.d(TAG, "Runner ${runner.getRunnerInfo().name} not loaded, attempting to load...")
 
-            // Determine which model to load. Priority: request -> settings default.
+            // Determine which model to load. Priority: valid request param -> settings default -> runner default.
             val settings = runnerManager.getCurrentSettings()
             val runnerName = runner.getRunnerInfo().name
-            val modelId = request.params["model"] as? String
-                ?: settings.getRunnerParameters(runnerName)["model_id"] as? String
-                ?: ""
+            val requestModel = request.params[InferenceRequest.PARAM_MODEL] as? String
+
+            // A model from the request is only used if it's a valid, known model ID.
+            val isRequestModelValid = if (!requestModel.isNullOrBlank()) {
+                modelRegistryService.getModelDefinition(requestModel) != null
+            } else {
+                false
+            }
+
+            val modelId = if (isRequestModelValid) {
+                // Use the valid model from the request as an override.
+                logger.d(TAG, "Using valid model override from request: '$requestModel'")
+                requestModel!!
+            } else {
+                // If the request model was invalid or not provided, use settings or the runner's default.
+                if (!requestModel.isNullOrBlank()) {
+                    logger.w(TAG, "Model '$requestModel' from request is not a valid model ID. Falling back to settings/default.")
+                }
+                val resolvedModel = settings.getRunnerParameters(runnerName)["model_id"] as? String
+                    ?: getDefaultModelForRunner(runnerName)
+                
+                // Update request params to reflect the resolved model for consistent logging
+                (request.params as? MutableMap<String, Any>)?.let { mutableParams ->
+                    if (resolvedModel.isNotEmpty()) {
+                        mutableParams[InferenceRequest.PARAM_MODEL] = resolvedModel
+                        logger.d(TAG, "Updated request params with resolved model: '$resolvedModel' (was: '$requestModel')")
+                    } else {
+                        // Remove invalid model parameter to avoid confusion in logs
+                        mutableParams.remove(InferenceRequest.PARAM_MODEL)
+                        logger.w(TAG, "No valid model found, removed model parameter from request (was: '$requestModel')")
+                    }
+                } ?: run {
+                    logger.e(TAG, "Cannot update request params - params is not mutable: ${request.params::class.java}")
+                }
+                
+                resolvedModel
+            }
 
             // Get model info for RAM calculation
             val modelInfo = if (modelId.isNotEmpty()) {
@@ -368,4 +404,109 @@ class AIEngineManager(
         }
     }
 
+    /**
+     * Get the default model ID for a given runner.
+     * This method uses a robust selection strategy based on model registry data.
+     *
+     * @param runnerName The name of the runner
+     * @return The default model ID for the runner, or empty string if none found
+     */
+    private fun getDefaultModelForRunner(runnerName: String): String {
+        return try {
+            // 1. Try to get the runner instance to access its annotation
+            val runner = runnerManager.getAllRunners().find { it.getRunnerInfo().name == runnerName }
+            if (runner != null) {
+                // Get the AIRunner annotation from the runner's class
+                val annotation = runner.javaClass.getAnnotation(com.mtkresearch.breezeapp.engine.annotation.AIRunner::class.java)
+                if (annotation != null && annotation.defaultModel.isNotEmpty()) {
+                    // Verify the annotated default model exists in registry
+                    val annotatedModel = modelRegistryService.getModelDefinition(annotation.defaultModel)
+                    if (annotatedModel != null) {
+                        logger.d(TAG, "Using annotated default model ${annotation.defaultModel} for runner $runnerName")
+                        return annotation.defaultModel
+                    } else {
+                        logger.w(TAG, "Annotated default model ${annotation.defaultModel} not found in registry for runner $runnerName")
+                    }
+                }
+            }
+
+            // 2. Get compatible models from registry
+            val compatibleModels = modelRegistryService.getCompatibleModels(runnerName)
+            if (compatibleModels.isEmpty()) {
+                logger.w(TAG, "No compatible models found for runner $runnerName")
+                return ""
+            }
+
+            // 3. Select the most appropriate model based on criteria:
+            // - First, look for models with "default" or "base" in their name
+            val defaultModel = compatibleModels.find { model ->
+                model.id.contains("default", ignoreCase = true) || 
+                model.id.contains("base", ignoreCase = true) ||
+                model.id.contains("spin", ignoreCase = true) // Prefer spin quantized models for lower RAM
+            }
+            
+            if (defaultModel != null) {
+                logger.d(TAG, "Using named default model ${defaultModel.id} for runner $runnerName")
+                return defaultModel.id
+            }
+
+            // 4. If no explicit default, choose based on RAM requirements:
+            // For local runners, prefer models with lower RAM requirements
+            // For cloud runners, any model is fine
+            val isCloudRunner = runnerName.contains("openrouter", ignoreCase = true) ||
+                               runnerName.contains("cloud", ignoreCase = true)
+            
+            val selectedModel = if (isCloudRunner) {
+                // For cloud runners, use the first available model
+                compatibleModels.firstOrNull()
+            } else {
+                // For local runners, prefer models with lower RAM requirements
+                compatibleModels.minByOrNull { it.ramGB }
+            }
+            
+            if (selectedModel != null) {
+                logger.d(TAG, "Using ${if (isCloudRunner) "first" else "lightest"} model ${selectedModel.id} (${selectedModel.ramGB}GB) as default for runner $runnerName")
+                return selectedModel.id
+            }
+
+            // 5. Fallback to empty string
+            logger.w(TAG, "Could not determine default model for runner $runnerName")
+            ""
+        } catch (e: Exception) {
+            logger.e(TAG, "Error getting default model for runner $runnerName", e)
+            ""
+        }
+    }
+
+    /**
+     * Get current engine settings for parameter merging.
+     * Used by EngineServiceBinder to merge runtime settings into requests.
+     */
+    fun getCurrentEngineSettings() = runnerManager.getCurrentSettings()
+
+    /**
+     * Get parameter schema defaults for a specific runner.
+     * Used to ensure all runner parameters have proper default values.
+     */
+    fun getRunnerParameterDefaults(runnerName: String): Map<String, Any> {
+        return try {
+            val runner = runnerManager.getAllRunners().find { it.getRunnerInfo().name == runnerName }
+            if (runner != null) {
+                val defaults = mutableMapOf<String, Any>()
+                runner.getParameterSchema().forEach { schema ->
+                    schema.defaultValue?.let { defaultValue ->
+                        defaults[schema.name] = defaultValue
+                    }
+                }
+                logger.d(TAG, "Retrieved ${defaults.size} parameter defaults for runner: $runnerName")
+                defaults
+            } else {
+                logger.w(TAG, "Runner not found for parameter defaults: $runnerName")
+                emptyMap()
+            }
+        } catch (e: Exception) {
+            logger.e(TAG, "Error getting parameter defaults for runner: $runnerName", e)
+            emptyMap()
+        }
+    }
 }

@@ -36,6 +36,8 @@ mkdir -p android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engin
 
 Create a new runner class implementing the required interfaces:
 
+> ⚠️ **CRITICAL REQUIREMENT**: Your `load()` method MUST call `isLoaded.set(true)` after successful model initialization. Failing to do this will result in "Model not loaded" errors even when the model is properly loaded. This is a common mistake that causes runtime failures!
+
 ```kotlin
 // Example: OpenAILLMRunner.kt
 package com.mtkresearch.breezeapp.engine.data.runner.openai
@@ -69,10 +71,16 @@ class OpenAILLMRunner(
             val runnerParams = settings.getRunnerParameters("OpenAILLMRunner")
             val apiKey = runnerParams["api_key"] as? String ?: ""
             // Use modelId to determine which model to load
+            
+            // ⚠️ CRITICAL: Set isLoaded flag to true after successful initialization
+            // This MUST be called or your runner will always fail with "Model not loaded" errors
             isLoaded.set(true)
+            Log.d(TAG, "Model loaded successfully - isLoaded flag set to true")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load OpenAI LLM Runner", e)
+            // ⚠️ CRITICAL: Set isLoaded to false on failure to ensure clean state
+            isLoaded.set(false)
             false
         }
     }
@@ -452,7 +460,22 @@ import kotlinx.coroutines.flow.toList
 
 class [Vendor][Capability]Runner : BaseRunner, FlowStreamingRunner {
     
-    override fun load(modelId: String, settings: EngineSettings): Boolean = true
+    private val isLoaded = AtomicBoolean(false)
+    
+    override fun load(modelId: String, settings: EngineSettings): Boolean {
+        return try {
+            // TODO: Initialize your model/API client here
+            
+            // ⚠️ CRITICAL: Set isLoaded flag to true after successful initialization
+            // This MUST be called or your runner will always fail with "Model not loaded" errors
+            isLoaded.set(true) 
+            true
+        } catch (e: Exception) {
+            // ⚠️ CRITICAL: Set isLoaded to false on failure to ensure clean state
+            isLoaded.set(false)
+            false
+        }
+    }
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         // For runners implementing FlowStreamingRunner, 
@@ -542,6 +565,7 @@ Before submitting your new runner:
 
 - [ ] **Folder Structure**: Created vendor-specific folder
 - [ ] **Runner Class**: Implements BaseRunner (and FlowStreamingRunner if needed)
+- [ ] **⚠️ CRITICAL - isLoaded Flag**: `load()` method calls `isLoaded.set(true)` on success and `isLoaded.set(false)` on failure
 - [ ] **Factory Update**: Added vendor case to RunnerFactory
 - [ ] **Configuration**: Updated runner_config.json
 - [ ] **Requirements**: Added hardware requirements if needed
@@ -975,6 +999,68 @@ return when (errorType) {
     else -> InferenceResult.error(RunnerError.runtimeError("Unknown error"))
 }
 ```
+
+---
+
+## 🐛 Common Issues and Troubleshooting
+
+### **Issue: "Model not loaded" errors despite successful model initialization**
+
+**Symptoms**: 
+- Logs show model initialization completed successfully (e.g., "Finished initializing model")
+- But inference requests fail with `RunnerError(code=E001, message=Model not loaded, recoverable=true)`
+
+**Root Cause**: 
+Race condition where the model loads successfully but the `isLoaded` flag is never set to `true`.
+
+**Solution**: 
+In your runner's `load()` method, ensure you call `isLoaded.set(true)` after successful initialization:
+
+```kotlin
+override fun load(modelId: String, settings: EngineSettings): Boolean {
+    return try {
+        // Your model initialization logic here
+        initModel()
+        Log.i(TAG, "Finished initializing model")
+        
+        // ⚠️ CRITICAL FIX: Set isLoaded flag to true after successful initialization
+        isLoaded.set(true)
+        Log.i(TAG, "Model loaded successfully - isLoaded flag set to true")
+        true
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to initialize runner", e)
+        isLoaded.set(false) // Ensure flag is false on failure
+        false
+    }
+}
+```
+
+This is the most common cause of runner failures and affects all AI capabilities (LLM, TTS, ASR).
+
+### **Issue: Resources not properly cleaned up**
+
+**Solution**: Always implement proper cleanup in `unload()`:
+
+```kotlin
+override fun unload() {
+    try {
+        Log.d(TAG, "Unloading ${getRunnerInfo().name}")
+        releaseModel() // Your cleanup logic
+        isLoaded.set(false) // Reset the flag
+        Log.d(TAG, "Unloaded successfully")
+    } catch (e: Exception) {
+        Log.e(TAG, "Exception while unloading", e)
+    }
+}
+```
+
+### **Issue: Streaming not working correctly**
+
+**Solution**: Ensure proper flow implementation and resource cleanup:
+- Use `callbackFlow` for streaming implementations
+- Mark partial results with `partial = true`
+- Mark final results with `partial = false`
+- Use `awaitClose` for resource cleanup
 
 ---
 

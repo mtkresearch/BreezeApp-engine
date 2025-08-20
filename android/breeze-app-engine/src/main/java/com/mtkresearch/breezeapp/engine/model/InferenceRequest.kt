@@ -72,5 +72,8 @@ data class InferenceRequest(
         
         /** Language code for processing (String, e.g., "en", "zh") */
         const val PARAM_LANGUAGE = "language"
+        
+        /** Model ID to use for inference (String) */
+        const val PARAM_MODEL = "model"
     }
 } 
