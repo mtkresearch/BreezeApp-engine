@@ -2,93 +2,44 @@
 
 ## 🚀 Get Started in 5 Minutes
 
-### For App Developers
-
-#### 1. Install BreezeApp Engine
-```bash
-# Install the engine APK
-adb install breeze-app-engine.apk
-```
-
-#### 2. Add to Your Project
-```kotlin
-// build.gradle (app level)
-dependencies {
-    implementation project(':breeze-app-engine')
-}
-```
-
-#### 3. Basic Chat Implementation
-```kotlin
-class MainActivity : AppCompatActivity() {
-    private var aiService: IBreezeAppEngineService? = null
-    
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        
-        // Bind to AI service
-        bindAIService()
-        
-        // Send a chat message
-        sendButton.setOnClickListener {
-            sendChatMessage(inputText.text.toString())
-        }
-    }
-    
-    private fun sendChatMessage(message: String) {
-        val request = ChatRequest().apply {
-            messages = listOf(ChatMessage().apply {
-                role = "user"
-                content = message
-            })
-            stream = true
-        }
-        
-        aiService?.sendChatRequest(UUID.randomUUID().toString(), request)
-    }
-    
-    // See API_REFERENCE.md for complete implementation
-}
-```
 
 ### For AI Engineers
 
 #### 1. Create Your Runner
+Create a class that implements `BaseRunner` and annotate it with `@AIRunner`. The engine handles the rest.
+
 ```kotlin
+import com.mtkresearch.breezeapp.engine.annotation.*
+import com.mtkresearch.breezeapp.engine.runner.core.*
+import com.mtkresearch.breezeapp.engine.model.*
+
+@AIRunner(
+    vendor = VendorType.UNKNOWN,
+    priority = RunnerPriority.NORMAL,
+    capabilities = [CapabilityType.LLM]
+)
 class MyCustomRunner : BaseRunner {
+    
     override fun load(config: ModelConfig): Boolean {
         // Load your AI model
         return true
     }
     
-    override fun run(input: InferenceRequest): InferenceResult {
+    override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         // Process the request
-        return InferenceResult.success(mapOf("text" to "Hello!"))
+        val inputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
+        return InferenceResult.textOutput(text = "Hello: $inputText")
     }
     
-    override fun getCapabilities() = listOf(CapabilityType.LLM)
-    // ... implement other methods
+    // ... implement other required methods
 }
 ```
 
-#### 2. Register Your Runner
-```json
-// assets/runner_config.json
-{
-  "runners": [
-    {
-      "name": "MyCustomRunner",
-      "class": "com.yourpackage.MyCustomRunner",
-      "capabilities": ["LLM"]
-    }
-  ]
-}
-```
+#### 2. Automatic Registration
+There's no need to manually register the runner in a JSON file. The BreezeApp Engine uses annotations (`@AIRunner`) to automatically discover and manage available runners at runtime.
 
 ## 📚 Next Steps
 
-- **App Developers**: Read [API_REFERENCE.md](./API_REFERENCE.md)
 - **AI Engineers**: Read [RUNNER_DEVELOPMENT.md](./RUNNER_DEVELOPMENT.md)
 - **Contributors**: Read [CONTRIBUTING.md](./CONTRIBUTING.md)
 - **Architecture**: Read [ARCHITECTURE.md](./ARCHITECTURE.md)

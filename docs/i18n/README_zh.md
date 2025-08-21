@@ -88,7 +88,7 @@ graph TD
 很棒！你的路徑是實作 runner。
 
 1. **從這裡開始：** 請參考 **[架構指南](./ARCHITECTURE_zh.md)**，這裡說明了路由引擎的內部架構。
-2. **開發你的第一個 Runner：** 依照 **[🧩 Runner 開發指南](./RUNNER_DEVELOPMENT_zh.md)**，一步步建立、測試並註冊新 runner。
+2. **開發你的第一個 Runner：** 依照 **[🧩 Runner 開發指南](./RUNNER_DEVELOPMENT_zh.md)**，一步步建立、測試並整合新 runner。
 
 ---
 

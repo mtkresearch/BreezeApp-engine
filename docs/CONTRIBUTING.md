@@ -3,12 +3,12 @@
 ## 🎯 Quick Start for Contributors
 
 ### For AI Engineers (Adding New Runners)
-1. **Implement BaseRunner interface**
-2. **Add to runner_config.json**
-3. **Write unit tests**
-4. **Update documentation**
+1. **Create your runner class** in the appropriate package (e.g., `com.mtkresearch.breezeapp.engine.runner.yourvendor`).
+2. **Implement the `BaseRunner` interface**.
+3. **Annotate your class with `@AIRunner`**. The engine will discover it automatically.
+4. **Write unit tests** for your runner.
 
-See [RUNNER_DEVELOPMENT.md](./RUNNER_DEVELOPMENT.md) for detailed guide.
+See the detailed [Runner Development Guide](./RUNNER_DEVELOPMENT.md).
 
 ### For App Developers (Using the Engine)
 1. **Add AIDL dependency**

@@ -3,12 +3,12 @@
 ## 🎯 貢獻者快速開始
 
 ### 給 AI 工程師（新增 Runner）
-1. **實作 BaseRunner 介面**
-2. **加入 runner_config.json**
-3. **撰寫單元測試**
-4. **更新文件**
+1. **在適當的套件中建立您的 runner 類別** (例如 `com.mtkresearch.breezeapp.engine.runner.yourvendor`)。
+2. **實作 `BaseRunner` 介面**。
+3. **使用 `@AIRunner` 標註您的類別**。引擎將會自動發現它。
+4. **為您的 runner 撰寫單元測試**。
 
-詳細指南請參考 [RUNNER_DEVELOPMENT.md](./RUNNER_DEVELOPMENT_zh.md)。
+詳細指南請參考 [Runner 開發指南](./RUNNER_DEVELOPMENT_zh.md)。
 
 ### 給 App 開發者（使用引擎）
 1. **加入 AIDL 依賴**

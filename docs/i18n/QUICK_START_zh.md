@@ -2,89 +2,40 @@
 
 ## 🚀 5 分鐘內開始使用
 
-### 給 App 開發者
-
-#### 1. 安裝 BreezeApp Engine
-```bash
-# 安裝引擎 APK
-adb install breeze-app-engine.apk
-```
-
-#### 2. 加入您的專案
-```kotlin
-// build.gradle (app level)
-dependencies {
-    implementation project(':breeze-app-engine')
-}
-```
-
-#### 3. 基本聊天實作
-```kotlin
-class MainActivity : AppCompatActivity() {
-    private var aiService: IBreezeAppEngineService? = null
-    
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        
-        // 綁定 AI 服務
-        bindAIService()
-        
-        // 發送聊天訊息
-        sendButton.setOnClickListener {
-            sendChatMessage(inputText.text.toString())
-        }
-    }
-    
-    private fun sendChatMessage(message: String) {
-        val request = ChatRequest().apply {
-            messages = listOf(ChatMessage().apply {
-                role = "user"
-                content = message
-            })
-            stream = true
-        }
-        
-        aiService?.sendChatRequest(UUID.randomUUID().toString(), request)
-    }
-    
-    // 完整實作請參考 API_REFERENCE.md
-}
-```
-
 ### 給 AI 工程師
 
 #### 1. 建立您的 Runner
+建立一個實作 `BaseRunner` 的類別，並用 `@AIRunner` 進行標註。剩下的工作交給引擎處理。
+
 ```kotlin
+import com.mtkresearch.breezeapp.engine.annotation.*
+import com.mtkresearch.breezeapp.engine.runner.core.*
+import com.mtkresearch.breezeapp.engine.model.*
+
+@AIRunner(
+    vendor = VendorType.UNKNOWN,
+    priority = RunnerPriority.NORMAL,
+    capabilities = [CapabilityType.LLM]
+)
 class MyCustomRunner : BaseRunner {
+    
     override fun load(config: ModelConfig): Boolean {
         // 載入您的 AI 模型
         return true
     }
     
-    override fun run(input: InferenceRequest): InferenceResult {
+    override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         // 處理請求
-        return InferenceResult.success(mapOf("text" to "Hello!"))
+        val inputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
+        return InferenceResult.textOutput(text = "Hello: $inputText")
     }
     
-    override fun getCapabilities() = listOf(CapabilityType.LLM)
-    // ... 實作其他方法
+    // ... 實作其他必要方法
 }
 ```
 
-#### 2. 註冊您的 Runner
-```json
-// assets/runner_config.json
-{
-  "runners": [
-    {
-      "name": "MyCustomRunner",
-      "class": "com.yourpackage.MyCustomRunner",
-      "capabilities": ["LLM"]
-    }
-  ]
-}
-```
+#### 2. 自動註冊
+無需在 JSON 檔案中手動註冊 runner。BreezeApp 引擎使用標註 (`@AIRunner`) 在執行時自動發現和管理可用的 runner。
 
 ## 📚 下一步
 
