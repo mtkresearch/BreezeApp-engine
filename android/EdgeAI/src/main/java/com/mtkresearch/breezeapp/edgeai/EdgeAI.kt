@@ -1,5 +1,6 @@
 package com.mtkresearch.breezeapp.edgeai
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -7,6 +8,7 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -33,6 +35,7 @@ import kotlin.coroutines.resumeWithException
  * - 66% less conversion code
  * - 100% unified naming (ChatRequest vs ChatCompletionRequest)
  */
+@SuppressLint("StaticFieldLeak")
 object EdgeAI {
 
     private const val TAG = "EdgeAI"
@@ -46,6 +49,9 @@ object EdgeAI {
 
     // Track pending requests by their standard API-generated IDs
     private val pendingRequests = ConcurrentHashMap<String, Channel<AIResponse>>()
+
+    // Lock to synchronize access to the listener logic
+    private val listenerLock = Any()
 
     // Pending initialization completion
     private var initializationCompletion: ((Result<Unit>) -> Unit)? = null
@@ -98,21 +104,35 @@ object EdgeAI {
     private val breezeAppEngineListener = object : IBreezeAppEngineListener.Stub() {
         override fun onResponse(response: AIResponse?) {
             response?.let { aiResponse ->
-                Log.d(TAG, "Received response for request: ${aiResponse.requestId}")
+                // Synchronize to prevent race conditions from concurrent binder thread calls
+                synchronized(listenerLock) {
+                    Log.d(TAG, "Received response for request: ${aiResponse.requestId}")
 
-                pendingRequests[aiResponse.requestId]?.let { channel ->
-                    val result = channel.trySend(aiResponse)
-                    if (result.isFailure) {
-                        Log.e(TAG, "Failed to send response to channel: ${result.exceptionOrNull()}")
-                    }
+                    val channel = pendingRequests[aiResponse.requestId]
+                    if (channel != null) {
+                        // It's possible the channel was closed by a previous final response,
+                        // so we check before sending.
+                        if (!channel.isClosedForSend) {
+                            val result = channel.trySend(aiResponse)
+                            if (result.isFailure) {
+                                // This might happen if the channel is closed between the check and the send,
+                                // which is unlikely with the lock but good to log.
+                                Log.e(TAG, "Failed to send response to channel for ${aiResponse.requestId}: ${result.exceptionOrNull()}", result.exceptionOrNull())
+                            }
+                        }
 
-                    // If this is the final response, close the channel
-                    if (aiResponse.isComplete || aiResponse.state == AIResponse.ResponseState.ERROR) {
-                        pendingRequests.remove(aiResponse.requestId)
-                        channel.close()
+                        // If this is the final response, close the channel and remove it from the map.
+                        // The consumer will drain any buffered items before the flow completes.
+                        if (aiResponse.isComplete || aiResponse.state == AIResponse.ResponseState.ERROR) {
+                            channel.close()
+                            pendingRequests.remove(aiResponse.requestId)
+                            Log.d(TAG, "Closed and removed channel for completed request: ${aiResponse.requestId}")
+                        } else {
+                            // This else is required for the if to not be considered an expression.
+                        }
+                    } else {
+                        Log.w(TAG, "Received response for unknown or already completed request: ${aiResponse.requestId}")
                     }
-                } ?: run {
-                    Log.w(TAG, "Received response for unknown request: ${aiResponse.requestId}")
                 }
             }
         }
@@ -122,13 +142,14 @@ object EdgeAI {
      * Initialize the EdgeAI SDK with the provided context (simplified version)
      */
     suspend fun initializeAndWait(context: Context, timeoutMs: Long = 10000) {
+        val appContext = context.applicationContext
         return suspendCancellableCoroutine { continuation ->
             if (isInitialized && isBound) {
                 continuation.resume(Unit)
                 return@suspendCancellableCoroutine
             }
 
-            this.context = context.applicationContext
+            this.context = appContext
 
             initializationCompletion = { result ->
                 result.fold(
@@ -144,7 +165,7 @@ object EdgeAI {
                 setPackage(AI_ROUTER_SERVICE_PACKAGE)
             }
 
-            val bindResult = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+            val bindResult = appContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
             if (!bindResult) {
                 initializationCompletion = null
                 continuation.resumeWithException(ServiceConnectionException("Failed to bind to BreezeApp Engine Service"))
@@ -154,7 +175,7 @@ object EdgeAI {
             // Set timeout
             continuation.invokeOnCancellation {
                 if (initializationCompletion != null) {
-                    context.unbindService(serviceConnection)
+                    appContext.unbindService(serviceConnection)
                     initializationCompletion = null
                 }
             }
@@ -174,12 +195,11 @@ object EdgeAI {
         return channelFlow {
             validateConnection()
 
-            // Generate request ID for tracking
             val requestId = generateRequestId()
             lastRequestId = requestId  // Track for cancellation
 
-            // Create channel for this request
-            val responseChannel = Channel<AIResponse>()
+            // Use a buffered channel to handle backpressure
+            val responseChannel = Channel<AIResponse>(UNLIMITED)
             pendingRequests[requestId] = responseChannel
 
             try {
@@ -193,12 +213,14 @@ object EdgeAI {
                 }
 
             } catch (e: Exception) {
-                pendingRequests.remove(requestId)
-                responseChannel.close()
                 throw when (e) {
                     is EdgeAIException -> e
                     else -> InternalErrorException("Chat completion failed: ${e.message}", e)
                 }
+            } finally {
+                // Ensure cleanup even if the collecting coroutine is cancelled
+                pendingRequests.remove(requestId)
+                responseChannel.close()
             }
         }
     }
@@ -213,7 +235,9 @@ object EdgeAI {
 
             val requestId = generateRequestId()
             lastRequestId = requestId  // Track for cancellation
-            val responseChannel = Channel<AIResponse>()
+
+            // Use a buffered channel to handle backpressure
+            val responseChannel = Channel<AIResponse>(UNLIMITED)
             pendingRequests[requestId] = responseChannel
 
             try {
@@ -227,12 +251,13 @@ object EdgeAI {
                 }
 
             } catch (e: Exception) {
-                pendingRequests.remove(requestId)
-                responseChannel.close()
                 throw when (e) {
                     is EdgeAIException -> e
                     else -> InternalErrorException("TTS request failed: ${e.message}", e)
                 }
+            } finally {
+                pendingRequests.remove(requestId)
+                responseChannel.close()
             }
         }
     }
@@ -246,7 +271,9 @@ object EdgeAI {
 
             val requestId = generateRequestId()
             lastRequestId = requestId  // Track for cancellation
-            val responseChannel = Channel<AIResponse>()
+
+            // Use a buffered channel to handle backpressure
+            val responseChannel = Channel<AIResponse>(UNLIMITED)
             pendingRequests[requestId] = responseChannel
 
             try {
@@ -260,12 +287,13 @@ object EdgeAI {
                 }
 
             } catch (e: Exception) {
-                pendingRequests.remove(requestId)
-                responseChannel.close()
                 throw when (e) {
                     is EdgeAIException -> e
                     else -> InternalErrorException("ASR request failed: ${e.message}", e)
                 }
+            } finally {
+                pendingRequests.remove(requestId)
+                responseChannel.close()
             }
         }
     }
@@ -273,30 +301,30 @@ object EdgeAI {
     /**
      * Cancel an active request by its ID.
      * This is the simplest and most robust way to stop streaming requests.
-     * 
+     *
      * @param requestId The ID of the request to cancel
      * @return true if the request was successfully cancelled, false otherwise
      */
     fun cancelRequest(requestId: String): Boolean {
         return try {
             validateConnection()
-            
+
             // 1. Cancel the pending request channel
             pendingRequests[requestId]?.let { channel ->
                 channel.close()
                 pendingRequests.remove(requestId)
                 Log.d(TAG, "Cancelled pending request channel: $requestId")
             }
-            
+
             // 2. Call service to cancel the request on engine side
             val cancelled = service?.cancelRequest(requestId) ?: false
-            
+
             if (cancelled) {
                 Log.d(TAG, "Successfully cancelled request: $requestId")
             } else {
                 Log.w(TAG, "Failed to cancel request on service side: $requestId")
             }
-            
+
             cancelled
         } catch (e: Exception) {
             Log.e(TAG, "Error cancelling request: $requestId", e)
@@ -309,7 +337,7 @@ object EdgeAI {
      * Useful for cancellation when the client doesn't track request IDs.
      */
     private var lastRequestId: String? = null
-    
+
     /**
      * Cancel the last initiated request.
      * Convenience method when client doesn't track request IDs.
@@ -401,13 +429,14 @@ object EdgeAI {
      * Synchronous initialization for simple cases
      */
     fun initialize(context: Context) {
-        this.context = context.applicationContext
+        val appContext = context.applicationContext
+        this.context = appContext
 
         val intent = Intent(AI_ROUTER_SERVICE_ACTION).apply {
             setPackage(AI_ROUTER_SERVICE_PACKAGE)
         }
 
-        context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        appContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 
     /**
@@ -435,4 +464,4 @@ object EdgeAI {
 
     fun isInitialized(): Boolean = isInitialized
     fun isReady(): Boolean = isInitialized && isBound && service != null
-} 
+}
