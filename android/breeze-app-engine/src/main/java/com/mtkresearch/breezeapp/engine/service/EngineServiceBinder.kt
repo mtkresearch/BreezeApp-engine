@@ -8,6 +8,7 @@ import com.mtkresearch.breezeapp.edgeai.IBreezeAppEngineListener
 import com.mtkresearch.breezeapp.edgeai.ChatRequest
 import com.mtkresearch.breezeapp.edgeai.TTSRequest
 import com.mtkresearch.breezeapp.edgeai.ASRRequest
+import com.mtkresearch.breezeapp.edgeai.GuardrailRequest
 import com.mtkresearch.breezeapp.edgeai.AIResponse
 import com.mtkresearch.breezeapp.engine.core.AIEngineManager
 import com.mtkresearch.breezeapp.engine.model.*
@@ -131,6 +132,30 @@ class EngineServiceBinder(
                 }
             }
         }
+
+        /**
+         * Processes content safety/guardrail analysis request.
+         */
+        override fun sendGuardrailRequest(requestId: String?, request: GuardrailRequest?) {
+            Log.d(TAG, "sendGuardrailRequest() called: requestId=$requestId")
+            
+            // Input validation
+            if (requestId == null || request == null) {
+                Log.w(TAG, "sendGuardrailRequest received null parameters")
+                clientManager.notifyError(requestId ?: "unknown", "Invalid request parameters")
+                return
+            }
+            
+            // Process request directly through AIEngineManager (Clean Architecture)
+            binderScope.launch {
+                try {
+                    processGuardrailRequestInternal(requestId, request)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error processing guardrail request: $requestId", e)
+                    clientManager.notifyError(requestId, "Guardrail request processing failed: ${e.message}")
+                }
+            }
+        }
         
         /**
          * Cancels an active request by its ID.
@@ -199,6 +224,7 @@ class EngineServiceBinder(
                 "tts" -> true  
                 "asr" -> true
                 "vlm" -> true
+                "guardrail", "guardian", "content_safety" -> true
                 else -> false
             }
         }
@@ -345,6 +371,33 @@ class EngineServiceBinder(
         } finally {
             // End request tracking for breathing border
             serviceOrchestrator.endRequestTracking(requestId, "ASR")
+        }
+    }
+
+    /**
+     * Process guardrail/content safety request following Clean Architecture principles.
+     */
+    private suspend fun processGuardrailRequestInternal(requestId: String, request: GuardrailRequest) {
+        Log.d(TAG, "Processing guardrail request internally: $requestId")
+        
+        // Start request tracking for breathing border
+        serviceOrchestrator.startRequestTracking(requestId, "Guardrail")
+        
+        try {
+            // Convert external request to internal domain model
+            val inferenceRequest = convertGuardrailRequestToDomain(request, requestId)
+            
+            // Guardrail analysis is typically non-streaming
+            Log.d(TAG, "🛡️ Processing guardrail request: $requestId")
+            val result = aiEngineManager.process(inferenceRequest, CapabilityType.GUARDIAN)
+            Log.d(TAG, "🛡️ Guardrail result received - requestId: $requestId, outputs: ${result.outputs.keys}, error: ${result.error}")
+            val aiResponse = convertInferenceResultToAIResponse(result, requestId, "guardrail")
+            Log.d(TAG, "🛡️ Guardrail response converted - text length: ${aiResponse.text.length}, error: ${aiResponse.error}")
+            clientManager.notifyGuardrailResponse(aiResponse)
+            Log.d(TAG, "🛡️ Guardrail response sent to clients")
+        } finally {
+            // End request tracking for breathing border
+            serviceOrchestrator.endRequestTracking(requestId, "Guardrail")
         }
     }
     
@@ -579,6 +632,38 @@ class EngineServiceBinder(
             )
         }
     }
+
+    /**
+     * Convert external GuardrailRequest to internal InferenceRequest.
+     */
+    private fun convertGuardrailRequestToDomain(request: GuardrailRequest, requestId: String): InferenceRequest {
+        // DEBUG: Log what we received from client
+        Log.d(TAG, "🛡️ GuardrailRequest from client - text length: ${request.text.length}, strictness: '${request.strictnessLevel}', categories: ${request.categories}")
+        
+        // Build parameters map with client-provided values
+        val clientOverrides = mutableMapOf<String, Any>(
+            "strictness_level" to request.strictnessLevel,
+            "model" to (request.model ?: "default-guardrail")
+        )
+        
+        // Add categories if specified
+        request.categories?.let { categories ->
+            clientOverrides["categories"] = categories
+        }
+        
+        Log.d(TAG, "🛡️ Guardrail Client overrides: $clientOverrides")
+        
+        // Use engine-first parameter strategy  
+        val finalParams = buildEngineFirstParameters(clientOverrides, CapabilityType.GUARDIAN, requestId)
+        
+        return InferenceRequest(
+            sessionId = requestId,
+            inputs = mapOf(
+                InferenceRequest.INPUT_TEXT to request.text
+            ),
+            params = finalParams
+        )
+    }
     
     /**
      * Detect if ASR request is for microphone mode (streaming) vs file mode.
@@ -646,6 +731,34 @@ class EngineServiceBinder(
                 AIResponse(
                     requestId = requestId,
                     text = text,
+                    isComplete = isComplete,
+                    state = state,
+                    error = error
+                )
+            }
+            "guardrail" -> {
+                val isComplete = !result.partial
+                val state = if (isComplete) AIResponse.ResponseState.COMPLETED else AIResponse.ResponseState.STREAMING
+                val error = if (result.error != null) result.error!!.message else null
+                
+                // For guardrail, encode the structured results in the text field
+                // This is a temporary solution until we can extend AIResponse for structured data
+                val safetyStatus = result.outputs["safety_status"] as? String ?: "unknown"
+                val riskScore = result.outputs["risk_score"] as? Double ?: 0.0
+                val actionRequired = result.outputs["action_required"] as? String ?: "none"
+                val filteredText = result.outputs["filtered_text"] as? String ?: ""
+                
+                // Encode guardrail results as structured text (JSON-like format)
+                val structuredResult = "GUARDRAIL_RESULT{" +
+                    "\"safetyStatus\":\"$safetyStatus\"," +
+                    "\"riskScore\":$riskScore," +
+                    "\"actionRequired\":\"$actionRequired\"," +
+                    "\"filteredText\":\"$filteredText\"" +
+                    "}"
+                
+                AIResponse(
+                    requestId = requestId,
+                    text = structuredResult,
                     isComplete = isComplete,
                     state = state,
                     error = error

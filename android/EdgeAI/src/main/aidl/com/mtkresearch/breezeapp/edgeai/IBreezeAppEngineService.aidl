@@ -5,6 +5,7 @@ import com.mtkresearch.breezeapp.edgeai.IBreezeAppEngineListener;
 import com.mtkresearch.breezeapp.edgeai.ChatRequest;
 import com.mtkresearch.breezeapp.edgeai.TTSRequest;
 import com.mtkresearch.breezeapp.edgeai.ASRRequest;
+import com.mtkresearch.breezeapp.edgeai.GuardrailRequest;
 
 /**
  * AIDL interface for the BreezeApp Engine Service.
@@ -45,6 +46,14 @@ interface IBreezeAppEngineService {
      * @param request The ASR request to process
      */
     void sendASRRequest(String requestId, in ASRRequest request);
+    
+    /**
+     * [PREFERRED] Direct content guardrail/safety request (標準化 API).
+     * Eliminates intermediate model conversion for better performance.
+     * @param requestId Client-generated request ID for tracking
+     * @param request The guardrail request to process
+     */
+    void sendGuardrailRequest(String requestId, in GuardrailRequest request);
     
     // === COMMON METHODS ===
     

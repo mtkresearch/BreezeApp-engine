@@ -111,6 +111,17 @@ class ClientManager {
         } catch (_: Exception) { /* ignore logging errors */ }
         notifyResponse(response)
     }
+
+    /**
+     * Notify all registered clients with a guardrail/content safety response.
+     */
+    fun notifyGuardrailResponse(response: AIResponse) {
+        try {
+            Log.d(TAG, "Guardrail notify - requestId=${response.requestId}, isComplete=${response.isComplete}")
+            Log.d(TAG, "Guardrail response text length: ${response.text.length}")
+        } catch (_: Exception) { /* ignore logging errors */ }
+        notifyResponse(response)
+    }
     
     /**
      * Notify all registered clients about an error.

@@ -299,6 +299,42 @@ object EdgeAI {
     }
 
     /**
+     * SIMPLIFIED: Direct guardrail/content safety request (no intermediate conversion)
+     */
+    fun guardrail(request: GuardrailRequest): Flow<GuardrailResponse> {
+        return channelFlow {
+            validateConnection()
+
+            val requestId = generateRequestId()
+            lastRequestId = requestId  // Track for cancellation
+
+            // Use a buffered channel to handle backpressure
+            val responseChannel = Channel<AIResponse>(UNLIMITED)
+            pendingRequests[requestId] = responseChannel
+
+            try {
+                // 🚀 Direct service call with client-generated requestId
+                service?.sendGuardrailRequest(requestId, request)
+
+                // Process responses
+                for (aiResponse in responseChannel) {
+                    val guardrailResponse = convertAIResponseToGuardrailResponse(aiResponse)
+                    send(guardrailResponse)
+                }
+
+            } catch (e: Exception) {
+                throw when (e) {
+                    is EdgeAIException -> e
+                    else -> InternalErrorException("Guardrail request failed: ${e.message}", e)
+                }
+            } finally {
+                pendingRequests.remove(requestId)
+                responseChannel.close()
+            }
+        }
+    }
+
+    /**
      * Cancel an active request by its ID.
      * This is the simplest and most robust way to stop streaming requests.
      *
@@ -423,6 +459,66 @@ object EdgeAI {
             isLastChunk = aiResponse.isLastChunk,
             durationMs = aiResponse.durationMs.toLong()
         )
+    }
+
+    /**
+     * Convert internal AIResponse to GuardrailResponse
+     * 
+     * Parses the structured guardrail results from the AIResponse text field.
+     */
+    private fun convertAIResponseToGuardrailResponse(
+        aiResponse: AIResponse
+    ): GuardrailResponse {
+        // Parse the structured result from the text field
+        val text = aiResponse.text
+        
+        if (text.startsWith("GUARDRAIL_RESULT{") && text.endsWith("}")) {
+            try {
+                // Extract the JSON-like content
+                val jsonContent = text.substring(17, text.length - 1) // Remove "GUARDRAIL_RESULT{" and "}"
+                
+                // Parse the key-value pairs (simple parsing for this format)
+                val safetyStatus = extractValue(jsonContent, "safetyStatus") ?: "unknown"
+                val riskScore = extractValue(jsonContent, "riskScore")?.toDoubleOrNull() ?: 0.0
+                val actionRequired = extractValue(jsonContent, "actionRequired") ?: "none"
+                val filteredText = extractValue(jsonContent, "filteredText") ?: ""
+                
+                return GuardrailResponse(
+                    safetyStatus = safetyStatus,
+                    riskScore = riskScore,
+                    riskCategories = if (safetyStatus != "safe") listOf("general") else emptyList(),
+                    actionRequired = actionRequired,
+                    filteredText = filteredText,
+                    detectedIssues = if (safetyStatus != "safe") listOf("content_risk") else emptyList(),
+                    confidence = 0.95,
+                    processingTimeMs = aiResponse.durationMs.toLong()
+                )
+            } catch (e: Exception) {
+                // Fallback if parsing fails
+            }
+        }
+        
+        // Fallback response
+        return GuardrailResponse(
+            safetyStatus = if (aiResponse.error != null) "error" else "safe",
+            riskScore = 0.0,
+            riskCategories = emptyList(),
+            actionRequired = "none",
+            filteredText = aiResponse.text,
+            detectedIssues = if (aiResponse.error != null) listOf("processing_error") else emptyList(),
+            confidence = 0.95,
+            processingTimeMs = aiResponse.durationMs.toLong()
+        )
+    }
+    
+    /**
+     * Extract value from simple JSON-like format
+     */
+    private fun extractValue(content: String, key: String): String? {
+        val pattern = "\"$key\":\"([^\"]*)\"|\"$key\":([^,}]*)"
+        val regex = Regex(pattern)
+        val match = regex.find(content)
+        return match?.groups?.get(1)?.value ?: match?.groups?.get(2)?.value?.trim()
     }
 
     /**
