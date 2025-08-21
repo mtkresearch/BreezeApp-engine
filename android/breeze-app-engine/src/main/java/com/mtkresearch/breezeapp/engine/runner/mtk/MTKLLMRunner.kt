@@ -216,7 +216,7 @@ class MTKLLMRunner(
                     fullResponse.append(token)
                     trySend(
                         InferenceResult.textOutput(
-                            text = fullResponse.toString(),
+                            text = token, // Send only the new token as the main text
                             metadata = mapOf(
                                 InferenceResult.META_MODEL_NAME to MODEL_NAME,
                                 InferenceResult.META_PARTIAL_TOKENS to token,
@@ -320,7 +320,7 @@ class MTKLLMRunner(
     override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.LLM)
     override fun isLoaded(): Boolean = isLoaded.get()
     override fun getRunnerInfo(): RunnerInfo = RunnerInfo(
-        name = MODEL_NAME,
+        name = MTKLLMRunner::class.java.simpleName, // Use the class name for clarity
         version = RUNNER_VERSION,
         capabilities = getCapabilities(),
         description = "MTK NPU accelerated language model runner with streaming support"
