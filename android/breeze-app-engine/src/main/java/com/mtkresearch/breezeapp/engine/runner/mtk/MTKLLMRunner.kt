@@ -117,38 +117,62 @@ class MTKLLMRunner(
         }
     }
     
+    private fun parseInferenceParameters(input: InferenceRequest): InferenceParameters {
+        val temperature = when (val temp = input.params[InferenceRequest.PARAM_TEMPERATURE]) {
+            is Number -> temp.toFloat()
+            is String -> temp.toFloatOrNull()
+            else -> null
+        } ?: config.defaultTemperature
+
+        val maxTokens = when (val tokens = input.params[InferenceRequest.PARAM_MAX_TOKENS]) {
+            is Number -> tokens.toInt()
+            is String -> tokens.toIntOrNull()
+            else -> null
+        } ?: config.defaultMaxTokens
+
+        val topK = when (val k = input.params["top_k"]) {
+            is Number -> k.toInt()
+            is String -> k.toIntOrNull()
+            else -> null
+        } ?: config.defaultTopK
+
+        val repetitionPenalty = when (val penalty = input.params["repetition_penalty"]) {
+            is Number -> penalty.toFloat()
+            is String -> penalty.toFloatOrNull()
+            else -> null
+        } ?: config.defaultRepetitionPenalty
+
+        return InferenceParameters(
+            temperature = temperature,
+            topK = topK,
+            topP = config.defaultTopP, // topP not handled as runtime param in this runner
+            repetitionPenalty = repetitionPenalty,
+            maxTokens = maxTokens
+        )
+    }
+
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         if (!isLoaded.get()) return InferenceResult.error(RunnerError.modelNotLoaded())
         return try {
             val inputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String
                 ?: return InferenceResult.error(RunnerError.invalidInput("Missing text input"))
-            // RUNTIME SETTINGS FIX: Handle Number types like legacy implementation
-            val temperature = (input.params[InferenceRequest.PARAM_TEMPERATURE] as? Number)?.toFloat() ?: config.defaultTemperature
-            val maxTokens = (input.params[InferenceRequest.PARAM_MAX_TOKENS] as? Number)?.toInt() ?: config.defaultMaxTokens
-            val topK = (input.params["top_k"] as? Number)?.toInt() ?: config.defaultTopK
-            val repetitionPenalty = (input.params["repetition_penalty"] as? Number)?.toFloat() ?: config.defaultRepetitionPenalty
-            
-            // DEBUG: Log received parameters with their raw types
-            Log.d(TAG, "🔥 MTKLLMRunner.run() DEBUG - Raw param types:")
-            Log.d(TAG, "  PARAM_TEMPERATURE raw: ${input.params[InferenceRequest.PARAM_TEMPERATURE]} (type: ${input.params[InferenceRequest.PARAM_TEMPERATURE]?.javaClass?.simpleName})")
-            Log.d(TAG, "  Parsed temperature: $temperature")
-            Log.d(TAG, "  Config defaultTemperature: ${config.defaultTemperature}")
-            Log.d(TAG, "Runtime params - temp: $temperature, topK: $topK, repPenalty: $repetitionPenalty")
+
+            val params = parseInferenceParameters(input)
 
             val response = if (stream) {
-                performStreamingInference(inputText, maxTokens, temperature, topK, repetitionPenalty)
+                performStreamingInference(inputText, params.maxTokens, params.temperature, params.topK, params.repetitionPenalty)
             } else {
-                performSingleInference(inputText, maxTokens, temperature, topK, repetitionPenalty)
+                performSingleInference(inputText, params.maxTokens, params.temperature, params.topK, params.repetitionPenalty)
             }
             InferenceResult.textOutput(
                 text = response,
                 metadata = mapOf(
                     InferenceResult.META_MODEL_NAME to MODEL_NAME,
                     InferenceResult.META_PROCESSING_TIME_MS to System.currentTimeMillis(),
-                    "temperature" to temperature,
-                    "max_tokens" to maxTokens,
-                    "top_k" to topK,
-                    "repetition_penalty" to repetitionPenalty
+                    "temperature" to params.temperature,
+                    "max_tokens" to params.maxTokens,
+                    "top_k" to params.topK,
+                    "repetition_penalty" to params.repetitionPenalty
                 )
             )
         } catch (e: Exception) {
@@ -178,18 +202,8 @@ class MTKLLMRunner(
                 close()
                 return@callbackFlow
             }
-            // RUNTIME SETTINGS FIX: Handle Number types like legacy implementation
-            val temperature = (input.params[InferenceRequest.PARAM_TEMPERATURE] as? Number)?.toFloat() ?: config.defaultTemperature
-            val maxTokens = (input.params[InferenceRequest.PARAM_MAX_TOKENS] as? Number)?.toInt() ?: config.defaultMaxTokens
-            val topK = (input.params["top_k"] as? Number)?.toInt() ?: config.defaultTopK
-            val repetitionPenalty = (input.params["repetition_penalty"] as? Number)?.toFloat() ?: config.defaultRepetitionPenalty
-            
-            // DEBUG: Log received parameters with their raw types  
-            Log.d(TAG, "🔥 MTKLLMRunner.runAsFlow() DEBUG - Raw param types:")
-            Log.d(TAG, "  PARAM_TEMPERATURE raw: ${input.params[InferenceRequest.PARAM_TEMPERATURE]} (type: ${input.params[InferenceRequest.PARAM_TEMPERATURE]?.javaClass?.simpleName})")
-            Log.d(TAG, "  Parsed temperature: $temperature")
-            Log.d(TAG, "  Config defaultTemperature: ${config.defaultTemperature}")
-            Log.d(TAG, "Runtime params - temp: $temperature, topK: $topK, repPenalty: $repetitionPenalty")
+
+            val params = parseInferenceParameters(input)
 
             val fullResponse = StringBuilder()
             val startTime = System.currentTimeMillis()
@@ -202,8 +216,8 @@ class MTKLLMRunner(
                             metadata = mapOf(
                                 InferenceResult.META_MODEL_NAME to MODEL_NAME,
                                 InferenceResult.META_PARTIAL_TOKENS to token,
-                                "temperature" to temperature,
-                                "max_tokens" to maxTokens
+                                "temperature" to params.temperature,
+                                "max_tokens" to params.maxTokens
                             ),
                             partial = true
                         )
@@ -212,12 +226,12 @@ class MTKLLMRunner(
             }
             val response = nativeStreamingInference(
                 inputText,
-                maxTokens,
+                params.maxTokens,
                 false,
                 callback,
-                temperature,
-                topK,
-                repetitionPenalty
+                params.temperature,
+                params.topK,
+                params.repetitionPenalty
             )
 
             isGenerating.set(false)
@@ -231,10 +245,10 @@ class MTKLLMRunner(
                         InferenceResult.META_MODEL_NAME to MODEL_NAME,
                         InferenceResult.META_PROCESSING_TIME_MS to processingTime,
                         InferenceResult.META_TOKEN_COUNT to fullResponse.length,
-                        "temperature" to temperature,
-                        "max_tokens" to maxTokens,
-                        "top_k" to topK,
-                        "repetition_penalty" to repetitionPenalty
+                        "temperature" to params.temperature,
+                        "max_tokens" to params.maxTokens,
+                        "top_k" to params.topK,
+                        "repetition_penalty" to params.repetitionPenalty
                     ),
                     partial = false
                 )

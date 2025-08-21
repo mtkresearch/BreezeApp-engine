@@ -169,9 +169,15 @@ abstract class BaseSherpaTtsRunner(context: Context) : BaseSherpaRunner(context)
      * @return Valid speaker ID (non-negative integer)
      */
     protected fun validateSpeakerId(input: InferenceRequest): Int {
-        val speakerId = (input.inputs["speaker_id"] as? Number)?.toInt() ?: 0
+        val speakerId = when (val sid = input.inputs["speaker_id"]) {
+            is Number -> sid.toInt()
+            is String -> sid.toIntOrNull()
+            else -> null
+        } ?: 0
+
         if (speakerId < 0) {
-            throw IllegalArgumentException("Speaker ID must be non-negative")
+            Log.w(TAG, "Invalid speaker_id $speakerId, using 0 instead.")
+            return 0
         }
         return speakerId
     }
@@ -183,9 +189,15 @@ abstract class BaseSherpaTtsRunner(context: Context) : BaseSherpaRunner(context)
      * @return Valid speed (positive float)
      */
     protected fun validateSpeed(input: InferenceRequest): Float {
-        val speed = (input.inputs["speed"] as? Number)?.toFloat() ?: 1.0f
+        val speed = when (val s = input.inputs["speed"]) {
+            is Number -> s.toFloat()
+            is String -> s.toFloatOrNull()
+            else -> null
+        } ?: 1.0f
+
         if (speed <= 0) {
-            throw IllegalArgumentException("Speed must be positive")
+            Log.w(TAG, "Invalid speed $speed, using 1.0f instead.")
+            return 1.0f
         }
         return speed
     }

@@ -16,7 +16,6 @@ import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.toList
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import org.pytorch.executorch.extension.llm.LlmCallback
 import org.pytorch.executorch.extension.llm.LlmModule
@@ -37,36 +36,36 @@ class ExecutorchLLMRunner(
     private val isLoaded = AtomicBoolean(false)
     private lateinit var modelType: ExecutorchModelType
     private lateinit var stopToken: String
+    private var modelPath: String? = null
+    private var tokenizerPath: String? = null
+    private var currentTemperature: Float? = null
 
     companion object {
         private const val TAG = "ExecutorchLLMRunner"
         private const val DEFAULT_MODEL_ID = "Llama3_2-3b-4096-spin-250605-cpu"
         private const val DEFAULT_SEQ_LEN = 256
+        private const val DEFAULT_TEMPERATURE = 0.8f
     }
 
-    // Load model using model ID from JSON registry
     override fun load(modelId: String, settings: EngineSettings): Boolean {
         Log.d(TAG, "Loading Executorch LLM Runner with model: $modelId")
         if (isLoaded.get()) {
-            unload() // Unload previous model if any
+            unload()
         }
         return try {
             modelType = ExecutorchModelType.fromString(modelId)
             stopToken = ExecutorchPromptFormatter.getStopToken(modelType)
 
-            val modelPath: String
-            val tokenizerPath: String
-        
             val paths = ExecutorchUtils.resolveModelPaths(context!!, modelId)
                     ?: throw IllegalArgumentException("Could not resolve paths for model: $modelId")
-                modelPath = paths.modelPath
-                tokenizerPath = paths.tokenizerPath
+            this.modelPath = paths.modelPath
+            this.tokenizerPath = paths.tokenizerPath
 
-            // Get temperature from settings
             val runnerParams = settings.getRunnerParameters("ExecutorchLLMRunner")
-            val temperature = runnerParams["temperature"] as? Float ?: 0.8f
+            val temperature = (runnerParams["temperature"] as? Number)?.toFloat() ?: DEFAULT_TEMPERATURE
+            this.currentTemperature = temperature
 
-            llmModule = LlmModule(modelPath, tokenizerPath, temperature)
+            llmModule = LlmModule(modelPath!!, tokenizerPath!!, temperature)
             val loadResult = llmModule?.load()
 
             if (loadResult != 0) {
@@ -74,7 +73,7 @@ class ExecutorchLLMRunner(
                 isLoaded.set(false)
                 false
             } else {
-                Log.d(TAG, "Executorch model loaded successfully: $modelId")
+                Log.d(TAG, "Executorch model loaded successfully: $modelId with temperature: $temperature")
                 isLoaded.set(true)
                 true
             }
@@ -84,15 +83,13 @@ class ExecutorchLLMRunner(
             false
         }
     }
-    
-    // No longer needed - using ExecutorchUtils instead
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         throw UnsupportedOperationException("Non-streaming run is not supported for LLM models. Use runAsFlow instead.")
     }
 
     override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
-        if (!isLoaded.get() || llmModule == null) {
+        if (!isLoaded.get() || llmModule == null || modelPath == null || tokenizerPath == null) {
             trySend(InferenceResult.error(RunnerError.modelNotLoaded()))
             close()
             return@callbackFlow
@@ -105,13 +102,37 @@ class ExecutorchLLMRunner(
             return@callbackFlow
         }
 
+        val requestedTemperature = when (val temp = input.params["temperature"]) {
+            is Number -> temp.toFloat()
+            is String -> temp.toFloatOrNull()
+            else -> null
+        } ?: currentTemperature ?: DEFAULT_TEMPERATURE
+
+        val maxSeqLen = when (val len = input.params["max_sequence_length"]) {
+            is Number -> len.toInt()
+            is String -> len.toIntOrNull()
+            else -> null
+        } ?: DEFAULT_SEQ_LEN
+
+        if (requestedTemperature != currentTemperature) {
+            Log.d(TAG, "Temperature changed from $currentTemperature to $requestedTemperature. Reloading module.")
+            llmModule?.resetNative()
+            llmModule = LlmModule(modelPath!!, tokenizerPath!!, requestedTemperature)
+            val loadResult = llmModule?.load()
+            if (loadResult != 0) {
+                Log.e(TAG, "Failed to reload Executorch model. Error code: $loadResult")
+                trySend(InferenceResult.error(RunnerError.runtimeError("Failed to reload model for new temperature.")))
+                close()
+                return@callbackFlow
+            }
+            currentTemperature = requestedTemperature
+        }
+
         val formattedPrompt = ExecutorchPromptFormatter.formatPrompt(modelType, prompt)
         val modelOutputBuffer = StringBuilder()
         var promptEchoFullyReceived = false
 
         val callback = object : LlmCallback {
-            // Note: onStats method signature may vary by ExecuTorch version
-            // This implementation handles the interface requirement
             fun onStats(stats: Float) {
                 Log.v(TAG, "Inference stats: $stats")
             }
@@ -119,62 +140,34 @@ class ExecutorchLLMRunner(
             override fun onResult(result: String) {
                 if (result == stopToken) {
                     Log.d(TAG, "Received stop token, sending final result and closing flow.")
-                    // Send the final, non-partial result to signal completion
-                    trySend(
-                        InferenceResult.textOutput(
-                            text = "",
-                            metadata = mapOf(),
-                            partial = false
-                        )
-                    )
+                    trySend(InferenceResult.textOutput(text = "", metadata = mapOf(), partial = false))
                     close()
                     return
                 }
 
                 var tokenToSend: String?
-
                 if (promptEchoFullyReceived) {
-                    // Echo already handled, send the new token
                     tokenToSend = result
                 } else {
-                    // Still handling the prompt echo
                     modelOutputBuffer.append(result)
                     val currentOutput = modelOutputBuffer.toString()
-
                     if (formattedPrompt.startsWith(currentOutput)) {
-                        // Still matching the prompt, do nothing until it diverges or matches completely
-                        if (formattedPrompt == currentOutput) {
-                            promptEchoFullyReceived = true
-                        }
+                        if (formattedPrompt == currentOutput) promptEchoFullyReceived = true
                         return
                     } else {
-                        // Diverged from prompt, generation has started
                         promptEchoFullyReceived = true
-                        val generatedPart = currentOutput.removePrefix(formattedPrompt)
-                        tokenToSend = generatedPart
+                        tokenToSend = currentOutput.removePrefix(formattedPrompt)
                     }
                 }
 
-                // Send only the new token, not accumulated text
                 tokenToSend?.let { token ->
-                    val sendResult = trySend(
-                        InferenceResult.textOutput(
-                            text = token,
-                            metadata = mapOf(),
-                            partial = true
-                        )
-                    )
-                    if (!sendResult.isSuccess) {
-                        Log.w(TAG, "Failed to send partial result through flow")
-                    }
+                    trySend(InferenceResult.textOutput(text = token, metadata = mapOf(), partial = true))
                 }
             }
-
         }
 
         Log.d(TAG, "Starting generation with prompt: $formattedPrompt")
-        
-        val generateResult = llmModule?.generate(formattedPrompt, DEFAULT_SEQ_LEN, callback)
+        val generateResult = llmModule?.generate(formattedPrompt, maxSeqLen, callback)
 
         if (generateResult != 0) {
             Log.e(TAG, "Generation failed with code $generateResult")
@@ -193,8 +186,11 @@ class ExecutorchLLMRunner(
         llmModule?.resetNative()
         llmModule = null
         isLoaded.set(false)
+        currentTemperature = null
+        modelPath = null
+        tokenizerPath = null
     }
-
+    
     override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.LLM)
 
     override fun isLoaded(): Boolean = isLoaded.get()
@@ -266,7 +262,6 @@ class ExecutorchLLMRunner(
         val temperature = parameters["temperature"] as? Number
         val maxSeqLen = parameters["max_sequence_length"] as? Number
 
-        // Validate temperature range
         temperature?.let { temp ->
             val tempValue = temp.toFloat()
             if (tempValue < 0.0f || tempValue > 2.0f) {
@@ -274,7 +269,6 @@ class ExecutorchLLMRunner(
             }
         }
 
-        // Validate sequence length
         maxSeqLen?.let { seqLen ->
             val seqLenValue = seqLen.toInt()
             if (seqLenValue < 1 || seqLenValue > 4096) {
@@ -285,37 +279,8 @@ class ExecutorchLLMRunner(
         return ValidationResult.valid()
     }
     
-    /**
-     * Combines partial results into a single result
-     */
-    private fun combinePartialResults(partialResults: List<InferenceResult>): InferenceResult {
-        if (partialResults.isEmpty()) {
-            return InferenceResult.error(RunnerError.runtimeError("No results received from model"))
-        }
-        
-        // Combine all text outputs
-        val combinedText = partialResults
-            .filter { it.error == null }
-            .joinToString("") { it.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: "" }
-        
-        // Get metadata from the last result if available
-        val lastResult = partialResults.lastOrNull { it.error == null }
-        val metadata = lastResult?.metadata?.toMutableMap() ?: mutableMapOf()
-        metadata["partial"] = false
-        
-        return InferenceResult.textOutput(
-            text = combinedText,
-            metadata = metadata,
-            partial = false
-        )
-    }
-    
-    /**
-     * Get supported models for Executorch runner
-     */
     private fun getSupportedModels(): List<ModelDefinition> {
         return modelRegistry?.getCompatibleModels("executorch") ?: listOf(
-            // Fallback models if registry not available
             ModelDefinition(
                 id = "Llama3_2-3b-4096-250606-cpu",
                 runner = "executorch",
