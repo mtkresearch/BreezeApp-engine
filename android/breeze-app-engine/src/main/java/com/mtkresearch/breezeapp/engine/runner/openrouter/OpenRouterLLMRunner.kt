@@ -560,7 +560,7 @@ class OpenRouterLLMRunner(
         val requestJson = JSONObject().apply {
             put("model", modelName)
             put("stream", stream)
-            
+
             // Build messages array
             val messages = JSONArray().apply {
                 put(JSONObject().apply {
@@ -569,24 +569,43 @@ class OpenRouterLLMRunner(
                 })
             }
             put("messages", messages)
-            
-            // Add parameters
-            input.params[InferenceRequest.PARAM_TEMPERATURE]?.let { temp ->
-                put("temperature", (temp as? Number)?.toFloat() ?: DEFAULT_TEMPERATURE)
-            } ?: put("temperature", DEFAULT_TEMPERATURE)
-            
-            input.params[InferenceRequest.PARAM_MAX_TOKENS]?.let { maxTokens ->
-                put("max_tokens", (maxTokens as? Number)?.toInt() ?: DEFAULT_MAX_TOKENS)
-            } ?: put("max_tokens", DEFAULT_MAX_TOKENS)
-            
-            // Additional OpenRouter parameters
-            input.params["top_p"]?.let { put("top_p", it) }
-            input.params["frequency_penalty"]?.let { put("frequency_penalty", it) }
-            input.params["presence_penalty"]?.let { put("presence_penalty", it) }
-            input.params["top_k"]?.let { put("top_k", it) }
-            input.params["repetition_penalty"]?.let { put("repetition_penalty", it) }
+
+            // Add parameters from the request, using runner defaults as a fallback.
+            val floatParams = listOf("temperature", "top_p", "frequency_penalty", "presence_penalty", "repetition_penalty")
+            val intParams = listOf("max_tokens", "top_k")
+
+            floatParams.forEach { paramName ->
+                input.params[paramName]?.let { value ->
+                    val floatValue = when (value) {
+                        is Number -> value.toFloat()
+                        is String -> value.toFloatOrNull()
+                        else -> null
+                    }
+                    floatValue?.let { put(paramName, it) }
+                }
+            }
+
+            intParams.forEach { paramName ->
+                input.params[paramName]?.let { value ->
+                    val intValue = when (value) {
+                        is Number -> value.toInt()
+                        is String -> value.toIntOrNull()
+                        else -> null
+                    }
+                    intValue?.let { put(paramName, it) }
+                }
+            }
+
+            // Ensure essential parameters have a default if not provided in the request
+            if (!has("temperature")) {
+                put("temperature", DEFAULT_TEMPERATURE)
+            }
+            if (!has("max_tokens")) {
+                put("max_tokens", DEFAULT_MAX_TOKENS)
+            }
         }
-        
+
+        Log.d(TAG, "OpenRouter Request Body: ${requestJson.toString(2)}")
         return requestJson.toString()
     }
 
