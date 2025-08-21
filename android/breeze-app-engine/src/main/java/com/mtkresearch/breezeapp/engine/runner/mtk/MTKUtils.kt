@@ -22,29 +22,7 @@ object MTKUtils {
         return MTK_NPU_CHIPSETS.any { hardware.contains(it) }
     }
     
-    /**
-     * Resolve MTK model path with smart fallback handling.
-     * 
-     * This function follows the same pattern as Sherpa's getModelConfig() approach:
-     * 1. If explicit modelPath provided and valid, use it
-     * 2. Otherwise, automatically find MTK model from fullModelList.json
-     * 
-     * @param context Android context for accessing assets
-     * @param explicitPath Optional explicit model path (can be null/blank)
-     * @return Resolved model path for MTK runner
-     */
-    fun resolveModelPath(context: Context, explicitPath: String? = null): String {
-        // If explicit path provided and not blank, use it
-        if (!explicitPath.isNullOrBlank()) {
-            return explicitPath
-        }
-        
-        // Otherwise, find default MTK model from fullModelList.json
-        val mtkModelId = findMTKModelId(context)
-        val baseDir = "/data/user/0/com.mtkresearch.breezeapp.engine/files/models"
-        val modelDir = "$baseDir/$mtkModelId"
-        return "$modelDir/config_breezetiny_3b_instruct.yaml"
-    }
+    
     
     /**
      * Find MTK model ID from fullModelList.json by looking for runner="mediatek"
@@ -64,5 +42,36 @@ object MTKUtils {
         }
         
         throw IllegalStateException("No MTK model found in fullModelList.json")
+    }
+
+    /**
+     * Resolves the absolute path to the model's entry point file.
+     *
+     * @param modelDef The definition of the model.
+     * @param context The application context to access the filesystem.
+     * @return The absolute path to the entry point file, or null if not found.
+     */
+    fun resolveModelPath(modelDef: com.mtkresearch.breezeapp.engine.model.ModelDefinition, context: Context): String? {
+        val modelsDir = File(context.filesDir, "models")
+        val modelDir = File(modelsDir, modelDef.id)
+
+        if (!modelDir.exists() || !modelDir.isDirectory) {
+            android.util.Log.e("MTKUtils", "Model directory does not exist: ${modelDir.absolutePath}")
+            return null
+        }
+
+        val entryPointFile = modelDef.entryPoint?.value
+        if (entryPointFile.isNullOrEmpty()) {
+            android.util.Log.e("MTKUtils", "ModelDefinition for ${modelDef.id} has no entryPoint defined.")
+            return null
+        }
+
+        val modelFile = File(modelDir, entryPointFile)
+        if (!modelFile.exists()) {
+            android.util.Log.e("MTKUtils", "EntryPoint file does not exist: ${modelFile.absolutePath}")
+            return null
+        }
+
+        return modelFile.absolutePath
     }
 }

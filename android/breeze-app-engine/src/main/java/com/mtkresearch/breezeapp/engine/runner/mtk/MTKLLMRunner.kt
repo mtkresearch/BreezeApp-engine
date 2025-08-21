@@ -71,14 +71,18 @@ class MTKLLMRunner(
         Log.d(TAG, "Loading MTKLLMRunner with model: $modelId")
         if (isLoaded.get()) return true
 
-        // Get model definition from registry to resolve model path
+        // Get model definition from registry
         val modelDef = modelRegistry?.getModelDefinition(modelId)
-        val modelPath = if (modelDef != null) {
-            val modelFile = modelDef.getFileByType("model")
-            "${context?.filesDir}/models/${modelDef.id}/${modelFile?.getEffectiveFileName() ?: "model.pt"}"
-        } else {
-            // Fallback for backward compatibility
-            "${context?.filesDir}/models/$modelId/model.pt"
+        if (modelDef == null) {
+            Log.e(TAG, "Model definition not found for ID: $modelId")
+            return false
+        }
+
+        // Resolve model path using the enhanced utility function
+        val modelPath = MTKUtils.resolveModelPath(modelDef, context!!)
+        if (modelPath == null) {
+            Log.e(TAG, "Failed to resolve model path for ${modelDef.id} using entry point.")
+            return false
         }
 
         // Initialize MTK config directly from model path
