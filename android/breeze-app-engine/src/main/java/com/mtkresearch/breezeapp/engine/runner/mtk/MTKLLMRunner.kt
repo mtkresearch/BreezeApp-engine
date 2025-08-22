@@ -217,12 +217,7 @@ class MTKLLMRunner(
                     trySend(
                         InferenceResult.textOutput(
                             text = token, // Send only the new token as the main text
-                            metadata = mapOf(
-                                InferenceResult.META_MODEL_NAME to MODEL_NAME,
-                                InferenceResult.META_PARTIAL_TOKENS to token,
-                                "temperature" to params.temperature,
-                                "max_tokens" to params.maxTokens
-                            ),
+                            metadata = emptyMap(), // OPTIMIZED: Avoid creating new maps for every token.
                             partial = true
                         )
                     )
