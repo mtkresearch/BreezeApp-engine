@@ -54,7 +54,7 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     )
     
     // Load model using model ID from JSON registry
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading MockLLMRunner with model: $modelId")
         
         // Extract parameters from settings for this runner

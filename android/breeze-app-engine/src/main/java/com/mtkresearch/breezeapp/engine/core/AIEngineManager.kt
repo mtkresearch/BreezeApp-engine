@@ -397,7 +397,7 @@ class AIEngineManager(
             // --- New Model-Aware Loading Logic ---
             logger.d(TAG, "Attempting to load runner $runnerName with model $modelId")
 
-            val loaded = runner.load(modelId, settings)
+            val loaded = runner.load(modelId, settings, request.params)
             if (!loaded) {
                 return Result.failure(RunnerSelectionException(RunnerError("E501", "Failed to load model '$modelId' for runner: $runnerName")))
             }

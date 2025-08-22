@@ -67,7 +67,7 @@ class MTKLLMRunner(
     }
     
     // Load model using model ID from JSON registry
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading MTKLLMRunner with model: $modelId")
         if (isLoaded.get()) return true
 

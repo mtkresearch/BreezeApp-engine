@@ -17,6 +17,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
+import kotlinx.coroutines.isActive
 import org.pytorch.executorch.extension.llm.LlmCallback
 import org.pytorch.executorch.extension.llm.LlmModule
 import java.util.concurrent.atomic.AtomicBoolean
@@ -47,7 +48,8 @@ class ExecutorchLLMRunner(
         private const val DEFAULT_TEMPERATURE = 0.8f
     }
 
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
+        Log.d(TAG, "load() received initialParams: $initialParams")
         Log.d(TAG, "Loading Executorch LLM Runner with model: $modelId")
         if (isLoaded.get()) {
             unload()
@@ -62,7 +64,18 @@ class ExecutorchLLMRunner(
             this.tokenizerPath = paths.tokenizerPath
 
             val runnerParams = settings.getRunnerParameters("ExecutorchLLMRunner")
-            val temperature = (runnerParams["temperature"] as? Number)?.toFloat() ?: DEFAULT_TEMPERATURE
+            val requestedTemperature = when (val temp = initialParams["temperature"]) {
+                is Number -> temp.toFloat()
+                is String -> temp.toFloatOrNull()
+                else -> null
+            }
+            val settingsTemperature = when (val temp = runnerParams["temperature"]) {
+                is Number -> temp.toFloat()
+                is String -> temp.toFloatOrNull()
+                else -> null
+            }
+
+            val temperature = requestedTemperature ?: settingsTemperature ?: DEFAULT_TEMPERATURE
             this.currentTemperature = temperature
 
             llmModule = LlmModule(modelPath!!, tokenizerPath!!, temperature)
@@ -173,6 +186,15 @@ class ExecutorchLLMRunner(
             Log.e(TAG, "Generation failed with code $generateResult")
             trySend(InferenceResult.error(RunnerError.runtimeError("Generation failed with code $generateResult")))
             close()
+        } else {
+            // This block is executed after llmModule.generate() completes.
+            // If the flow is still active, it means the stop token was not received
+            // and we need to manually close the stream.
+            if (isActive) {
+                Log.d(TAG, "Generation completed without a stop token. Closing flow.")
+                trySend(InferenceResult.textOutput(text = "", metadata = mapOf(), partial = false))
+                close()
+            }
         }
         
         awaitClose {
