@@ -1,18 +1,20 @@
 package com.mtkresearch.breezeapp.engine.model
 
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipelineConfig
 
 /**
  * Engine Settings Model
  * 
  * Represents the configuration settings for the BreezeApp Engine, including
- * runner selections and their parameters.
+ * runner selections, their parameters, and guardian pipeline configuration.
  * 
  * This model is used to persist and retrieve engine settings.
  */
 data class EngineSettings(
     val selectedRunners: Map<CapabilityType, String> = emptyMap(),
-    val runnerParameters: Map<String, Map<String, Any>> = emptyMap()
+    val runnerParameters: Map<String, Map<String, Any>> = emptyMap(),
+    val guardianConfig: GuardianPipelineConfig = GuardianPipelineConfig.DISABLED
 ) {
     /**
      * Get parameters for a specific runner
@@ -42,6 +44,13 @@ data class EngineSettings(
     }
     
     /**
+     * Create a new EngineSettings with updated guardian configuration
+     */
+    fun withGuardianConfig(config: GuardianPipelineConfig): EngineSettings {
+        return this.copy(guardianConfig = config)
+    }
+    
+    /**
      * Check if migration from legacy format is needed
      */
     fun needsMigration(): Boolean {
@@ -64,7 +73,8 @@ data class EngineSettings(
         fun default(): EngineSettings {
             return EngineSettings(
                 selectedRunners = emptyMap(),
-                runnerParameters = emptyMap()
+                runnerParameters = emptyMap(),
+                guardianConfig = GuardianPipelineConfig.DISABLED
             )
         }
     }

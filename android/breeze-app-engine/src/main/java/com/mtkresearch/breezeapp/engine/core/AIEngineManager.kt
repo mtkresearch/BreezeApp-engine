@@ -5,12 +5,14 @@ import android.content.Context
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.model.RunnerError
 import com.mtkresearch.breezeapp.engine.model.ModelDefinition
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
+import com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipeline
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -80,6 +82,9 @@ class AIEngineManager(
 
     // 使用統一的取消管理器
     private val cancellationManager = CancellationManager.getInstance()
+    
+    // Guardian 管道處理器
+    private val guardianPipeline = GuardianPipeline(runnerManager, logger)
 
     /**
      * 處理推論請求
@@ -102,7 +107,25 @@ class AIEngineManager(
         }
 
         return try {
-            selectAndLoadRunner(request, capability, preferredRunner).fold(
+            // 1. Get effective guardian configuration
+            val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
+            val effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
+            
+            // 2. Input Guardian Check (if enabled)
+            if (effectiveGuardianConfig.shouldCheckInput()) {
+                logger.d(TAG, "Performing guardian input validation for request $requestId")
+                val inputCheckResult = guardianPipeline.checkInput(request, effectiveGuardianConfig)
+                if (inputCheckResult.shouldBlock()) {
+                    logger.w(TAG, "Request $requestId blocked by guardian input validation")
+                    return inputCheckResult.toInferenceResult()
+                }
+                if (inputCheckResult.shouldWarn()) {
+                    logger.w(TAG, "Request $requestId triggered guardian warning during input validation")
+                }
+            }
+            
+            // 3. Normal AI Processing
+            val aiResult = selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     logger.d(TAG, "Processing request $requestId with runner: ${runner.getRunnerInfo().name}")
                     logger.d(TAG, "Runtime params for $requestId: ${request.params}")
@@ -113,6 +136,16 @@ class AIEngineManager(
                     InferenceResult.error(runnerError)
                 }
             )
+            
+            // 4. Output Guardian Check (if enabled and AI succeeded)
+            if (effectiveGuardianConfig.shouldCheckOutput() && aiResult.error == null) {
+                logger.d(TAG, "Performing guardian output filtering for request $requestId")
+                val outputCheckResult = guardianPipeline.checkOutput(aiResult, effectiveGuardianConfig)
+                return outputCheckResult.applyToResult(aiResult)
+            }
+            
+            aiResult
+            
         } catch (e: Exception) {
             logger.e(TAG, "Error processing request", e)
             InferenceResult.error(RunnerError("E101", e.message ?: "Unknown error", true, e))
@@ -143,12 +176,33 @@ class AIEngineManager(
         }
 
         try {
+            // 1. Get effective guardian configuration
+            val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
+            val effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
+            
+            // 2. Input Guardian Check (if enabled)
+            if (effectiveGuardianConfig.shouldCheckInput()) {
+                logger.d(TAG, "Performing guardian input validation for stream request $requestId")
+                val inputCheckResult = guardianPipeline.checkInput(request, effectiveGuardianConfig)
+                if (inputCheckResult.shouldBlock()) {
+                    logger.w(TAG, "Stream request $requestId blocked by guardian input validation")
+                    emit(inputCheckResult.toInferenceResult())
+                    return@flow
+                }
+                if (inputCheckResult.shouldWarn()) {
+                    logger.w(TAG, "Stream request $requestId triggered guardian warning during input validation")
+                }
+            }
+            
+            // 3. Stream AI Processing with Guardian Filtering
             selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     logger.d(TAG, "Processing stream request $requestId with runner: ${runner.getRunnerInfo().name}")
                     logger.d(TAG, "Runtime params for $requestId: ${request.params}")
                     if (runner is FlowStreamingRunner) {
-                        runner.runAsFlow(request).collect { emit(it) }
+                        runner.runAsFlow(request)
+                            .guardianFilter(effectiveGuardianConfig, guardianPipeline)
+                            .collect { emit(it) }
                     } else {
                         emit(InferenceResult.error(RunnerError("E406", "Runner does not support streaming.")))
                     }
@@ -485,6 +539,14 @@ class AIEngineManager(
     fun getCurrentEngineSettings() = runnerManager.getCurrentSettings()
 
     /**
+     * Update engine settings (public method for guardian configuration).
+     * Used by guardian examples and external configuration.
+     */
+    suspend fun updateSettings(settings: EngineSettings) {
+        runnerManager.saveSettings(settings)
+    }
+    
+    /**
      * Get parameter schema defaults for a specific runner.
      * Used to ensure all runner parameters have proper default values.
      */
@@ -507,6 +569,34 @@ class AIEngineManager(
         } catch (e: Exception) {
             logger.e(TAG, "Error getting parameter defaults for runner: $runnerName", e)
             emptyMap()
+        }
+    }
+}
+
+/**
+ * Guardian Filter Extension for Flow<InferenceResult>
+ * 
+ * Applies real-time guardian filtering to streaming inference results.
+ * Each result in the stream is checked against the guardian configuration
+ * and filtered/blocked accordingly.
+ */
+suspend fun Flow<InferenceResult>.guardianFilter(
+    config: com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipelineConfig,
+    guardianPipeline: GuardianPipeline
+): Flow<InferenceResult> {
+    
+    if (!config.shouldCheckOutput()) {
+        return this
+    }
+    
+    return transform { result ->
+        if (result.error == null) {
+            // Apply guardian filtering to successful results
+            val checkResult = guardianPipeline.checkOutput(result, config)
+            emit(checkResult.applyToResult(result))
+        } else {
+            // Pass through errors unchanged
+            emit(result)
         }
     }
 }
