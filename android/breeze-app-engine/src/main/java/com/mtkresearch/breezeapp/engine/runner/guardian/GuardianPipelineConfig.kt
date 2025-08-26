@@ -28,7 +28,8 @@ data class GuardianPipelineConfig(
     val checkpoints: Set<GuardianCheckpoint> = setOf(GuardianCheckpoint.INPUT_VALIDATION),
     val strictnessLevel: String = "medium", // low, medium, high
     val guardianRunnerName: String? = null, // Specific guardian runner, null for auto-select
-    val failureStrategy: GuardianFailureStrategy = GuardianFailureStrategy.BLOCK
+    val failureStrategy: GuardianFailureStrategy = GuardianFailureStrategy.BLOCK,
+    val streamingWordAccumulationCount: Int = 20
 ) {
     
     /**
@@ -54,11 +55,18 @@ data class GuardianPipelineConfig(
         /**
          * Safe default configuration with input validation only.
          */
+        /**
+         * Safe default configuration with both input and output validation.
+         */
+        /**
+         * Safe default configuration with both input and output validation.
+         */
         val DEFAULT_SAFE = GuardianPipelineConfig(
             enabled = true,
-            checkpoints = setOf(GuardianCheckpoint.INPUT_VALIDATION),
+            checkpoints = setOf(GuardianCheckpoint.BOTH),
             strictnessLevel = "medium",
-            failureStrategy = GuardianFailureStrategy.BLOCK
+            failureStrategy = GuardianFailureStrategy.BLOCK,
+            streamingWordAccumulationCount = 20
         )
         
         /**
@@ -68,7 +76,8 @@ data class GuardianPipelineConfig(
             enabled = true,
             checkpoints = setOf(GuardianCheckpoint.BOTH),
             strictnessLevel = "high",
-            failureStrategy = GuardianFailureStrategy.FILTER
+            failureStrategy = GuardianFailureStrategy.FILTER,
+            streamingWordAccumulationCount = 10 // A lower threshold for max protection
         )
     }
 }

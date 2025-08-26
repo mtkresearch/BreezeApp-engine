@@ -3,6 +3,7 @@ package com.mtkresearch.breezeapp.engine.runner.guardian
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.EngineSettings
+import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 
 /**
  * Guardian Integration Verification Test
@@ -182,6 +183,46 @@ object GuardianVerificationTest {
         
         return allPassed
     }
+}
+
+/**
+ * Mock implementation of GuardianRunner for testing purposes.
+ * This provides a minimal implementation that satisfies the BaseGuardianRunner interface.
+ */
+class MockGuardianRunner : BaseGuardianRunner() {
+    private var loaded = false
+
+    override fun analyze(text: String, config: GuardianConfig): GuardianAnalysisResult {
+        return GuardianAnalysisResult(
+            status = GuardianStatus.SAFE,
+            riskScore = 0.1,
+            categories = emptyList(),
+            action = GuardianAction.NONE,
+            filteredText = null
+        )
+    }
+
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
+        loaded = true
+        return true
+    }
+
+    override fun unload() {
+        loaded = false
+    }
+
+    override fun isLoaded(): Boolean = loaded
+
+    override fun getRunnerInfo(): RunnerInfo {
+        return RunnerInfo(
+            name = "mock_guardian",
+            version = "1.0.0",
+            capabilities = getCapabilities(),
+            description = "Mock Guardian Runner for testing"
+        )
+    }
+
+    override fun isSupported(): Boolean = true
 }
 
 /**

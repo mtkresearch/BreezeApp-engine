@@ -14,7 +14,7 @@ import com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipelineConfig
 data class EngineSettings(
     val selectedRunners: Map<CapabilityType, String> = emptyMap(),
     val runnerParameters: Map<String, Map<String, Any>> = emptyMap(),
-    val guardianConfig: GuardianPipelineConfig = GuardianPipelineConfig.DISABLED
+    val guardianConfig: GuardianPipelineConfig = GuardianPipelineConfig.DEFAULT_SAFE
 ) {
     /**
      * Get parameters for a specific runner
@@ -74,7 +74,7 @@ data class EngineSettings(
             return EngineSettings(
                 selectedRunners = emptyMap(),
                 runnerParameters = emptyMap(),
-                guardianConfig = GuardianPipelineConfig.DISABLED
+                guardianConfig = GuardianPipelineConfig.DEFAULT_SAFE
             )
         }
     }

@@ -145,6 +145,17 @@ class GuardianPipeline(
                 logger.w(TAG, "No guardian runner available")
                 return GuardianCheckResult.skip("No guardian runner available")
             }
+
+            // Load runner if needed
+            if (!guardianRunner.isLoaded()) {
+                logger.d(TAG, "Loading guardian runner: ${guardianRunner.getRunnerInfo().name}")
+                val settings = runnerManager.getCurrentSettings()
+                val loaded = guardianRunner.load("", settings, emptyMap())
+                if (!loaded) {
+                    logger.e(TAG, "Failed to load guardian runner: ${guardianRunner.getRunnerInfo().name}")
+                    return GuardianCheckResult.skip("Failed to load guardian runner")
+                }
+            }
             
             // 2. Create guardian request
             val guardianRequest = InferenceRequest(
@@ -197,7 +208,7 @@ class GuardianPipeline(
     /**
      * Extract text content from inference result.
      */
-    private fun extractTextFromResult(result: InferenceResult): String? {
+    internal fun extractTextFromResult(result: InferenceResult): String? {
         // Try different output keys that might contain text
         return result.outputs["text"] as? String 
             ?: result.outputs["response"] as? String

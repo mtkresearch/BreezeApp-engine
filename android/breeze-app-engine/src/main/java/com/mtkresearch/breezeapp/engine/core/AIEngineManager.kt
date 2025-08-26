@@ -201,7 +201,7 @@ class AIEngineManager(
                     logger.d(TAG, "Runtime params for $requestId: ${request.params}")
                     if (runner is FlowStreamingRunner) {
                         runner.runAsFlow(request)
-                            .guardianFilter(effectiveGuardianConfig, guardianPipeline)
+                            .guardianFilter(effectiveGuardianConfig, guardianPipeline, logger)
                             .collect { emit(it) }
                     } else {
                         emit(InferenceResult.error(RunnerError("E406", "Runner does not support streaming.")))
@@ -610,23 +610,89 @@ class AIEngineManager(
  * Each result in the stream is checked against the guardian configuration
  * and filtered/blocked accordingly.
  */
-suspend fun Flow<InferenceResult>.guardianFilter(
+fun Flow<InferenceResult>.guardianFilter(
     config: com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipelineConfig,
-    guardianPipeline: GuardianPipeline
+    guardianPipeline: GuardianPipeline,
+    logger: Logger
 ): Flow<InferenceResult> {
-    
+
     if (!config.shouldCheckOutput()) {
         return this
     }
-    
-    return transform { result ->
-        if (result.error == null) {
-            // Apply guardian filtering to successful results
-            val checkResult = guardianPipeline.checkOutput(result, config)
-            emit(checkResult.applyToResult(result))
-        } else {
-            // Pass through errors unchanged
-            emit(result)
+
+    val wordThreshold = config.streamingWordAccumulationCount
+    // A threshold of 0 or less means check every time (original behavior).
+    if (wordThreshold <= 0) {
+        return this.transform { result ->
+            if (result.error == null) {
+                val checkResult = guardianPipeline.checkOutput(result, config)
+                emit(checkResult.applyToResult(result))
+            } else {
+                emit(result)
+            }
+        }
+    }
+
+    return flow {
+        try {
+            val resultBuffer = mutableListOf<InferenceResult>()
+            val textBuffer = StringBuilder()
+
+            this@guardianFilter.collect { result ->
+                if (result.error != null) {
+                    // Pass through errors immediately
+                    emit(result)
+                    return@collect
+                }
+
+                resultBuffer.add(result)
+                val textChunk = guardianPipeline.extractTextFromResult(result)
+                if (!textChunk.isNullOrBlank()) {
+                    textBuffer.append(textChunk)
+                }
+
+                val wordCount = textBuffer.toString().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.size
+
+                if (wordCount >= wordThreshold) {
+                    val accumulatedText = textBuffer.toString()
+                    logger.d("GuardianFilter", "Checking accumulated text ($wordCount words)")
+                    val tempResult = InferenceResult.success(outputs = mapOf("text" to accumulatedText))
+                    val checkResult = guardianPipeline.checkOutput(tempResult, config)
+
+                    if (checkResult.shouldBlock()) {
+                        emit(checkResult.toInferenceResult())
+                        throw CancellationException("Guardian blocked streaming output.")
+                    }
+
+                    // Guardian check passed. Emit all buffered results and clear buffers.
+                    resultBuffer.forEach { emit(it) }
+                    resultBuffer.clear()
+                    textBuffer.clear()
+                }
+            }
+
+            // After the flow completes, check any remaining text in the buffer.
+            if (resultBuffer.isNotEmpty()) {
+                val accumulatedText = textBuffer.toString()
+                logger.d("GuardianFilter", "Final check on remaining ${resultBuffer.size} chunks, ${accumulatedText.length} chars.")
+                val tempResult = InferenceResult.success(outputs = mapOf("text" to accumulatedText))
+                val checkResult = guardianPipeline.checkOutput(tempResult, config)
+
+                if (checkResult.shouldBlock()) {
+                    emit(checkResult.toInferenceResult())
+                } else {
+                    // If not blocked, emit the remaining buffered results
+                    resultBuffer.forEach { emit(it) }
+                }
+                resultBuffer.clear()
+                textBuffer.clear()
+            }
+        } catch (e: CancellationException) {
+            logger.w("GuardianFilter", "Flow cancelled by Guardian: ${e.message}")
+            throw e
+        } catch (e: Exception) {
+            logger.e("GuardianFilter", "Error in guardian filter", e)
+            emit(InferenceResult.error(RunnerError("E999", "Error in guardian filter: ${e.message}", cause = e)))
         }
     }
 }
