@@ -376,6 +376,36 @@ class AIEngineManager(
                 resolvedModel
             }
 
+            // --- New Model Download Logic ---
+            val modelManager = ModelManager.getInstance(context)
+            val modelState = modelManager.getModelState(modelId)
+
+            if (modelId.isNotEmpty() && modelState != null && modelState.status !in listOf(ModelManager.ModelState.Status.DOWNLOADED, ModelManager.ModelState.Status.READY)) {
+                logger.d(TAG, "Model '$modelId' is not downloaded. Triggering download...")
+
+                // Use a CompletableDeferred to wait for the download to finish.
+                val downloadCompleter = kotlinx.coroutines.CompletableDeferred<Boolean>()
+
+                modelManager.downloadModel(modelId, object : ModelManager.DownloadListener {
+                    override fun onCompleted(modelId: String) {
+                        logger.d(TAG, "Model '$modelId' downloaded successfully.")
+                        downloadCompleter.complete(true)
+                    }
+
+                    override fun onError(modelId: String, error: Throwable, fileName: String?) {
+                        logger.e(TAG, "Failed to download model '$modelId'. Error: ${error.message}", error)
+                        downloadCompleter.complete(false)
+                    }
+                })
+
+                // Suspend until the download is complete or fails.
+                val downloadSuccess = downloadCompleter.await()
+                if (!downloadSuccess) {
+                    return Result.failure(RunnerSelectionException(RunnerError("E500", "Failed to download required model: $modelId")))
+                }
+            }
+            // --- End New Model Download Logic ---
+
             // Get model info for RAM calculation
             val modelInfo = if (modelId.isNotEmpty()) {
                 modelRegistryService.getModelDefinition(modelId)
@@ -421,7 +451,7 @@ class AIEngineManager(
             // --- New Model-Aware Loading Logic ---
             logger.d(TAG, "Attempting to load runner $runnerName with model $modelId")
 
-            val loaded = runner.load(modelId, settings)
+            val loaded = runner.load(modelId, settings, request.params)
             if (!loaded) {
                 return Result.failure(RunnerSelectionException(RunnerError("E501", "Failed to load model '$modelId' for runner: $runnerName")))
             }

@@ -46,7 +46,7 @@ class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStre
 
     override fun getTag(): String = TAG
 
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         modelName = modelId
         return try {
             if (!SherpaLibraryManager.initializeGlobally()) throw Exception("Failed to initialize Sherpa ONNX library")

@@ -55,7 +55,7 @@ class MockGuardrailRunner : BaseRunner {
         "免費", "中獎", "free", "winner", "lottery"
     )
     
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading MockGuardrailRunner with config: ${modelId}")
         isLoaded.set(true)
         Log.d(TAG, "MockGuardrailRunner loaded successfully")

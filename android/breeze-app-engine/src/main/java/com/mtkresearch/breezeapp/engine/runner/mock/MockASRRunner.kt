@@ -56,7 +56,7 @@ class MockASRRunner : BaseRunner, FlowStreamingRunner {
         "default" to "這是預設的語音識別結果，系統已成功處理您的音頻輸入。"
     )
     
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading MockASRRunner with model: $modelId")
         isLoaded.set(true)
         Log.d(TAG, "MockASRRunner loaded successfully")
