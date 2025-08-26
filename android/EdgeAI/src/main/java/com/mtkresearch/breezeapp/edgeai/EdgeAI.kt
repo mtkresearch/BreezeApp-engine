@@ -113,11 +113,15 @@ object EdgeAI {
                         // It's possible the channel was closed by a previous final response,
                         // so we check before sending.
                         if (!channel.isClosedForSend) {
-                            val result = channel.trySend(aiResponse)
-                            if (result.isFailure) {
-                                // This might happen if the channel is closed between the check and the send,
-                                // which is unlikely with the lock but good to log.
-                                Log.e(TAG, "Failed to send response to channel for ${aiResponse.requestId}: ${result.exceptionOrNull()}", result.exceptionOrNull())
+                            if (aiResponse.error != null) {
+                                channel.close(InternalErrorException(aiResponse.error))
+                            } else {
+                                val result = channel.trySend(aiResponse)
+                                if (result.isFailure) {
+                                    // This might happen if the channel is closed between the check and the send,
+                                    // which is unlikely with the lock but good to log.
+                                    Log.e(TAG, "Failed to send response to channel for ${aiResponse.requestId}: ${result.exceptionOrNull()}", result.exceptionOrNull())
+                                }
                             }
                         }
 

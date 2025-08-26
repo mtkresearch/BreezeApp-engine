@@ -1,5 +1,6 @@
 package com.mtkresearch.breezeapp.engine.runner.guardian
 
+import android.content.Context
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.model.RunnerError
 
@@ -61,21 +62,34 @@ sealed class GuardianCheckResult {
     /**
      * Convert to InferenceResult for blocking scenarios.
      */
-    fun toInferenceResult(): InferenceResult = when (this) {
+    fun toInferenceResult(context: Context? = null): InferenceResult = when (this) {
         is Skipped -> InferenceResult.error(
             RunnerError("G001", "Guardian check skipped: $reason")
         )
         is Passed -> InferenceResult.error(
             RunnerError("G002", "Internal error: Guardian passed but converted to error result")
         )
-        is Failed -> InferenceResult.error(
-            RunnerError(
-                "G100", 
-                "Content blocked by guardian: ${analysisResult.categories.joinToString()}", 
-                false,
-                null
+        is Failed -> {
+            val messageProvider = context?.let { GuardianMessageProvider(it) }
+            val primaryCategory = analysisResult.categories.firstOrNull() ?: GuardianCategory.TOXICITY
+            
+            val userMessage = messageProvider?.getGuardianMessage(primaryCategory, true) 
+                ?: "您的訊息包含不適當的內容，請修改後重新發送"
+            
+            val suggestion = messageProvider?.getGuardianSuggestion(primaryCategory) 
+                ?: "請使用更積極正面的表達方式"
+            
+            val reason = messageProvider?.getGuardianReason(primaryCategory, analysisResult.riskScore) 
+                ?: "檢測到有害內容 (風險分數: ${String.format("%.2f", analysisResult.riskScore)})"
+            
+            InferenceResult.error(
+                RunnerError(
+                    "G100", 
+                    userMessage,
+                    false
+                )
             )
-        )
+        }
     }
     
     /**
@@ -87,7 +101,7 @@ sealed class GuardianCheckResult {
             is Skipped, is Passed -> originalResult
             
             is Failed -> when (strategy) {
-                GuardianFailureStrategy.BLOCK -> toInferenceResult()
+                GuardianFailureStrategy.BLOCK -> toInferenceResult(null)
                 
                 GuardianFailureStrategy.WARN -> {
                     // Return original result but add guardian warning to metadata
@@ -118,7 +132,7 @@ sealed class GuardianCheckResult {
                         )
                     } else {
                         // Filtering not possible, block the result
-                        toInferenceResult()
+                        toInferenceResult(null)
                     }
                 }
             }

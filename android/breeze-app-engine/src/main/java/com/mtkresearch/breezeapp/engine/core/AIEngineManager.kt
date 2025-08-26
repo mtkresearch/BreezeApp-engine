@@ -115,12 +115,9 @@ class AIEngineManager(
             if (effectiveGuardianConfig.shouldCheckInput()) {
                 logger.d(TAG, "Performing guardian input validation for request $requestId")
                 val inputCheckResult = guardianPipeline.checkInput(request, effectiveGuardianConfig)
-                if (inputCheckResult.shouldBlock()) {
-                    logger.w(TAG, "Request $requestId blocked by guardian input validation")
-                    return inputCheckResult.toInferenceResult()
-                }
-                if (inputCheckResult.shouldWarn()) {
-                    logger.w(TAG, "Request $requestId triggered guardian warning during input validation")
+                if (inputCheckResult is com.mtkresearch.breezeapp.engine.runner.guardian.GuardianCheckResult.Failed) {
+                    logger.w(TAG, "Request $requestId dropped due to guardian input violation: ${inputCheckResult.analysisResult.status}")
+                    return inputCheckResult.toInferenceResult(context)
                 }
             }
             
@@ -184,13 +181,10 @@ class AIEngineManager(
             if (effectiveGuardianConfig.shouldCheckInput()) {
                 logger.d(TAG, "Performing guardian input validation for stream request $requestId")
                 val inputCheckResult = guardianPipeline.checkInput(request, effectiveGuardianConfig)
-                if (inputCheckResult.shouldBlock()) {
-                    logger.w(TAG, "Stream request $requestId blocked by guardian input validation")
-                    emit(inputCheckResult.toInferenceResult())
+                if (inputCheckResult is com.mtkresearch.breezeapp.engine.runner.guardian.GuardianCheckResult.Failed) {
+                    logger.w(TAG, "Stream request $requestId dropped due to guardian input violation: ${inputCheckResult.analysisResult.status}")
+                    emit(inputCheckResult.toInferenceResult(context))
                     return@flow
-                }
-                if (inputCheckResult.shouldWarn()) {
-                    logger.w(TAG, "Stream request $requestId triggered guardian warning during input validation")
                 }
             }
             
@@ -201,7 +195,7 @@ class AIEngineManager(
                     logger.d(TAG, "Runtime params for $requestId: ${request.params}")
                     if (runner is FlowStreamingRunner) {
                         runner.runAsFlow(request)
-                            .guardianFilter(effectiveGuardianConfig, guardianPipeline, logger)
+                            .guardianFilter(effectiveGuardianConfig, guardianPipeline, logger, context)
                             .collect { emit(it) }
                     } else {
                         emit(InferenceResult.error(RunnerError("E406", "Runner does not support streaming.")))
@@ -613,7 +607,8 @@ class AIEngineManager(
 fun Flow<InferenceResult>.guardianFilter(
     config: com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipelineConfig,
     guardianPipeline: GuardianPipeline,
-    logger: Logger
+    logger: Logger,
+    context: Context? = null
 ): Flow<InferenceResult> {
 
     if (!config.shouldCheckOutput()) {
@@ -660,7 +655,7 @@ fun Flow<InferenceResult>.guardianFilter(
                     val checkResult = guardianPipeline.checkOutput(tempResult, config)
 
                     if (checkResult.shouldBlock()) {
-                        emit(checkResult.toInferenceResult())
+                        emit(checkResult.toInferenceResult(context))
                         throw CancellationException("Guardian blocked streaming output.")
                     }
 
@@ -679,7 +674,7 @@ fun Flow<InferenceResult>.guardianFilter(
                 val checkResult = guardianPipeline.checkOutput(tempResult, config)
 
                 if (checkResult.shouldBlock()) {
-                    emit(checkResult.toInferenceResult())
+                    emit(checkResult.toInferenceResult(context))
                 } else {
                     // If not blocked, emit the remaining buffered results
                     resultBuffer.forEach { emit(it) }
