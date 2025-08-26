@@ -5,12 +5,14 @@ import android.content.Context
 import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
+import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
 import com.mtkresearch.breezeapp.engine.model.RunnerError
 import com.mtkresearch.breezeapp.engine.model.ModelDefinition
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
+import com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipeline
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -80,6 +82,9 @@ class AIEngineManager(
 
     // 使用統一的取消管理器
     private val cancellationManager = CancellationManager.getInstance()
+    
+    // Guardian 管道處理器
+    private val guardianPipeline = GuardianPipeline(runnerManager, logger)
 
     /**
      * 處理推論請求
@@ -102,7 +107,22 @@ class AIEngineManager(
         }
 
         return try {
-            selectAndLoadRunner(request, capability, preferredRunner).fold(
+            // 1. Get effective guardian configuration
+            val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
+            val effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
+            
+            // 2. Input Guardian Check (if enabled)
+            if (effectiveGuardianConfig.shouldCheckInput()) {
+                logger.d(TAG, "Performing guardian input validation for request $requestId")
+                val inputCheckResult = guardianPipeline.checkInput(request, effectiveGuardianConfig)
+                if (inputCheckResult is com.mtkresearch.breezeapp.engine.runner.guardian.GuardianCheckResult.Failed) {
+                    logger.w(TAG, "Request $requestId dropped due to guardian input violation: ${inputCheckResult.analysisResult.status}")
+                    return inputCheckResult.toInferenceResult(context)
+                }
+            }
+            
+            // 3. Normal AI Processing
+            val aiResult = selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     logger.d(TAG, "Processing request $requestId with runner: ${runner.getRunnerInfo().name}")
                     logger.d(TAG, "Runtime params for $requestId: ${request.params}")
@@ -113,6 +133,16 @@ class AIEngineManager(
                     InferenceResult.error(runnerError)
                 }
             )
+            
+            // 4. Output Guardian Check (if enabled and AI succeeded)
+            if (effectiveGuardianConfig.shouldCheckOutput() && aiResult.error == null) {
+                logger.d(TAG, "Performing guardian output filtering for request $requestId")
+                val outputCheckResult = guardianPipeline.checkOutput(aiResult, effectiveGuardianConfig)
+                return outputCheckResult.applyToResult(aiResult)
+            }
+            
+            aiResult
+            
         } catch (e: Exception) {
             logger.e(TAG, "Error processing request", e)
             InferenceResult.error(RunnerError("E101", e.message ?: "Unknown error", true, e))
@@ -143,12 +173,30 @@ class AIEngineManager(
         }
 
         try {
+            // 1. Get effective guardian configuration
+            val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
+            val effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
+            
+            // 2. Input Guardian Check (if enabled)
+            if (effectiveGuardianConfig.shouldCheckInput()) {
+                logger.d(TAG, "Performing guardian input validation for stream request $requestId")
+                val inputCheckResult = guardianPipeline.checkInput(request, effectiveGuardianConfig)
+                if (inputCheckResult is com.mtkresearch.breezeapp.engine.runner.guardian.GuardianCheckResult.Failed) {
+                    logger.w(TAG, "Stream request $requestId dropped due to guardian input violation: ${inputCheckResult.analysisResult.status}")
+                    emit(inputCheckResult.toInferenceResult(context))
+                    return@flow
+                }
+            }
+            
+            // 3. Stream AI Processing with Guardian Filtering
             selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     logger.d(TAG, "Processing stream request $requestId with runner: ${runner.getRunnerInfo().name}")
                     logger.d(TAG, "Runtime params for $requestId: ${request.params}")
                     if (runner is FlowStreamingRunner) {
-                        runner.runAsFlow(request).collect { emit(it) }
+                        runner.runAsFlow(request)
+                            .guardianFilter(effectiveGuardianConfig, guardianPipeline, logger, context)
+                            .collect { emit(it) }
                     } else {
                         emit(InferenceResult.error(RunnerError("E406", "Runner does not support streaming.")))
                     }
@@ -322,6 +370,36 @@ class AIEngineManager(
                 resolvedModel
             }
 
+            // --- New Model Download Logic ---
+            val modelManager = ModelManager.getInstance(context)
+            val modelState = modelManager.getModelState(modelId)
+
+            if (modelId.isNotEmpty() && modelState != null && modelState.status !in listOf(ModelManager.ModelState.Status.DOWNLOADED, ModelManager.ModelState.Status.READY)) {
+                logger.d(TAG, "Model '$modelId' is not downloaded. Triggering download...")
+
+                // Use a CompletableDeferred to wait for the download to finish.
+                val downloadCompleter = kotlinx.coroutines.CompletableDeferred<Boolean>()
+
+                modelManager.downloadModel(modelId, object : ModelManager.DownloadListener {
+                    override fun onCompleted(modelId: String) {
+                        logger.d(TAG, "Model '$modelId' downloaded successfully.")
+                        downloadCompleter.complete(true)
+                    }
+
+                    override fun onError(modelId: String, error: Throwable, fileName: String?) {
+                        logger.e(TAG, "Failed to download model '$modelId'. Error: ${error.message}", error)
+                        downloadCompleter.complete(false)
+                    }
+                })
+
+                // Suspend until the download is complete or fails.
+                val downloadSuccess = downloadCompleter.await()
+                if (!downloadSuccess) {
+                    return Result.failure(RunnerSelectionException(RunnerError("E500", "Failed to download required model: $modelId")))
+                }
+            }
+            // --- End New Model Download Logic ---
+
             // Get model info for RAM calculation
             val modelInfo = if (modelId.isNotEmpty()) {
                 modelRegistryService.getModelDefinition(modelId)
@@ -367,7 +445,7 @@ class AIEngineManager(
             // --- New Model-Aware Loading Logic ---
             logger.d(TAG, "Attempting to load runner $runnerName with model $modelId")
 
-            val loaded = runner.load(modelId, settings)
+            val loaded = runner.load(modelId, settings, request.params)
             if (!loaded) {
                 return Result.failure(RunnerSelectionException(RunnerError("E501", "Failed to load model '$modelId' for runner: $runnerName")))
             }
@@ -485,6 +563,14 @@ class AIEngineManager(
     fun getCurrentEngineSettings() = runnerManager.getCurrentSettings()
 
     /**
+     * Update engine settings (public method for guardian configuration).
+     * Used by guardian examples and external configuration.
+     */
+    suspend fun updateSettings(settings: EngineSettings) {
+        runnerManager.saveSettings(settings)
+    }
+    
+    /**
      * Get parameter schema defaults for a specific runner.
      * Used to ensure all runner parameters have proper default values.
      */
@@ -507,6 +593,101 @@ class AIEngineManager(
         } catch (e: Exception) {
             logger.e(TAG, "Error getting parameter defaults for runner: $runnerName", e)
             emptyMap()
+        }
+    }
+}
+
+/**
+ * Guardian Filter Extension for Flow<InferenceResult>
+ * 
+ * Applies real-time guardian filtering to streaming inference results.
+ * Each result in the stream is checked against the guardian configuration
+ * and filtered/blocked accordingly.
+ */
+fun Flow<InferenceResult>.guardianFilter(
+    config: com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipelineConfig,
+    guardianPipeline: GuardianPipeline,
+    logger: Logger,
+    context: Context? = null
+): Flow<InferenceResult> {
+
+    if (!config.shouldCheckOutput()) {
+        return this
+    }
+
+    val wordThreshold = config.streamingWordAccumulationCount
+    // A threshold of 0 or less means check every time (original behavior).
+    if (wordThreshold <= 0) {
+        return this.transform { result ->
+            if (result.error == null) {
+                val checkResult = guardianPipeline.checkOutput(result, config)
+                emit(checkResult.applyToResult(result))
+            } else {
+                emit(result)
+            }
+        }
+    }
+
+    return flow {
+        try {
+            val resultBuffer = mutableListOf<InferenceResult>()
+            val textBuffer = StringBuilder()
+
+            this@guardianFilter.collect { result ->
+                if (result.error != null) {
+                    // Pass through errors immediately
+                    emit(result)
+                    return@collect
+                }
+
+                resultBuffer.add(result)
+                val textChunk = guardianPipeline.extractTextFromResult(result)
+                if (!textChunk.isNullOrBlank()) {
+                    textBuffer.append(textChunk)
+                }
+
+                val wordCount = textBuffer.toString().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.size
+
+                if (wordCount >= wordThreshold) {
+                    val accumulatedText = textBuffer.toString()
+                    logger.d("GuardianFilter", "Checking accumulated text ($wordCount words)")
+                    val tempResult = InferenceResult.success(outputs = mapOf("text" to accumulatedText))
+                    val checkResult = guardianPipeline.checkOutput(tempResult, config)
+
+                    if (checkResult.shouldBlock()) {
+                        emit(checkResult.toInferenceResult(context))
+                        throw CancellationException("Guardian blocked streaming output.")
+                    }
+
+                    // Guardian check passed. Emit all buffered results and clear buffers.
+                    resultBuffer.forEach { emit(it) }
+                    resultBuffer.clear()
+                    textBuffer.clear()
+                }
+            }
+
+            // After the flow completes, check any remaining text in the buffer.
+            if (resultBuffer.isNotEmpty()) {
+                val accumulatedText = textBuffer.toString()
+                logger.d("GuardianFilter", "Final check on remaining ${resultBuffer.size} chunks, ${accumulatedText.length} chars.")
+                val tempResult = InferenceResult.success(outputs = mapOf("text" to accumulatedText))
+                val checkResult = guardianPipeline.checkOutput(tempResult, config)
+
+                if (checkResult.shouldBlock()) {
+                    emit(checkResult.toInferenceResult(context))
+                } else {
+                    // If not blocked, emit the remaining buffered results
+                    resultBuffer.forEach { emit(it) }
+                }
+                resultBuffer.clear()
+                textBuffer.clear()
+            }
+        } catch (e: CancellationException) {
+            logger.w("GuardianFilter", "Flow cancelled by Guardian: ${e.message}")
+            throw e
+        } catch (e: Exception) {
+            logger.e("GuardianFilter", "Error in guardian filter", e)
+            emit(InferenceResult.error(RunnerError("E999", "Error in guardian filter: ${e.message}", cause = e)))
         }
     }
 }

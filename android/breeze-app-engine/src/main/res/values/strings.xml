@@ -381,4 +381,40 @@
     <!-- Progress -->
     <string name="progress_percent">%d%%</string>
     <string name="progress_of" formatted="false">%d / %d</string>
+    
+    <!-- ================================ -->
+    <!-- Guardian Safety Messages -->
+    <!-- ================================ -->
+    
+    <!-- Guardian Input Violation Messages -->
+    <string name="guardian_input_toxicity">您的訊息包含不適當的內容，請修改後重新發送</string>
+    <string name="guardian_input_violence">您的訊息包含暴力內容，請使用更友善的表達方式</string>
+    <string name="guardian_input_hate_speech">您的訊息包含仇恨言論，請改用尊重他人的語言</string>
+    <string name="guardian_input_sexual_content">您的訊息包含不適當的性內容，請調整內容後重試</string>
+    <string name="guardian_input_self_harm">如您正面臨困擾，請尋求專業協助。我們關心您的安全</string>
+    <string name="guardian_input_pii">您的訊息可能包含個人敏感資訊，請移除後重新發送</string>
+    <string name="guardian_input_spam">您的訊息被識別為垃圾內容，請重新組織您的問題</string>
+    <string name="guardian_input_unsafe">您的訊息包含不安全的內容，請調整後重試</string>
+    <string name="guardian_input_general">您的訊息不符合社群準則，請修改後重新發送</string>
+    
+    <!-- Guardian Output Violation Messages -->
+    <string name="guardian_output_toxicity">AI回應被安全檢查攔截（包含不當內容），請重新提問</string>
+    <string name="guardian_output_violence">AI回應被安全檢查攔截（包含暴力內容），請調整問題</string>
+    <string name="guardian_output_hate_speech">AI回應被安全檢查攔截（包含不當言論），請重新提問</string>
+    <string name="guardian_output_sexual_content">AI回應被安全檢查攔截（包含不當內容），請調整問題</string>
+    <string name="guardian_output_self_harm">AI回應被安全檢查攔截，如需協助請尋求專業支援</string>
+    <string name="guardian_output_pii">AI回應被安全檢查攔截（包含敏感資訊），請重新提問</string>
+    <string name="guardian_output_spam">AI回應被安全檢查攔截（品質不佳），請重新提問</string>
+    <string name="guardian_output_unsafe">AI回應被安全檢查攔截（包含不安全內容），請調整問題</string>
+    <string name="guardian_output_general">AI回應被安全檢查攔截，請嘗試重新提問</string>
+    
+    <!-- Guardian Suggestions -->
+    <string name="guardian_suggestion_toxicity">建議使用更積極正面的表達方式</string>
+    <string name="guardian_suggestion_violence">建議避免描述暴力情節或傷害行為</string>
+    <string name="guardian_suggestion_hate_speech">建議使用尊重和包容的語言</string>
+    <string name="guardian_suggestion_sexual_content">建議避免涉及成人或性相關內容</string>
+    <string name="guardian_suggestion_self_harm">如需心理支援，請撥打生命線1995或尋求專業協助</string>
+    <string name="guardian_suggestion_pii">建議移除身份證號、電話號碼等個人資訊</string>
+    <string name="guardian_suggestion_general">請嘗試重新組織您的問題，使用更清晰友善的表達</string>
+
 </resources>

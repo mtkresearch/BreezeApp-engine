@@ -39,7 +39,7 @@ class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStre
 
     override fun getTag(): String = TAG
 
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         modelName = modelId
         return try {
             // Parse model type from config if specified

@@ -69,7 +69,7 @@ interface BaseRunner {
      * @see unload to release resources
      * @since Engine API v2.2
      */
-    fun load(modelId: String, settings: EngineSettings): Boolean
+    fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any> = emptyMap()): Boolean
     
     /**
      * Executes AI inference on the provided input.

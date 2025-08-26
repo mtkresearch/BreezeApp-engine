@@ -67,7 +67,7 @@ class MTKLLMRunner(
     }
     
     // Load model using model ID from JSON registry
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading MTKLLMRunner with model: $modelId")
         if (isLoaded.get()) return true
 
@@ -217,12 +217,7 @@ class MTKLLMRunner(
                     trySend(
                         InferenceResult.textOutput(
                             text = token, // Send only the new token as the main text
-                            metadata = mapOf(
-                                InferenceResult.META_MODEL_NAME to MODEL_NAME,
-                                InferenceResult.META_PARTIAL_TOKENS to token,
-                                "temperature" to params.temperature,
-                                "max_tokens" to params.maxTokens
-                            ),
+                            metadata = emptyMap(), // OPTIMIZED: Avoid creating new maps for every token.
                             partial = true
                         )
                     )

@@ -53,7 +53,7 @@ class MockVLMRunner : BaseRunner, FlowStreamingRunner {
         "default" to "這是一張圖片，AI 正在分析其內容和特徵。"
     )
     
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading MockVLMRunner with config: ${modelId}")
         isLoaded.set(true)
         Log.d(TAG, "MockVLMRunner loaded successfully")

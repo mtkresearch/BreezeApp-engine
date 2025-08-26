@@ -47,7 +47,7 @@ class MockTTSRunner : BaseRunner, FlowStreamingRunner {
     private var speakingRate = 1.0f
     private var pitch = 1.0f
     
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading MockTTSRunner with config: ${modelId}")
         isLoaded.set(true)
         Log.d(TAG, "MockTTSRunner loaded successfully")

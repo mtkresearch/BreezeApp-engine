@@ -112,7 +112,7 @@ class OpenRouterLLMRunner(
     private var timeoutMs: Int = DEFAULT_TIMEOUT_MS
     private var assumeConnectivity: Boolean = false
 
-    override fun load(modelId: String, settings: EngineSettings): Boolean {
+    override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         try {
             val runnerName = getRunnerInfo().name
             val runnerParams = settings.getRunnerParameters(runnerName)
