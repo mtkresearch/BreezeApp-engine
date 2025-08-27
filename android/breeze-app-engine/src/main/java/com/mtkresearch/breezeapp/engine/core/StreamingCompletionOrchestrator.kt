@@ -86,6 +86,8 @@ class StreamingCompletionOrchestrator(
             }
     }
 
+    private val sentMasks = java.util.concurrent.ConcurrentHashMap.newKeySet<com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMaskingResult>()
+
     private fun launchGuardianJob(scope: CoroutineScope): Job = scope.launch {
         logger.d(TAG, "Guardian Watcher Job started.")
         // This is a simplified trigger. A more advanced version could use a ticker
@@ -97,8 +99,11 @@ class StreamingCompletionOrchestrator(
             if (currentBuffer.isNotBlank()) {
                 val maskingResults = guardianPipeline.checkProgressiveOutput(currentBuffer, guardianConfig)
                 maskingResults.forEach { mask ->
-                    // Send any new masking actions to the client
-                    outputChannel.trySend(StreamingChatResult.Mask(mask))
+                    // ONLY send the mask if we haven't sent this exact one before.
+                    if (sentMasks.add(mask)) {
+                        // Send any new masking actions to the client
+                        outputChannel.trySend(StreamingChatResult.Mask(mask))
+                    }
                 }
             }
         }
