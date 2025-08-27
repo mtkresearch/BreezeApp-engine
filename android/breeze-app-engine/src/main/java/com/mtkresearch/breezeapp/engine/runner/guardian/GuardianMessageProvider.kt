@@ -61,7 +61,8 @@ class GuardianMessageProvider(private val context: Context) {
             GuardianCategory.SPAM -> "請提供有意義的內容而非重複訊息"
             GuardianCategory.SELF_HARM -> "如果您或他人需要幫助，請尋求專業支援"
             GuardianCategory.PII -> "請避免分享個人敏感資訊"
-            else -> "請確保內容安全且適當"
+            GuardianCategory.UNSAFE_CONTENT -> "請確保內容安全且適當"
+            GuardianCategory.UNKNOWN -> "內容可能存在安全風險，請檢查並修改"
         }
     }
 }

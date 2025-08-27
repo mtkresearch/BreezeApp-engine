@@ -166,18 +166,15 @@ class AIEngineManager(
     ): Flow<InferenceResult> = flow {
         val requestId = request.sessionId ?: "stream-${System.currentTimeMillis()}"
 
-        // 使用統一的取消管理器追蹤請求
         val currentJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
         currentJob?.let { job ->
             cancellationManager.registerRequest(requestId, job)
         }
 
         try {
-            // 1. Get effective guardian configuration
             val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
             val effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
-            
-            // 2. Input Guardian Check (if enabled)
+
             if (effectiveGuardianConfig.shouldCheckInput()) {
                 logger.d(TAG, "Performing guardian input validation for stream request $requestId")
                 val inputCheckResult = guardianPipeline.checkInput(request, effectiveGuardianConfig)
@@ -187,18 +184,39 @@ class AIEngineManager(
                     return@flow
                 }
             }
-            
-            // 3. Stream AI Processing with Guardian Filtering
+
             selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
-                    logger.d(TAG, "Processing stream request $requestId with runner: ${runner.getRunnerInfo().name}")
-                    logger.d(TAG, "Runtime params for $requestId: ${request.params}")
-                    if (runner is FlowStreamingRunner) {
-                        runner.runAsFlow(request)
-                            .guardianFilter(effectiveGuardianConfig, guardianPipeline, logger, context)
-                            .collect { emit(it) }
-                    } else {
+                    if (runner !is FlowStreamingRunner) {
                         emit(InferenceResult.error(RunnerError("E406", "Runner does not support streaming.")))
+                        return@fold
+                    }
+
+                    logger.d(TAG, "Starting StreamingCompletionOrchestrator for request $requestId")
+                    val orchestrator = StreamingCompletionOrchestrator(
+                        llmRunner = runner,
+                        guardianPipeline = guardianPipeline,
+                        request = request,
+                        guardianConfig = effectiveGuardianConfig,
+                        logger = logger
+                    )
+
+                    // The orchestrator returns a unified result stream.
+                    // We adapt it back to the Flow<InferenceResult> expected by the client.
+                    orchestrator.execute().collect { result ->
+                        when (result) {
+                            is com.mtkresearch.breezeapp.engine.model.StreamingChatResult.Content -> emit(result.inferenceResult)
+                            is com.mtkresearch.breezeapp.engine.model.StreamingChatResult.Mask -> {
+                                // The new architecture sends masking info separately.
+                                // The client protocol needs to be updated to handle this new event type.
+                                // For now, we log it and the client will ignore it.
+                                logger.w(TAG, "Guardian masking action received for stream $requestId: ${result.maskingAction}")
+                            }
+                            is com.mtkresearch.breezeapp.engine.model.StreamingChatResult.Complete -> {
+                                logger.d(TAG, "Stream $requestId completed via orchestrator.")
+                            }
+                            is com.mtkresearch.breezeapp.engine.model.StreamingChatResult.Error -> emit(InferenceResult.error(result.error))
+                        }
                     }
                 },
                 onFailure = { error ->
@@ -213,7 +231,6 @@ class AIEngineManager(
             logger.e(TAG, "Error processing stream request", e)
             emit(InferenceResult.error(RunnerError("E101", e.message ?: "Unknown error", true, e)))
         } finally {
-            // 使用統一的取消管理器清理請求
             cancellationManager.unregisterRequest(requestId)
         }
     }
@@ -604,90 +621,3 @@ class AIEngineManager(
  * Each result in the stream is checked against the guardian configuration
  * and filtered/blocked accordingly.
  */
-fun Flow<InferenceResult>.guardianFilter(
-    config: com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipelineConfig,
-    guardianPipeline: GuardianPipeline,
-    logger: Logger,
-    context: Context? = null
-): Flow<InferenceResult> {
-
-    if (!config.shouldCheckOutput()) {
-        return this
-    }
-
-    val wordThreshold = config.streamingWordAccumulationCount
-    // A threshold of 0 or less means check every time (original behavior).
-    if (wordThreshold <= 0) {
-        return this.transform { result ->
-            if (result.error == null) {
-                val checkResult = guardianPipeline.checkOutput(result, config)
-                emit(checkResult.applyToResult(result))
-            } else {
-                emit(result)
-            }
-        }
-    }
-
-    return flow {
-        try {
-            val resultBuffer = mutableListOf<InferenceResult>()
-            val textBuffer = StringBuilder()
-
-            this@guardianFilter.collect { result ->
-                if (result.error != null) {
-                    // Pass through errors immediately
-                    emit(result)
-                    return@collect
-                }
-
-                resultBuffer.add(result)
-                val textChunk = guardianPipeline.extractTextFromResult(result)
-                if (!textChunk.isNullOrBlank()) {
-                    textBuffer.append(textChunk)
-                }
-
-                val wordCount = textBuffer.toString().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.size
-
-                if (wordCount >= wordThreshold) {
-                    val accumulatedText = textBuffer.toString()
-                    logger.d("GuardianFilter", "Checking accumulated text ($wordCount words)")
-                    val tempResult = InferenceResult.success(outputs = mapOf("text" to accumulatedText))
-                    val checkResult = guardianPipeline.checkOutput(tempResult, config)
-
-                    if (checkResult.shouldBlock()) {
-                        emit(checkResult.toInferenceResult(context))
-                        throw CancellationException("Guardian blocked streaming output.")
-                    }
-
-                    // Guardian check passed. Emit all buffered results and clear buffers.
-                    resultBuffer.forEach { emit(it) }
-                    resultBuffer.clear()
-                    textBuffer.clear()
-                }
-            }
-
-            // After the flow completes, check any remaining text in the buffer.
-            if (resultBuffer.isNotEmpty()) {
-                val accumulatedText = textBuffer.toString()
-                logger.d("GuardianFilter", "Final check on remaining ${resultBuffer.size} chunks, ${accumulatedText.length} chars.")
-                val tempResult = InferenceResult.success(outputs = mapOf("text" to accumulatedText))
-                val checkResult = guardianPipeline.checkOutput(tempResult, config)
-
-                if (checkResult.shouldBlock()) {
-                    emit(checkResult.toInferenceResult(context))
-                } else {
-                    // If not blocked, emit the remaining buffered results
-                    resultBuffer.forEach { emit(it) }
-                }
-                resultBuffer.clear()
-                textBuffer.clear()
-            }
-        } catch (e: CancellationException) {
-            logger.w("GuardianFilter", "Flow cancelled by Guardian: ${e.message}")
-            throw e
-        } catch (e: Exception) {
-            logger.e("GuardianFilter", "Error in guardian filter", e)
-            emit(InferenceResult.error(RunnerError("E999", "Error in guardian filter: ${e.message}", cause = e)))
-        }
-    }
-}
