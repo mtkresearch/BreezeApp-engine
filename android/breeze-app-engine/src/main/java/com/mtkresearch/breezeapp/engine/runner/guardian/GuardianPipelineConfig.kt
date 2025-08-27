@@ -29,35 +29,32 @@ data class GuardianPipelineConfig(
     val strictnessLevel: String = "medium", // low, medium, high
     val guardianRunnerName: String? = null, // Specific guardian runner, null for auto-select
     val failureStrategy: GuardianFailureStrategy = GuardianFailureStrategy.BLOCK,
-    val streamingWordAccumulationCount: Int = 20
+    val streamingWordAccumulationCount: Int = 20,
+    // Progressive streaming parameters, defaults from client implementation
+    val microBatchSize: Int = 3,
+    val windowOverlap: Int = 1
 ) {
-    
+
     /**
      * Check if input validation is enabled.
      */
-    fun shouldCheckInput(): Boolean = enabled && 
-        (checkpoints.contains(GuardianCheckpoint.INPUT_VALIDATION) || 
+    fun shouldCheckInput(): Boolean = enabled &&
+        (checkpoints.contains(GuardianCheckpoint.INPUT_VALIDATION) ||
          checkpoints.contains(GuardianCheckpoint.BOTH))
-    
+
     /**
      * Check if output filtering is enabled.
      */
-    fun shouldCheckOutput(): Boolean = enabled && 
-        (checkpoints.contains(GuardianCheckpoint.OUTPUT_FILTERING) || 
+    fun shouldCheckOutput(): Boolean = enabled &&
+        (checkpoints.contains(GuardianCheckpoint.OUTPUT_FILTERING) ||
          checkpoints.contains(GuardianCheckpoint.BOTH))
-    
+
     companion object {
         /**
          * Default disabled configuration.
          */
         val DISABLED = GuardianPipelineConfig(enabled = false)
-        
-        /**
-         * Safe default configuration with input validation only.
-         */
-        /**
-         * Safe default configuration with both input and output validation.
-         */
+
         /**
          * Safe default configuration with both input and output validation.
          */
@@ -66,9 +63,11 @@ data class GuardianPipelineConfig(
             checkpoints = setOf(GuardianCheckpoint.BOTH),
             strictnessLevel = "medium",
             failureStrategy = GuardianFailureStrategy.BLOCK,
-            streamingWordAccumulationCount = 20
+            streamingWordAccumulationCount = 20,
+            microBatchSize = 3,
+            windowOverlap = 1
         )
-        
+
         /**
          * Maximum protection configuration.
          */
@@ -77,7 +76,9 @@ data class GuardianPipelineConfig(
             checkpoints = setOf(GuardianCheckpoint.BOTH),
             strictnessLevel = "high",
             failureStrategy = GuardianFailureStrategy.FILTER,
-            streamingWordAccumulationCount = 10 // A lower threshold for max protection
+            streamingWordAccumulationCount = 10, // A lower threshold for max protection
+            microBatchSize = 2,
+            windowOverlap = 1
         )
     }
 }

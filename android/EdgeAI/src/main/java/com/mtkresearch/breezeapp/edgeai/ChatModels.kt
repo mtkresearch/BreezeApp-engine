@@ -220,7 +220,13 @@ data class ChatResponse(
     /**
      * System fingerprint
      */
-    val systemFingerprint: String? = null
+    val systemFingerprint: String? = null,
+    
+    /**
+     * Error information if the request failed
+     * Contains structured error details including Guardian violations
+     */
+    val error: ChatError? = null
 ) : Parcelable
 
 /**
@@ -366,4 +372,71 @@ data class LogProbs(
 @Parcelize
 data class CompletionTokensDetails(
     val reasoningTokens: Int? = null
-) : Parcelable 
+) : Parcelable
+
+/**
+ * Structured error information for chat responses
+ */
+@Parcelize
+data class ChatError(
+    /**
+     * Error code (e.g., "G100" for Guardian violations, "M001" for model errors)
+     */
+    val code: String,
+    
+    /**
+     * Human-readable error message
+     */
+    val message: String,
+    
+    /**
+     * Error type category
+     */
+    val type: String,
+    
+    /**
+     * Additional error context and metadata
+     */
+    val metadata: @RawValue Map<String, Any>? = null,
+    
+    /**
+     * Guardian-specific information (if applicable)
+     */
+    val guardianInfo: GuardianErrorInfo? = null
+) : Parcelable
+
+/**
+ * Guardian-specific error details
+ */
+@Parcelize
+data class GuardianErrorInfo(
+    /**
+     * Guardian violation stage ("input" or "output")
+     */
+    val stage: String,
+    
+    /**
+     * Safety status from GuardrailResponse
+     */
+    val safetyStatus: String,
+    
+    /**
+     * Risk score (0.0 to 1.0)
+     */
+    val riskScore: Double,
+    
+    /**
+     * Detected risk categories
+     */
+    val riskCategories: List<String>,
+    
+    /**
+     * User-friendly suggestion message
+     */
+    val suggestion: String? = null,
+    
+    /**
+     * Confidence score of the Guardian analysis
+     */
+    val confidence: Double = 0.0
+) : Parcelable
