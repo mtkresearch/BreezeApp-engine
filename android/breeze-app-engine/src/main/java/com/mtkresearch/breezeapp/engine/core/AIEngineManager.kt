@@ -352,8 +352,16 @@ class AIEngineManager(
             val requestModel = request.params[InferenceRequest.PARAM_MODEL] as? String
 
             // A model from the request is only used if it's a valid, known model ID.
+            // For cloud runners (like OpenRouter), skip model registry validation as they support dynamic models
+            val isCloudRunner = runnerName.contains("OpenRouter", ignoreCase = true) ||
+                               runnerName.contains("cloud", ignoreCase = true)
             val isRequestModelValid = if (!requestModel.isNullOrBlank()) {
-                modelRegistryService.getModelDefinition(requestModel) != null
+                if (isCloudRunner) {
+                    // Cloud runners can use any model name without local registry validation
+                    true
+                } else {
+                    modelRegistryService.getModelDefinition(requestModel) != null
+                }
             } else {
                 false
             }

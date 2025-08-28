@@ -558,7 +558,9 @@ class OpenRouterLLMRunner(
      */
     private fun buildRequestBody(input: InferenceRequest, prompt: String, stream: Boolean): String {
         val requestJson = JSONObject().apply {
-            put("model", modelName)
+            // Use model from request params if available, otherwise use loaded modelName
+            val requestModel = input.params["model"] as? String ?: modelName
+            put("model", requestModel)
             put("stream", stream)
 
             // Build messages array
@@ -605,8 +607,13 @@ class OpenRouterLLMRunner(
             }
         }
 
-        Log.d(TAG, "OpenRouter Request Body: ${requestJson.toString(2)}")
-        return requestJson.toString()
+        val requestBodyString = requestJson.toString()
+        Log.d(TAG, "OpenRouter Complete Request:")
+        Log.d(TAG, "curl -X POST $baseUrl$CHAT_COMPLETIONS_ENDPOINT \\")
+        Log.d(TAG, "     -H \"Authorization: Bearer ${actualApiKey.take(20)}...\" \\")
+        Log.d(TAG, "     -H \"Content-Type: application/json\" \\")
+        Log.d(TAG, "     -d '${requestJson.toString(2)}'")
+        return requestBodyString
     }
 
     /**
