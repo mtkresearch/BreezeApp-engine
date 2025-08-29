@@ -1,4 +1,4 @@
-fpackage com.mtkresearch.breezeapp.engine.runner.llamastack
+package com.mtkresearch.breezeapp.engine.runner.llamastack
 
 import android.util.Log
 
