@@ -56,6 +56,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/LICENSE.md"
             excludes += "META-INF/LICENSE-notice.md"
+            excludes += "META-INF/DEPENDENCIES"
         }
     }
     sourceSets {
@@ -74,6 +75,13 @@ dependencies {
 
     // ExecuTorch
     implementation("org.pytorch:executorch-android:0.7.0")
+
+    // Official LlamaStack Kotlin SDK
+    implementation("com.llama.llamastack:llama-stack-client-kotlin:0.2.14")
+    
+    // LlamaStack dependencies (remote only - no ExecuTorch conflicts)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
