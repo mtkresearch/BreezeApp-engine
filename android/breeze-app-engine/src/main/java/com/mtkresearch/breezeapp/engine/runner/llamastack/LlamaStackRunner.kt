@@ -144,12 +144,14 @@ class LlamaStackRunner(
             return InferenceResult.error(RunnerError.invalidInput("VLM requires both text and image input"))
         }
 
-        if (!config!!.isVisionCapable()) {
-            return InferenceResult.error(RunnerError.runtimeError("Vision capabilities not enabled"))
+        val runtimeConfig = resolveRuntimeParameters(input)
+        if (!runtimeConfig.enableVision || !runtimeConfig.modelId.contains("vision", ignoreCase = true)) {
+            return InferenceResult.error(RunnerError.runtimeError("Vision capabilities not enabled for model: ${runtimeConfig.modelId}"))
         }
 
         return try {
             Log.d(TAG, "Processing vision request with official SDK")
+            Log.d(TAG, "Using runtime model: ${runtimeConfig.modelId}")
             
             val imageBase64 = Base64.encodeToString(image, Base64.NO_WRAP)
             
@@ -159,9 +161,9 @@ class LlamaStackRunner(
                 .build()
             val messages = listOf(Message.ofUser(userMessage))
 
-            // Use official SDK inference().chatCompletion() as per documentation
+            // Use official SDK inference().chatCompletion() with runtime parameters
             val chatCompletionParams = InferenceChatCompletionParams.builder()
-                .modelId(config!!.modelId)
+                .modelId(runtimeConfig.modelId)
                 .messages(messages.toList())
                 .build()
             val response = llamaStackClient!!.inference().chatCompletion(chatCompletionParams)
@@ -171,12 +173,13 @@ class LlamaStackRunner(
             InferenceResult.textOutput(
                 text = responseText,
                 metadata = mapOf(
-                    InferenceResult.META_MODEL_NAME to config!!.modelId,
+                    InferenceResult.META_MODEL_NAME to runtimeConfig.modelId,
                     "inference_mode" to "remote",
                     "capability_type" to "VLM",
                     "image_size_bytes" to image.size,
                     "endpoint_used" to config!!.endpoint,
-                    "sdk_version" to "official-0.2.14"
+                    "sdk_version" to "official-0.2.14",
+                    "runtime_applied" to true
                 )
             )
 
@@ -193,8 +196,13 @@ class LlamaStackRunner(
             return InferenceResult.error(RunnerError.invalidInput("Text input is required"))
         }
 
+        val runtimeConfig = resolveRuntimeParameters(input)
+        
         return try {
             Log.d(TAG, "Processing LLM request with official SDK")
+            Log.d(TAG, "Using runtime model: ${runtimeConfig.modelId}, temp: ${runtimeConfig.temperature}, maxTokens: ${runtimeConfig.maxTokens}")
+            Log.d(TAG, "Client endpoint: ${config!!.endpoint}")
+            Log.d(TAG, "Request text length: ${text.length}")
             
             // Create messages using official SDK - following documentation pattern
             val userMessage = UserMessage.builder()
@@ -202,34 +210,52 @@ class LlamaStackRunner(
                 .build()
             val messages = listOf(Message.ofUser(userMessage))
 
-            // Use official SDK inference().chatCompletion() as per documentation
+            Log.d(TAG, "Built messages successfully, calling API...")
+            
+            // Use official SDK inference().chatCompletion() with runtime parameters
             val chatCompletionParams = InferenceChatCompletionParams.builder()
-                .modelId(config!!.modelId)
+                .modelId(runtimeConfig.modelId)
                 .messages(messages.toList())
                 .build()
+                
+            Log.d(TAG, "Calling LlamaStack API with model: ${runtimeConfig.modelId}")
             val response = llamaStackClient!!.inference().chatCompletion(chatCompletionParams)
+            Log.d(TAG, "LlamaStack API call successful")
 
             val responseText = response.completionMessage().content().string() ?: ""
 
             InferenceResult.textOutput(
                 text = responseText,
                 metadata = mapOf(
-                    InferenceResult.META_MODEL_NAME to config!!.modelId,
+                    InferenceResult.META_MODEL_NAME to runtimeConfig.modelId,
                     "inference_mode" to "remote",
                     "capability_type" to "LLM",
                     "endpoint_used" to config!!.endpoint,
-                    "sdk_version" to "official-0.2.14"
+                    "sdk_version" to "official-0.2.14",
+                    "runtime_applied" to true,
+                    "runtime_temperature" to runtimeConfig.temperature,
+                    "runtime_max_tokens" to runtimeConfig.maxTokens
                 )
             )
 
         } catch (e: Exception) {
             Log.e(TAG, "LLM processing failed with official SDK", e)
+            Log.e(TAG, "Exception type: ${e.javaClass.simpleName}")
+            Log.e(TAG, "Exception message: ${e.message}")
+            Log.e(TAG, "Using endpoint: ${config!!.endpoint}")
+            Log.e(TAG, "Using model: ${runtimeConfig.modelId}")
+            
+            if (e.cause != null) {
+                Log.e(TAG, "Root cause: ${e.cause?.javaClass?.simpleName}: ${e.cause?.message}")
+            }
+            
             InferenceResult.error(RunnerError.runtimeError("Text processing failed: ${e.message}"))
         }
     }
 
     private suspend fun processRAGRequest(input: InferenceRequest): InferenceResult {
-        if (!config!!.isRAGCapable()) {
+        val runtimeConfig = resolveRuntimeParameters(input)
+        if (!runtimeConfig.enableRAG) {
             return processStandardLLMRequest(input)
         }
 
@@ -238,6 +264,7 @@ class LlamaStackRunner(
 
         return try {
             Log.d(TAG, "Processing RAG request with official SDK")
+            Log.d(TAG, "Using runtime model: ${runtimeConfig.modelId}")
             
             val enhancedPrompt = buildRAGPrompt(query, ragSources)
             
@@ -247,7 +274,7 @@ class LlamaStackRunner(
             val messages = listOf(Message.ofUser(userMessage))
 
             val chatCompletionParams = InferenceChatCompletionParams.builder()
-                .modelId(config!!.modelId)
+                .modelId(runtimeConfig.modelId)
                 .messages(messages.toList())
                 .build()
             val response = llamaStackClient!!.inference().chatCompletion(chatCompletionParams)
@@ -257,12 +284,13 @@ class LlamaStackRunner(
             InferenceResult.textOutput(
                 text = responseText,
                 metadata = mapOf(
-                    InferenceResult.META_MODEL_NAME to config!!.modelId,
+                    InferenceResult.META_MODEL_NAME to runtimeConfig.modelId,
                     "inference_mode" to "remote",
                     "capability_type" to "RAG",
                     "endpoint_used" to config!!.endpoint,
                     "rag_sources_used" to ragSources.size,
-                    "sdk_version" to "official-0.2.14"
+                    "sdk_version" to "official-0.2.14",
+                    "runtime_applied" to true
                 )
             )
 
@@ -273,7 +301,8 @@ class LlamaStackRunner(
     }
 
     private suspend fun processAgentRequest(input: InferenceRequest): InferenceResult {
-        if (!config!!.isAgentCapable()) {
+        val runtimeConfig = resolveRuntimeParameters(input)
+        if (!runtimeConfig.enableAgents) {
             return processStandardLLMRequest(input)
         }
 
@@ -282,6 +311,7 @@ class LlamaStackRunner(
 
         return try {
             Log.d(TAG, "Processing Agent request with official SDK")
+            Log.d(TAG, "Using runtime model: ${runtimeConfig.modelId}")
             
             val agentPrompt = buildAgentPrompt(query, availableTools)
             
@@ -291,7 +321,7 @@ class LlamaStackRunner(
             val messages = listOf(Message.ofUser(userMessage))
 
             val chatCompletionParams = InferenceChatCompletionParams.builder()
-                .modelId(config!!.modelId)
+                .modelId(runtimeConfig.modelId)
                 .messages(messages.toList())
                 .build()
             val response = llamaStackClient!!.inference().chatCompletion(chatCompletionParams)
@@ -301,12 +331,13 @@ class LlamaStackRunner(
             InferenceResult.textOutput(
                 text = responseText,
                 metadata = mapOf(
-                    InferenceResult.META_MODEL_NAME to config!!.modelId,
+                    InferenceResult.META_MODEL_NAME to runtimeConfig.modelId,
                     "inference_mode" to "remote",
                     "capability_type" to "AGENT",
                     "endpoint_used" to config!!.endpoint,
                     "tools_available" to availableTools.size,
-                    "sdk_version" to "official-0.2.14"
+                    "sdk_version" to "official-0.2.14",
+                    "runtime_applied" to true
                 )
             )
 
@@ -347,13 +378,13 @@ class LlamaStackRunner(
     }
 
     private fun hasRAGRequest(input: InferenceRequest): Boolean {
-        return input.params.containsKey("enable_rag") && 
-               input.params["enable_rag"] == true
+        val runtimeConfig = resolveRuntimeParameters(input)
+        return runtimeConfig.enableRAG
     }
 
     private fun hasAgentRequest(input: InferenceRequest): Boolean {
-        return input.params.containsKey("enable_agents") && 
-               input.params["enable_agents"] == true
+        val runtimeConfig = resolveRuntimeParameters(input)
+        return runtimeConfig.enableAgents
     }
 
     private fun getRequestType(input: InferenceRequest): String {
@@ -393,6 +424,35 @@ class LlamaStackRunner(
         }
     }
 
+    /**
+     * Resolve runtime parameters with fallback to configuration
+     * This ensures runtime parameter changes take precedence over load-time config
+     */
+    private fun resolveRuntimeParameters(input: InferenceRequest): RuntimeConfig {
+        val runtimeParams = input.params
+        
+        return RuntimeConfig(
+            modelId = runtimeParams["model_id"] as? String ?: config!!.modelId,
+            temperature = (runtimeParams["temperature"] as? Number)?.toFloat() ?: config!!.temperature,
+            maxTokens = (runtimeParams["max_tokens"] as? Number)?.toInt() ?: config!!.maxTokens,
+            enableVision = runtimeParams["enable_vision"] as? Boolean ?: config!!.enableVision,
+            enableRAG = runtimeParams["enable_rag"] as? Boolean ?: config!!.enableRAG,
+            enableAgents = runtimeParams["enable_agents"] as? Boolean ?: config!!.enableAgents
+        )
+    }
+    
+    /**
+     * Runtime configuration that merges load-time config with runtime parameters
+     */
+    private data class RuntimeConfig(
+        val modelId: String,
+        val temperature: Float,
+        val maxTokens: Int,
+        val enableVision: Boolean,
+        val enableRAG: Boolean,
+        val enableAgents: Boolean
+    )
+    
     private fun enhanceResultWithMetrics(
         result: InferenceResult,
         startTime: Long,
@@ -400,12 +460,16 @@ class LlamaStackRunner(
         input: InferenceRequest
     ): InferenceResult {
         val processingTime = System.currentTimeMillis() - startTime
+        val runtimeConfig = resolveRuntimeParameters(input)
         
         val enhancedMetadata = result.metadata.toMutableMap().apply {
             put(InferenceResult.META_PROCESSING_TIME_MS, processingTime)
             put("request_type", requestType)
             put("endpoint_used", config!!.endpoint)
             put("sdk_version", "official-0.2.14")
+            put("runtime_model_id", runtimeConfig.modelId)
+            put("runtime_temperature", runtimeConfig.temperature)
+            put("runtime_max_tokens", runtimeConfig.maxTokens)
         }
         
         return result.copy(metadata = enhancedMetadata)
