@@ -1,6 +1,8 @@
 # LlamaStack Integration Guide
 
-**🚀 Remote-First Strategy: Simple, Robust, Production-Ready Integration**
+**🚀 Official SDK Implementation: Robust, Production-Ready Integration**
+
+> **⚡ Now using Official LlamaStack Kotlin SDK v0.2.14**
 
 ---
 

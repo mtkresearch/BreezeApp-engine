@@ -3,6 +3,9 @@ package com.mtkresearch.breezeapp.engine.runner.llamastack
 import android.content.Context
 import android.util.Base64
 import android.util.Log
+import com.llama.llamastack.client.LlamaStackClientClient
+import com.llama.llamastack.client.okhttp.LlamaStackClientOkHttpClient
+import com.llama.llamastack.models.*
 import com.mtkresearch.breezeapp.engine.annotation.*
 import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.core.*
@@ -12,7 +15,6 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.delay
-import kotlin.coroutines.coroutineContext
 
 @AIRunner(
     vendor = VendorType.EXECUTORCH,
@@ -26,27 +28,31 @@ class LlamaStackRunner(
 
     companion object {
         private const val TAG = "LlamaStackRunner"
-        private const val DEFAULT_MODEL_ID = "llama-3.2-90b-vision-instruct"
+        private const val DEFAULT_MODEL_ID = "llama-3.2:3b"
     }
 
-    private var client: LlamaStackClient? = null
+    private var llamaStackClient: LlamaStackClientClient? = null
     private var config: LlamaStackConfig? = null
     private val isLoaded = AtomicBoolean(false)
 
     override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading LlamaStack runner with model: $modelId")
         Log.d(TAG, "Initial params: $initialParams")
+        Log.d(TAG, "Endpoint from initialParams: ${initialParams["endpoint"]}")
         
         return try {
             if (isLoaded.get()) {
+                Log.d(TAG, "Runner already loaded, unloading to apply new configuration")
                 unload()
             }
 
-            val runnerParams = settings.getRunnerParameters("llamastack")
+            val runnerParams = settings.getRunnerParameters("LlamaStackRunner")
                 .toMutableMap()
                 .apply { putAll(initialParams) }
             
             config = LlamaStackConfig.fromParams(runnerParams, modelId)
+            Log.d(TAG, "Final config - Endpoint: ${config!!.endpoint}, Model: ${config!!.modelId}")
+            
             val validationResult = config!!.validateConfiguration()
             
             if (!validationResult.isValid) {
@@ -54,12 +60,10 @@ class LlamaStackRunner(
                 return false
             }
             
-            // Perform smart compatibility analysis
-            SmartRunnerDetection.logCompatibilityAnalysis(config!!.endpoint, "LlamaStackRunner")
+            // Create official LlamaStack client
+            llamaStackClient = createOfficialClient(config!!)
 
-            client = LlamaStackClient(config!!)
-
-            Log.i(TAG, "LlamaStack runner loaded successfully")
+            Log.i(TAG, "LlamaStack runner loaded successfully with official SDK")
             Log.d(TAG, "Configuration - Endpoint: ${config!!.endpoint}, Model: ${config!!.modelId}")
             Log.d(TAG, "Capabilities - Vision: ${config!!.isVisionCapable()}, RAG: ${config!!.isRAGCapable()}")
             
@@ -73,12 +77,30 @@ class LlamaStackRunner(
         }
     }
 
+    private fun createOfficialClient(config: LlamaStackConfig): LlamaStackClientClient {
+        Log.d(TAG, "Creating official LlamaStack client for endpoint: ${config.endpoint}")
+        
+        val clientBuilder = LlamaStackClientOkHttpClient.builder()
+            .baseUrl(config.endpoint)
+            .headers(mapOf("x-llamastack-client-version" to listOf("0.2.14")))
+        
+        // Add API key if provided
+        if (!config.apiKey.isNullOrBlank()) {
+            clientBuilder.headers(mapOf(
+                "x-llamastack-client-version" to listOf("0.2.14"),
+                "Authorization" to listOf("Bearer ${config.apiKey}")
+            ))
+        }
+        
+        return clientBuilder.build()
+    }
+
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         throw UnsupportedOperationException("Non-streaming run is not supported for LlamaStack. Use runAsFlow instead.")
     }
 
     override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
-        if (!isLoaded.get() || client == null || config == null) {
+        if (!isLoaded.get() || llamaStackClient == null || config == null) {
             trySend(InferenceResult.error(RunnerError.modelNotLoaded()))
             close()
             return@callbackFlow
@@ -94,7 +116,7 @@ class LlamaStackRunner(
                 else -> processStandardLLMRequest(input)
             }
 
-            val enhancedResult = enhanceResultWithMetrics(result, startTime, getRequestType(input))
+            val enhancedResult = enhanceResultWithMetrics(result, startTime, getRequestType(input), input)
             
             if (result.error == null) {
                 emitTextAsStream(result.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: "")
@@ -127,29 +149,24 @@ class LlamaStackRunner(
         }
 
         return try {
+            Log.d(TAG, "Processing vision request with official SDK")
+            
             val imageBase64 = Base64.encodeToString(image, Base64.NO_WRAP)
-            val messages = listOf(
-                Message(
-                    role = "user",
-                    content = listOf(
-                        ContentItem(type = "text", text = text),
-                        ContentItem(
-                            type = "image",
-                            image_url = ImageUrl(url = "data:image/jpeg;base64,$imageBase64")
-                        )
-                    )
-                )
-            )
+            
+            // Create messages using official SDK - following documentation pattern
+            val userMessage = UserMessage.builder()
+                .content(InterleavedContent.ofString("$text [Image: data:image/jpeg;base64,$imageBase64]"))
+                .build()
+            val messages = listOf(Message.ofUser(userMessage))
 
-            val request = ChatCompletionRequest(
-                model = config!!.modelId,
-                messages = messages,
-                temperature = config!!.temperature,
-                max_tokens = config!!.maxTokens
-            )
+            // Use official SDK inference().chatCompletion() as per documentation
+            val chatCompletionParams = InferenceChatCompletionParams.builder()
+                .modelId(config!!.modelId)
+                .messages(messages.toList())
+                .build()
+            val response = llamaStackClient!!.inference().chatCompletion(chatCompletionParams)
 
-            val response = client!!.chatCompletion(request)
-            val responseText = response.choices.firstOrNull()?.message?.content ?: ""
+            val responseText = response.completionMessage().content().string() ?: ""
 
             InferenceResult.textOutput(
                 text = responseText,
@@ -158,13 +175,13 @@ class LlamaStackRunner(
                     "inference_mode" to "remote",
                     "capability_type" to "VLM",
                     "image_size_bytes" to image.size,
-                    "llamastack_response_id" to response.id,
-                    "usage" to (response.usage ?: Usage(0, 0, 0))
+                    "endpoint_used" to config!!.endpoint,
+                    "sdk_version" to "official-0.2.14"
                 )
             )
 
         } catch (e: Exception) {
-            Log.e(TAG, "VLM processing failed", e)
+            Log.e(TAG, "VLM processing failed with official SDK", e)
             InferenceResult.error(RunnerError.runtimeError("Vision processing failed: ${e.message}"))
         }
     }
@@ -177,22 +194,22 @@ class LlamaStackRunner(
         }
 
         return try {
-            val messages = listOf(
-                Message(
-                    role = "user",
-                    content = listOf(ContentItem(type = "text", text = text))
-                )
-            )
+            Log.d(TAG, "Processing LLM request with official SDK")
+            
+            // Create messages using official SDK - following documentation pattern
+            val userMessage = UserMessage.builder()
+                .content(InterleavedContent.ofString(text))
+                .build()
+            val messages = listOf(Message.ofUser(userMessage))
 
-            val request = ChatCompletionRequest(
-                model = config!!.modelId,
-                messages = messages,
-                temperature = config!!.temperature,
-                max_tokens = config!!.maxTokens
-            )
+            // Use official SDK inference().chatCompletion() as per documentation
+            val chatCompletionParams = InferenceChatCompletionParams.builder()
+                .modelId(config!!.modelId)
+                .messages(messages.toList())
+                .build()
+            val response = llamaStackClient!!.inference().chatCompletion(chatCompletionParams)
 
-            val response = client!!.chatCompletion(request)
-            val responseText = response.choices.firstOrNull()?.message?.content ?: ""
+            val responseText = response.completionMessage().content().string() ?: ""
 
             InferenceResult.textOutput(
                 text = responseText,
@@ -200,13 +217,13 @@ class LlamaStackRunner(
                     InferenceResult.META_MODEL_NAME to config!!.modelId,
                     "inference_mode" to "remote",
                     "capability_type" to "LLM",
-                    "llamastack_response_id" to response.id,
-                    "usage" to (response.usage ?: Usage(0, 0, 0))
+                    "endpoint_used" to config!!.endpoint,
+                    "sdk_version" to "official-0.2.14"
                 )
             )
 
         } catch (e: Exception) {
-            Log.e(TAG, "LLM processing failed", e)
+            Log.e(TAG, "LLM processing failed with official SDK", e)
             InferenceResult.error(RunnerError.runtimeError("Text processing failed: ${e.message}"))
         }
     }
@@ -220,23 +237,22 @@ class LlamaStackRunner(
         val ragSources = input.params["rag_sources"] as? List<String> ?: emptyList()
 
         return try {
+            Log.d(TAG, "Processing RAG request with official SDK")
+            
             val enhancedPrompt = buildRAGPrompt(query, ragSources)
-            val messages = listOf(
-                Message(
-                    role = "user",
-                    content = listOf(ContentItem(type = "text", text = enhancedPrompt))
-                )
-            )
+            
+            val userMessage = UserMessage.builder()
+                .content(InterleavedContent.ofString(enhancedPrompt))
+                .build()
+            val messages = listOf(Message.ofUser(userMessage))
 
-            val request = ChatCompletionRequest(
-                model = config!!.modelId,
-                messages = messages,
-                temperature = config!!.temperature,
-                max_tokens = config!!.maxTokens
-            )
+            val chatCompletionParams = InferenceChatCompletionParams.builder()
+                .modelId(config!!.modelId)
+                .messages(messages.toList())
+                .build()
+            val response = llamaStackClient!!.inference().chatCompletion(chatCompletionParams)
 
-            val response = client!!.chatCompletion(request)
-            val responseText = response.choices.firstOrNull()?.message?.content ?: ""
+            val responseText = response.completionMessage().content().string() ?: ""
 
             InferenceResult.textOutput(
                 text = responseText,
@@ -244,13 +260,14 @@ class LlamaStackRunner(
                     InferenceResult.META_MODEL_NAME to config!!.modelId,
                     "inference_mode" to "remote",
                     "capability_type" to "RAG",
+                    "endpoint_used" to config!!.endpoint,
                     "rag_sources_used" to ragSources.size,
-                    "llamastack_response_id" to response.id
+                    "sdk_version" to "official-0.2.14"
                 )
             )
 
         } catch (e: Exception) {
-            Log.e(TAG, "RAG processing failed", e)
+            Log.e(TAG, "RAG processing failed with official SDK", e)
             InferenceResult.error(RunnerError.runtimeError("RAG processing failed: ${e.message}"))
         }
     }
@@ -264,23 +281,22 @@ class LlamaStackRunner(
         val availableTools = input.params["available_tools"] as? List<String> ?: emptyList()
 
         return try {
+            Log.d(TAG, "Processing Agent request with official SDK")
+            
             val agentPrompt = buildAgentPrompt(query, availableTools)
-            val messages = listOf(
-                Message(
-                    role = "user",
-                    content = listOf(ContentItem(type = "text", text = agentPrompt))
-                )
-            )
+            
+            val userMessage = UserMessage.builder()
+                .content(InterleavedContent.ofString(agentPrompt))
+                .build()
+            val messages = listOf(Message.ofUser(userMessage))
 
-            val request = ChatCompletionRequest(
-                model = config!!.modelId,
-                messages = messages,
-                temperature = config!!.temperature,
-                max_tokens = config!!.maxTokens
-            )
+            val chatCompletionParams = InferenceChatCompletionParams.builder()
+                .modelId(config!!.modelId)
+                .messages(messages.toList())
+                .build()
+            val response = llamaStackClient!!.inference().chatCompletion(chatCompletionParams)
 
-            val response = client!!.chatCompletion(request)
-            val responseText = response.choices.firstOrNull()?.message?.content ?: ""
+            val responseText = response.completionMessage().content().string() ?: ""
 
             InferenceResult.textOutput(
                 text = responseText,
@@ -288,13 +304,14 @@ class LlamaStackRunner(
                     InferenceResult.META_MODEL_NAME to config!!.modelId,
                     "inference_mode" to "remote",
                     "capability_type" to "AGENT",
+                    "endpoint_used" to config!!.endpoint,
                     "tools_available" to availableTools.size,
-                    "llamastack_response_id" to response.id
+                    "sdk_version" to "official-0.2.14"
                 )
             )
 
         } catch (e: Exception) {
-            Log.e(TAG, "Agent processing failed", e)
+            Log.e(TAG, "Agent processing failed with official SDK", e)
             InferenceResult.error(RunnerError.runtimeError("Agent processing failed: ${e.message}"))
         }
     }
@@ -379,7 +396,8 @@ class LlamaStackRunner(
     private fun enhanceResultWithMetrics(
         result: InferenceResult,
         startTime: Long,
-        requestType: String
+        requestType: String,
+        input: InferenceRequest
     ): InferenceResult {
         val processingTime = System.currentTimeMillis() - startTime
         
@@ -387,7 +405,7 @@ class LlamaStackRunner(
             put(InferenceResult.META_PROCESSING_TIME_MS, processingTime)
             put("request_type", requestType)
             put("endpoint_used", config!!.endpoint)
-            put("llamastack_version", "remote-client-1.0")
+            put("sdk_version", "official-0.2.14")
         }
         
         return result.copy(metadata = enhancedMetadata)
@@ -395,7 +413,7 @@ class LlamaStackRunner(
 
     override fun unload() {
         Log.d(TAG, "Unloading LlamaStack runner")
-        client = null
+        llamaStackClient = null
         config = null
         isLoaded.set(false)
     }
@@ -407,9 +425,9 @@ class LlamaStackRunner(
     override fun getRunnerInfo(): com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo {
         return com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo(
             name = "LlamaStackRunner",
-            version = "1.0.0",
+            version = "1.0.0-official",
             capabilities = getCapabilities(),
-            description = "Remote-first LlamaStack runner for VLM, RAG, and Agent capabilities"
+            description = "Official LlamaStack SDK runner for VLM, RAG, and Agent capabilities"
         )
     }
 
@@ -420,12 +438,12 @@ class LlamaStackRunner(
             ParameterSchema(
                 name = "endpoint",
                 displayName = "API Endpoint",
-                description = "OpenAI-compatible API endpoint (LlamaStack, OpenRouter, or other compatible services)",
+                description = "LlamaStack API endpoint URL",
                 type = ParameterType.StringType(
                     minLength = 10,
                     pattern = Regex("^https?://.*")
                 ),
-                defaultValue = "https://api.llamastack.ai",
+                defaultValue = "http://localhost:5050",
                 isRequired = true,
                 category = "Connection"
             ),
@@ -433,7 +451,7 @@ class LlamaStackRunner(
                 name = "api_key",
                 displayName = "API Key",
                 description = "Authentication key for LlamaStack API (optional for localhost)",
-                type = ParameterType.StringType(minLength = 10),
+                type = ParameterType.StringType(minLength = 0),
                 defaultValue = "",
                 isRequired = false,
                 isSensitive = true,
@@ -447,7 +465,7 @@ class LlamaStackRunner(
                     options = listOf(
                         SelectionOption("llama-3.2-90b-vision-instruct", "Llama 3.2 90B Vision", "Best for vision tasks"),
                         SelectionOption("llama-3.2-11b-vision-instruct", "Llama 3.2 11B Vision", "Balanced vision model"),
-                        SelectionOption("llama-3.2-3b-instruct", "Llama 3.2 3B", "Lightweight text model"),
+                        SelectionOption("llama-3.2:3b", "Llama 3.2 3B", "Lightweight text model"),
                         SelectionOption("llama-3.1-70b-instruct", "Llama 3.1 70B", "Large text model"),
                         SelectionOption("llama-3.1-8b-instruct", "Llama 3.1 8B", "Efficient text model")
                     ),
@@ -515,24 +533,6 @@ class LlamaStackRunner(
     }
 
     override fun validateParameters(parameters: Map<String, Any>): com.mtkresearch.breezeapp.engine.runner.core.ValidationResult {
-        // Check for endpoint compatibility before validation
-        val endpoint = parameters["endpoint"] as? String
-        if (endpoint != null) {
-            // Provide guidance for OpenRouter endpoints
-            if (endpoint.contains("openrouter.ai")) {
-                Log.w(TAG, "OpenRouter endpoint detected with LlamaStackRunner. Consider using OpenRouterLLMRunner for optimal compatibility.")
-                // Allow but warn - user might want cross-compatibility
-            }
-            
-            // Provide guidance for other incompatible endpoints
-            if (endpoint.contains("openai.com") || endpoint.contains("anthropic.com")) {
-                return com.mtkresearch.breezeapp.engine.runner.core.ValidationResult.invalid(
-                    "Endpoint '${endpoint}' is not compatible with LlamaStackRunner. " +
-                    "Please use the appropriate runner for this API or switch to a compatible endpoint."
-                )
-            }
-        }
-        
         val config = try {
             LlamaStackConfig.fromParams(parameters, DEFAULT_MODEL_ID)
         } catch (e: Exception) {
