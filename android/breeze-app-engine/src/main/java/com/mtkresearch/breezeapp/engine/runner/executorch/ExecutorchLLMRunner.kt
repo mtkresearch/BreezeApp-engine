@@ -103,7 +103,7 @@ class ExecutorchLLMRunner(
 
     override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
         if (!isLoaded.get() || llmModule == null || modelPath == null || tokenizerPath == null) {
-            trySend(InferenceResult.error(RunnerError.modelNotLoaded()))
+            trySend(InferenceResult.error(RunnerError.resourceUnavailable()))
             close()
             return@callbackFlow
         }
@@ -134,7 +134,7 @@ class ExecutorchLLMRunner(
             val loadResult = llmModule?.load()
             if (loadResult != 0) {
                 Log.e(TAG, "Failed to reload Executorch model. Error code: $loadResult")
-                trySend(InferenceResult.error(RunnerError.runtimeError("Failed to reload model for new temperature.")))
+                trySend(InferenceResult.error(RunnerError.processingError("Failed to reload model for new temperature.")))
                 close()
                 return@callbackFlow
             }
@@ -184,7 +184,7 @@ class ExecutorchLLMRunner(
 
         if (generateResult != 0) {
             Log.e(TAG, "Generation failed with code $generateResult")
-            trySend(InferenceResult.error(RunnerError.runtimeError("Generation failed with code $generateResult")))
+            trySend(InferenceResult.error(RunnerError.processingError("Generation failed with code $generateResult")))
             close()
         } else {
             // This block is executed after llmModule.generate() completes.

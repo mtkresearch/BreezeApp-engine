@@ -156,7 +156,7 @@ class MTKLLMRunner(
     }
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
-        if (!isLoaded.get()) return InferenceResult.error(RunnerError.modelNotLoaded())
+        if (!isLoaded.get()) return InferenceResult.error(RunnerError.resourceUnavailable())
         return try {
             val inputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String
                 ?: return InferenceResult.error(RunnerError.invalidInput("Missing text input"))
@@ -181,7 +181,7 @@ class MTKLLMRunner(
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error during inference", e)
-            InferenceResult.error(RunnerError.runtimeError("Inference failed: ${e.message}", e))
+            InferenceResult.error(RunnerError.processingError("Inference failed: ${e.message}", e))
         } finally {
             isGenerating.set(false)
             performSafeCleanup("single inference")
@@ -190,12 +190,12 @@ class MTKLLMRunner(
     
     override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
         if (!isLoaded.get()) {
-            trySend(InferenceResult.error(RunnerError.modelNotLoaded()))
+            trySend(InferenceResult.error(RunnerError.resourceUnavailable()))
             close()
             return@callbackFlow
         }
         if (!isGenerating.compareAndSet(false, true)) {
-            trySend(InferenceResult.error(RunnerError.runtimeError("Another inference is in progress")))
+            trySend(InferenceResult.error(RunnerError.processingError("Another inference is in progress")))
             close()
             return@callbackFlow
         }
@@ -259,7 +259,7 @@ class MTKLLMRunner(
             close()
         } catch (e: Exception) {
             Log.e(TAG, "Error during streaming inference", e)
-            trySend(InferenceResult.error(RunnerError.runtimeError("Streaming inference failed: ${e.message}", e)))
+            trySend(InferenceResult.error(RunnerError.processingError("Streaming inference failed: ${e.message}", e)))
             close()
         } finally {
             isGenerating.set(false)

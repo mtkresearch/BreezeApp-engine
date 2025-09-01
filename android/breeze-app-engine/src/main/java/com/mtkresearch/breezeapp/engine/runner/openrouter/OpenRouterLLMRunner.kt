@@ -150,7 +150,7 @@ class OpenRouterLLMRunner(
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         if (!isLoaded.get()) {
-            return InferenceResult.error(RunnerError.modelNotLoaded())
+            return InferenceResult.error(RunnerError.resourceUnavailable())
         }
 
         return try {
@@ -165,13 +165,13 @@ class OpenRouterLLMRunner(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error processing request", e)
-            InferenceResult.error(RunnerError.runtimeError("Inference failed: ${e.message}", e))
+            InferenceResult.error(RunnerError.processingError("Inference failed: ${e.message}", e))
         }
     }
 
     override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
         if (!isLoaded.get()) {
-            trySend(InferenceResult.error(RunnerError.modelNotLoaded()))
+            trySend(InferenceResult.error(RunnerError.resourceUnavailable()))
             close()
             return@callbackFlow
         }
@@ -486,7 +486,7 @@ class OpenRouterLLMRunner(
                 if (responseCode != 200) {
                     val errorResponse = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error details"
                     Log.e(TAG, "HTTP $responseCode: ${mapHttpErrorCode(responseCode)} - $errorResponse")
-                    onResult(InferenceResult.error(RunnerError.runtimeError("HTTP $responseCode: ${mapHttpErrorCode(responseCode)} - $errorResponse")))
+                    onResult(InferenceResult.error(RunnerError.processingError("HTTP $responseCode: ${mapHttpErrorCode(responseCode)} - $errorResponse")))
                     return@withContext
                 }
 
@@ -672,7 +672,7 @@ class OpenRouterLLMRunner(
             val choices = jsonResponse.getJSONArray("choices")
             
             if (choices.length() == 0) {
-                return InferenceResult.error(RunnerError.runtimeError("No response choices received"))
+                return InferenceResult.error(RunnerError.processingError("No response choices received"))
             }
             
             val choice = choices.getJSONObject(0)
@@ -702,7 +702,7 @@ class OpenRouterLLMRunner(
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse response: $response", e)
-            InferenceResult.error(RunnerError.runtimeError("Failed to parse response: ${e.message}", e))
+            InferenceResult.error(RunnerError.processingError("Failed to parse response: ${e.message}", e))
         }
     }
 
@@ -711,7 +711,7 @@ class OpenRouterLLMRunner(
      */
     private fun combinePartialResults(partialResults: List<InferenceResult>): InferenceResult {
         if (partialResults.isEmpty()) {
-            return InferenceResult.error(RunnerError.runtimeError("No results received from model"))
+            return InferenceResult.error(RunnerError.processingError("No results received from model"))
         }
         
         val combinedText = partialResults
@@ -736,13 +736,13 @@ class OpenRouterLLMRunner(
         return when (exception) {
             is IOException -> {
                 if (exception.message?.contains("timeout", ignoreCase = true) == true) {
-                    RunnerError.timeout("Request timeout: ${exception.message}")
+                    RunnerError(RunnerError.Code.PROCESSING_ERROR, "Request timeout: ${exception.message}")
                 } else {
-                    RunnerError.runtimeError("Network error: ${exception.message}", exception)
+                    RunnerError.processingError("Network error: ${exception.message}", exception)
                 }
             }
-            is SecurityException -> RunnerError.runtimeError("Authentication error: ${exception.message}", exception)
-            else -> RunnerError.runtimeError("Unexpected error: ${exception.message}", exception)
+            is SecurityException -> RunnerError.processingError("Authentication error: ${exception.message}", exception)
+            else -> RunnerError.processingError("Unexpected error: ${exception.message}", exception)
         }
     }
 

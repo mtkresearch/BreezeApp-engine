@@ -67,7 +67,7 @@ class MyLLMRunner : BaseRunner {
             val response = apiClient.generateText(text)
             InferenceResult.success(mapOf("text" to response))
         } catch (e: Exception) {
-            InferenceResult.error(RunnerError("E101", "Generation failed: ${e.message}"))
+            InferenceResult.error(RunnerError.processingError("Generation failed: ${e.message}", e))
         }
     }
 }
@@ -81,12 +81,12 @@ class MyASRRunner : BaseRunner {
         return try {
             val audio = input.inputs[InferenceRequest.INPUT_AUDIO] as? ByteArray ?: byteArrayOf()
             if (audio.isEmpty()) {
-                return InferenceResult.error(RunnerError("E400", "Audio input is required"))
+                return InferenceResult.error(RunnerError.invalidInput("Audio input is required"))
             }
             val transcript = asrClient.transcribe(audio)
             InferenceResult.success(mapOf("text" to transcript))
         } catch (e: Exception) {
-            InferenceResult.error(RunnerError("E102", "Transcription failed: ${e.message}"))
+            InferenceResult.error(RunnerError(RunnerError.Code.ASR_FAILURE, "Transcription failed: ${e.message}", e))
         }
     }
 }
@@ -100,12 +100,12 @@ class MyTTSRunner : BaseRunner {
         return try {
             val text = input.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
             if (text.isBlank()) {
-                return InferenceResult.error(RunnerError("E400", "Text input cannot be empty"))
+                return InferenceResult.error(RunnerError.invalidInput("Text input cannot be empty"))
             }
             val audioData = ttsClient.synthesize(text)
             InferenceResult.success(mapOf("audio_data" to audioData, "sample_rate" to 22050))
         } catch (e: Exception) {
-            InferenceResult.error(RunnerError("E103", "Speech synthesis failed: ${e.message}"))
+            InferenceResult.error(RunnerError(RunnerError.Code.TTS_FAILURE, "Speech synthesis failed: ${e.message}", e))
         }
     }
 }
@@ -113,23 +113,44 @@ class MyTTSRunner : BaseRunner {
 
 ## Error Handling
 
-Always return structured errors using `RunnerError`:
+Always return structured errors using the `RunnerError` factory methods for consistency.
 
 ```kotlin
-// Input validation errors (4xx)
-return InferenceResult.error(RunnerError("E400", "Invalid input: text cannot be empty"))
+// Input validation errors
+return InferenceResult.error(RunnerError.invalidInput("Text input cannot be empty"))
 
-// Processing errors (5xx) 
-return InferenceResult.error(RunnerError("E101", "API call failed: ${e.message}"))
+// Processing errors
+return InferenceResult.error(RunnerError.processingError("API call failed: ${e.message}", e))
 
 // Resource errors
-return InferenceResult.error(RunnerError("E501", "Model not loaded"))
+return InferenceResult.error(RunnerError.resourceUnavailable("Model not loaded"))
 ```
 
 **Error Code Guidelines:**
-- **E4xx**: Client errors (invalid input, missing params)
-- **E5xx**: Server errors (model loading, API failures) 
-- **E1xx**: Processing errors (inference failures)
+
+Error codes are centralized in `RunnerError.Code` to ensure consistency. Use the factory methods (`RunnerError.invalidInput(...)`, `RunnerError.processingError(...)`, etc.) whenever possible.
+
+- **E1xx**: Processing Errors (e.g., inference failure)
+- **E4xx**: Client/Input Errors (e.g., invalid parameters, permissions)
+- **E5xx**: Server/Resource Errors (e.g., model loading, resource unavailable)
+
+Here is the complete list of defined codes:
+
+| Code   | Constant                 | Description                                       |
+|--------|--------------------------|---------------------------------------------------|
+| `E101` | `PROCESSING_ERROR`       | General processing or inference failure.          |
+| `E102` | `ASR_FAILURE`            | ASR-specific transcription failure.               |
+| `E103` | `TTS_FAILURE`            | TTS-specific speech synthesis failure.            |
+| `E400` | `INVALID_INPUT`          | Invalid, missing, or unsupported input.           |
+| `E401` | `PERMISSION_DENIED`      | Permission denied.                                |
+| `E404` | `RUNNER_NOT_FOUND`       | No suitable runner found for the request.         |
+| `E405` | `CAPABILITY_NOT_SUPPORTED` | Runner does not support the requested capability. |
+| `E406` | `STREAMING_NOT_SUPPORTED`| Streaming is not supported by the runner.         |
+| `E500` | `MODEL_DOWNLOAD_FAILED`  | Failed to download a required model.              |
+| `E501` | `RESOURCE_UNAVAILABLE`   | A required resource is not available.             |
+| `E502` | `MODEL_LOAD_FAILED`      | A model failed to initialize during loading.      |
+| `E503` | `HARDWARE_NOT_SUPPORTED` | Runner hardware requirements not met.             |
+| `E504` | `INSUFFICIENT_RESOURCES` | Not enough resources (e.g., RAM) to run.          |
 
 ## Testing
 

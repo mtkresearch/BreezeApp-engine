@@ -62,7 +62,7 @@ class MockVLMRunner : BaseRunner, FlowStreamingRunner {
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         if (!isLoaded.get()) {
-            return InferenceResult.error(RunnerError.modelNotLoaded())
+            return InferenceResult.error(RunnerError.resourceUnavailable())
         }
         
         return try {
@@ -99,7 +99,7 @@ class MockVLMRunner : BaseRunner, FlowStreamingRunner {
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error in MockVLMRunner.run", e)
-            InferenceResult.error(RunnerError.runtimeError(e.message ?: "Unknown error", e))
+            InferenceResult.error(RunnerError.processingError(e.message ?: "Unknown error", e))
         }
     }
 

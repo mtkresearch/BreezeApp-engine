@@ -72,7 +72,7 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         if (!isLoaded.get()) {
-            return InferenceResult.error(RunnerError.modelNotLoaded())
+            return InferenceResult.error(RunnerError.resourceUnavailable())
         }
         
         val prompt = input.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
@@ -95,7 +95,7 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error in MockLLMRunner.run", e)
-            InferenceResult.error(RunnerError.runtimeError(e.message ?: "Unknown error", e))
+            InferenceResult.error(RunnerError.processingError(e.message ?: "Unknown error", e))
         }
     }
     
@@ -140,7 +140,7 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
             Log.d(TAG, "Stream completed for session: ${input.sessionId}")
         } catch (e: Exception) {
             Log.e(TAG, "Error in MockLLMRunner.runAsFlow", e)
-            emit(InferenceResult.error(RunnerError.runtimeError(e.message ?: "Unknown error", e)))
+            emit(InferenceResult.error(RunnerError.processingError(e.message ?: "Unknown error", e)))
         }
     }
     

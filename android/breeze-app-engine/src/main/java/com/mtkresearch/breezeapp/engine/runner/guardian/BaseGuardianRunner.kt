@@ -88,7 +88,7 @@ abstract class BaseGuardianRunner : BaseRunner {
      */
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         if (!isLoaded()) {
-            return InferenceResult.error(RunnerError.modelNotLoaded())
+            return InferenceResult.error(RunnerError.resourceUnavailable())
         }
 
         val text = input.inputs[InferenceRequest.INPUT_TEXT] as? String
@@ -122,7 +122,7 @@ abstract class BaseGuardianRunner : BaseRunner {
                 ) + analysisResult.details
             )
         } catch (e: Exception) {
-            InferenceResult.error(RunnerError.runtimeError("Guardian analysis failed: ${e.message}", e))
+            InferenceResult.error(RunnerError.processingError("Guardian analysis failed: ${e.message}", e))
         }
     }
 

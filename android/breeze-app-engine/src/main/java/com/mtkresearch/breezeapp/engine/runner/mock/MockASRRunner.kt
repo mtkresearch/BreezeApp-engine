@@ -65,7 +65,7 @@ class MockASRRunner : BaseRunner, FlowStreamingRunner {
     
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         if (!isLoaded.get()) {
-            return InferenceResult.error(RunnerError.modelNotLoaded())
+            return InferenceResult.error(RunnerError.resourceUnavailable())
         }
         
         return try {
@@ -99,7 +99,7 @@ class MockASRRunner : BaseRunner, FlowStreamingRunner {
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error in MockASRRunner.run", e)
-            InferenceResult.error(RunnerError.runtimeError(e.message ?: "Unknown error", e))
+            InferenceResult.error(RunnerError.processingError(e.message ?: "Unknown error", e))
         }
     }
     
@@ -155,7 +155,7 @@ class MockASRRunner : BaseRunner, FlowStreamingRunner {
             Log.d(TAG, "ASR stream completed for session: ${input.sessionId}")
         } catch (e: Exception) {
             Log.e(TAG, "Error in MockASRRunner.runAsFlow", e)
-            emit(InferenceResult.error(RunnerError.runtimeError(e.message ?: "Unknown error", e)))
+            emit(InferenceResult.error(RunnerError.processingError(e.message ?: "Unknown error", e)))
         }
     }
     

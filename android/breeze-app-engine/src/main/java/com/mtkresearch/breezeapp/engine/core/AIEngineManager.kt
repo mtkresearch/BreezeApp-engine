@@ -129,7 +129,7 @@ class AIEngineManager(
                     runner.run(request)
                 },
                 onFailure = { error ->
-                    val runnerError = if (error is RunnerSelectionException) error.runnerError else RunnerError("E101", error.message ?: "Unknown runtime error")
+                    val runnerError = if (error is RunnerSelectionException) error.runnerError else RunnerError.processingError(error.message ?: "Unknown runtime error")
                     InferenceResult.error(runnerError)
                 }
             )
@@ -145,7 +145,7 @@ class AIEngineManager(
             
         } catch (e: Exception) {
             logger.e(TAG, "Error processing request", e)
-            InferenceResult.error(RunnerError("E101", e.message ?: "Unknown error", true, e))
+            InferenceResult.error(RunnerError.processingError(e.message ?: "Unknown error", e))
         } finally {
             // 使用統一的取消管理器清理請求
             cancellationManager.unregisterRequest(requestId)
@@ -188,7 +188,7 @@ class AIEngineManager(
             selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     if (runner !is FlowStreamingRunner) {
-                        emit(InferenceResult.error(RunnerError("E406", "Runner does not support streaming.")))
+                        emit(InferenceResult.error(RunnerError(RunnerError.Code.STREAMING_NOT_SUPPORTED, "Runner does not support streaming.")))
                         return@fold
                     }
 
@@ -220,7 +220,7 @@ class AIEngineManager(
                     }
                 },
                 onFailure = { error ->
-                    val runnerError = if (error is RunnerSelectionException) error.runnerError else RunnerError("E101", error.message ?: "Unknown runtime error")
+                    val runnerError = if (error is RunnerSelectionException) error.runnerError else RunnerError.processingError(error.message ?: "Unknown runtime error")
                     emit(InferenceResult.error(runnerError))
                 }
             )
@@ -229,7 +229,7 @@ class AIEngineManager(
             throw e
         } catch (e: Exception) {
             logger.e(TAG, "Error processing stream request", e)
-            emit(InferenceResult.error(RunnerError("E101", e.message ?: "Unknown error", true, e)))
+            emit(InferenceResult.error(RunnerError.processingError(e.message ?: "Unknown error", e)))
         } finally {
             cancellationManager.unregisterRequest(requestId)
         }
@@ -328,18 +328,18 @@ class AIEngineManager(
             } else {
                 "No runner found for capability: ${capability.name}"
             }
-            return Result.failure(RunnerSelectionException(RunnerError("E404", errorMessage)))
+            return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.RUNNER_NOT_FOUND, errorMessage)))
         }
 
         // 2. Check capability
         if (!runner.getCapabilities().contains(capability)) {
-            return Result.failure(RunnerSelectionException(RunnerError("E405", "Runner ${runner.getRunnerInfo().name} does not support capability: ${capability.name}")))
+            return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.CAPABILITY_NOT_SUPPORTED, "Runner ${runner.getRunnerInfo().name} does not support capability: ${capability.name}")))
         }
 
         // 3. Runtime hardware validation
         if (!isRunnerSupported(runner)) {
             logger.w(TAG, "Runner ${runner.getRunnerInfo().name} not supported on this device hardware")
-            return Result.failure(RunnerSelectionException(RunnerError("E503", "Runner ${runner.getRunnerInfo().name} hardware requirements not met on this device")))
+            return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.HARDWARE_NOT_SUPPORTED, "Runner ${runner.getRunnerInfo().name} hardware requirements not met on this device")))
         }
 
         // 4. Load runner if needed
@@ -420,7 +420,7 @@ class AIEngineManager(
                 // Suspend until the download is complete or fails.
                 val downloadSuccess = downloadCompleter.await()
                 if (!downloadSuccess) {
-                    return Result.failure(RunnerSelectionException(RunnerError("E500", "Failed to download required model: $modelId")))
+                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "Failed to download required model: $modelId")))
                 }
             }
             // --- End New Model Download Logic ---
@@ -463,7 +463,7 @@ class AIEngineManager(
                 if (availableRamGB < requiredRamGB) {
                     val errorMessage = "OOM Risk: Not enough RAM for runner ${runner.getRunnerInfo().name}. Required: ${requiredRamGB}GB, Available: ${"%.2f".format(availableRamGB)}GB."
                     logger.e(TAG, errorMessage)
-                    return Result.failure(RunnerSelectionException(RunnerError("E502", errorMessage)))
+                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.INSUFFICIENT_RESOURCES, errorMessage)))
                 }
             }
 
@@ -472,7 +472,7 @@ class AIEngineManager(
 
             val loaded = runner.load(modelId, settings, request.params)
             if (!loaded) {
-                return Result.failure(RunnerSelectionException(RunnerError("E501", "Failed to load model '$modelId' for runner: $runnerName")))
+                return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_LOAD_FAILED, "Failed to load model '$modelId' for runner: $runnerName")))
             }
         }
 

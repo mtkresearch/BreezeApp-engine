@@ -46,15 +46,5 @@ object EngineConstants {
         const val MODEL_PATH_PREFIX = "/data/local/tmp/models/"
     }
     
-    // Error codes
-    object ErrorCodes {
-        const val RUNTIME_ERROR = "E101"
-        const val MODEL_NOT_LOADED = "E201"
-        const val INVALID_INPUT = "E301"
-        const val PERMISSION_DENIED = "E401"
-        const val RUNNER_NOT_FOUND = "E404"
-        const val CAPABILITY_NOT_SUPPORTED = "E405"
-        const val STREAMING_NOT_SUPPORTED = "E406"
-        const val MODEL_LOAD_FAILED = "E501"
-    }
+    
 } 
