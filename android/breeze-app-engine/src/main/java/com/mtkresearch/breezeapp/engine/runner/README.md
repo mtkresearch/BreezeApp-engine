@@ -1,308 +1,158 @@
-# BreezeApp Runner Development Guide
+# Runner Development Guide
 
-A simple guide for creating custom AI runners in BreezeApp-engine.
+Create custom AI runners for BreezeApp Engine in 3 simple steps.
 
-## Quick Start: Create Your Runner in 5 Steps
+## Quick Start
 
-### Step 1: Choose Your Package Location
-```
-BreezeApp-engine/android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engine/runner/
-├── mtk/           # MediaTek NPU runners
-├── sherpa/        # Sherpa ONNX runners  
-├── mock/          # Mock/testing runners
-└── [your-vendor]/ # Your runner directory
+### 1. Copy the Template
+```bash
+cp templates/CustomRunner.kt yourvendor/YourRunner.kt
 ```
 
-### Step 2: Implement BaseRunner Interface
+### 2. Update the Annotation
 ```kotlin
-package com.mtkresearch.breezeapp.engine.runner.yourvendor
-
-import com.mtkresearch.breezeapp.engine.annotation.*
-import com.mtkresearch.breezeapp.engine.runner.core.*
-import com.mtkresearch.breezeapp.engine.model.*
-
 @AIRunner(
-    vendor = VendorType.UNKNOWN,                    // Change to your vendor if available
-    priority = RunnerPriority.NORMAL,              // HIGH/NORMAL/LOW
-    capabilities = [CapabilityType.LLM]            // LLM/ASR/TTS/VLM/GUARDIAN
+    vendor = VendorType.UNKNOWN,           // Choose your vendor
+    priority = RunnerPriority.NORMAL,      // HIGH/NORMAL/LOW  
+    capabilities = [CapabilityType.LLM],   // LLM/ASR/TTS/VLM/GUARDIAN
+    defaultModel = "your-model-name"
 )
-class YourCustomRunner : BaseRunner {
-    
-    private val isLoaded = AtomicBoolean(false)
-    
-    // Implement required methods
-    override fun load(): Boolean {
-        // Load default model configuration
-        val defaultConfig = ModelConfig(
-            modelName = "YourModel",
-            modelPath = ""
-        )
-        return load(defaultConfig)
-    }
-    
-    override fun load(config: ModelConfig): Boolean {
-        // Initialize your AI model/API here
-        // Example: yourAIClient.initialize(config.modelPath)
-        isLoaded.set(true)
-        return true
-    }
-    
+class YourRunner : BaseRunner, FlowStreamingRunner {
+    // Implementation...
+}
+```
+
+### 3. Implement Your AI Logic
+```kotlin
+// For LLM:
+private fun processTextInput(text: String): String {
+    return apiClient.generateText(text)
+}
+
+// For ASR:
+private fun processAudioInput(audio: ByteArray): String {
+    return apiClient.transcribeAudio(audio)
+}
+
+// For TTS, VLM, GUARDIAN - see template for examples
+```
+
+**That's it!** The engine automatically discovers and integrates your runner.
+
+## Available Types
+
+**Capabilities:**
+- `LLM` - Text generation (text → text)
+- `ASR` - Speech recognition (audio → text)
+- `TTS` - Text-to-speech (text → audio)
+- `VLM` - Vision + language (text + image → text)
+- `GUARDIAN` - Content safety (text → safety analysis)
+
+**Vendors:**
+- `OPENROUTER` - Cloud API services
+- `EXECUTORCH` - Local mobile inference
+- `SHERPA` - ONNX-based processing
+- `MEDIATEK` - NPU acceleration
+- `UNKNOWN` - Custom/unspecified
+
+## Examples
+
+### LLM Runner Example
+```kotlin
+@AIRunner(vendor = VendorType.OPENROUTER, capabilities = [CapabilityType.LLM])
+class MyLLMRunner : BaseRunner {
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
-        if (!isLoaded.get()) {
-            return InferenceResult.error(RunnerError.modelNotLoaded())
-        }
-        
-        // Process the input
-        val inputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
-        
-        // Your AI inference logic here
-        val response = processWithYourAI(inputText)
-        
-        return InferenceResult.textOutput(
-            text = response,
-            metadata = mapOf(
-                InferenceResult.META_MODEL_NAME to "YourModel",
-                InferenceResult.META_PROCESSING_TIME_MS to System.currentTimeMillis()
-            )
-        )
-    }
-    
-    override fun unload() {
-        // Cleanup resources
-        isLoaded.set(false)
-    }
-    
-    override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.LLM)
-    override fun isLoaded(): Boolean = isLoaded.get()
-    override fun getRunnerInfo(): RunnerInfo = RunnerInfo(
-        name = "YourCustomRunner",
-        version = "1.0.0",
-        capabilities = getCapabilities(),
-        description = "Your custom AI runner"
-    )
-    
-    private fun processWithYourAI(input: String): String {
-        // Replace with your actual AI processing
-        return "Processed: $input"
-    }
-    
-    // Hardware support check
-    companion object : BaseRunnerCompanion {
-        @JvmStatic
-        override fun isSupported(): Boolean {
-            // Check if your AI library/hardware is available
-            return true
-        }
-    }
-}
-```
-
-### Step 3: Add Streaming Support (Optional)
-If your runner supports real-time streaming (ASR, live inference):
-
-```kotlin
-class YourStreamingRunner : BaseRunner, FlowStreamingRunner {
-    
-    override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
-        // Emit partial results as they become available
-        for (i in 1..5) {
-            val partialResult = "Partial result $i"
-            trySend(InferenceResult.textOutput(
-                text = partialResult,
-                partial = true  // Mark as partial
-            ))
-            delay(100)
-        }
-        
-        // Emit final result
-        trySend(InferenceResult.textOutput(
-            text = "Final result",
-            partial = false
-        ))
-        close()
-    }
-}
-```
-
-### Step 4: Handle Errors Properly
-```kotlin
-override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
-    return try {
-        if (!isLoaded()) {
-            return InferenceResult.error(RunnerError.modelNotLoaded())
-        }
-        
-        val inputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String
-            ?: return InferenceResult.error(RunnerError.invalidInput("Missing text input"))
-        
-        // Your processing...
-        val result = processWithYourAI(inputText)
-        InferenceResult.textOutput(text = result)
-        
-    } catch (e: Exception) {
-        InferenceResult.error(RunnerError.runtimeError("Processing failed: ${e.message}", e))
-    }
-}
-```
-
-### Step 5: Test Your Runner
-Your runner is automatically discovered by the engine. Test it through the BreezeApp:
-
-```kotlin
-// The engine will automatically find and use your runner based on:
-// 1. Capability type (LLM/ASR/TTS/VLM)
-// 2. Vendor priority 
-// 3. Hardware availability
-```
-
-## Real Examples from Codebase
-
-### Example 1: MTK NPU Runner
-```kotlin
-@AIRunner(
-    vendor = VendorType.MEDIATEK,
-    priority = RunnerPriority.HIGH,
-    capabilities = [CapabilityType.LLM]
-)
-class MTKLLMRunner(private val context: Context? = null) : BaseRunner, FlowStreamingRunner {
-    
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = MODEL_NAME,
-            modelPath = "" // Empty - uses MTKUtils.resolveModelPath()
-        )
-        return load(defaultConfig)
-    }
-    
-    // Smart model path resolution
-    override fun load(config: ModelConfig): Boolean {
-        val modelPath = if (context != null) {
-            MTKUtils.resolveModelPath(context, config.modelPath)
-        } else {
-            config.modelPath ?: return false
-        }
-        // ... MTK initialization
-    }
-}
-```
-
-### Example 2: Mock Runner (Perfect Template)
-```kotlin
-@AIRunner(
-    vendor = VendorType.UNKNOWN,
-    priority = RunnerPriority.LOW,
-    capabilities = [CapabilityType.LLM]
-)
-class MockLLMRunner : BaseRunner, FlowStreamingRunner {
-    
-    override fun load(): Boolean {
-        val defaultConfig = ModelConfig(
-            modelName = "MockLLMModel",
-            modelPath = ""
-        )
-        return load(defaultConfig)
-    }
-    
-    override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
-        val inputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
-        val response = "Mock AI response to: $inputText"
-        
-        return InferenceResult.textOutput(
-            text = response,
-            metadata = mapOf(
-                InferenceResult.META_MODEL_NAME to "mock-llm-v1",
-                InferenceResult.META_PROCESSING_TIME_MS to 100L
-            )
-        )
-    }
-}
-```
-
-## Key Architecture Points
-
-### 1. Dual Load Methods
-Every runner must implement both:
-- `load(): Boolean` - Loads default model
-- `load(config: ModelConfig): Boolean` - Loads specific configuration
-
-### 2. Automatic Registration
-- No manual registration needed
-- Engine automatically discovers `@AIRunner` annotated classes
-- Successfully loaded runners are tracked in `activeRunners` collection
-
-### 3. Priority System
-- `HIGH`: Hardware-accelerated, premium runners (MTK NPU)
-- `NORMAL`: Standard runners (CPU-based)
-- `LOW`: Fallback/mock runners
-
-### 4. Memory Management
-- Engine automatically unloads other runners when memory is needed
-- Runners are properly removed from active collection after unloading
-- Always implement proper cleanup in `unload()`
-
-## Common Patterns
-
-### Hardware Detection
-```kotlin
-companion object : BaseRunnerCompanion {
-    @JvmStatic
-    override fun isSupported(): Boolean {
         return try {
-            // Check for native libraries
-            System.loadLibrary("your-ai-lib")
-            
-            // Check device capabilities  
-            val hasEnoughMemory = Runtime.getRuntime().maxMemory() > 4_000_000_000L
-            
-            // Check API availability
-            YourAILibrary.isAvailable()
-            
-            hasEnoughMemory
+            val text = input.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
+            val response = apiClient.generateText(text)
+            InferenceResult.success(mapOf("text" to response))
         } catch (e: Exception) {
-            false
+            InferenceResult.error(RunnerError("E101", "Generation failed: ${e.message}"))
         }
     }
 }
 ```
 
-### Input/Output Handling
+### ASR Runner Example
 ```kotlin
-// Common input keys
-val text = input.inputs[InferenceRequest.INPUT_TEXT] as? String
-val audio = input.inputs[InferenceRequest.INPUT_AUDIO] as? ByteArray
-val image = input.inputs[InferenceRequest.INPUT_IMAGE] as? ByteArray
-
-// Common parameters  
-val temperature = (input.params[InferenceRequest.PARAM_TEMPERATURE] as? Number)?.toFloat() ?: 0.7f
-val maxTokens = (input.params[InferenceRequest.PARAM_MAX_TOKENS] as? Number)?.toInt() ?: 2048
-
-// Return results
-return InferenceResult.textOutput(
-    text = response,
-    metadata = mapOf(
-        InferenceResult.META_MODEL_NAME to "your-model",
-        InferenceResult.META_PROCESSING_TIME_MS to processingTime
-    )
-)
+@AIRunner(vendor = VendorType.SHERPA, capabilities = [CapabilityType.ASR])
+class MyASRRunner : BaseRunner {
+    override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
+        return try {
+            val audio = input.inputs[InferenceRequest.INPUT_AUDIO] as? ByteArray ?: byteArrayOf()
+            if (audio.isEmpty()) {
+                return InferenceResult.error(RunnerError("E400", "Audio input is required"))
+            }
+            val transcript = asrClient.transcribe(audio)
+            InferenceResult.success(mapOf("text" to transcript))
+        } catch (e: Exception) {
+            InferenceResult.error(RunnerError("E102", "Transcription failed: ${e.message}"))
+        }
+    }
+}
 ```
 
-## Current Capabilities
+### TTS Runner Example
+```kotlin
+@AIRunner(vendor = VendorType.SHERPA, capabilities = [CapabilityType.TTS])
+class MyTTSRunner : BaseRunner {
+    override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
+        return try {
+            val text = input.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
+            if (text.isBlank()) {
+                return InferenceResult.error(RunnerError("E400", "Text input cannot be empty"))
+            }
+            val audioData = ttsClient.synthesize(text)
+            InferenceResult.success(mapOf("audio_data" to audioData, "sample_rate" to 22050))
+        } catch (e: Exception) {
+            InferenceResult.error(RunnerError("E103", "Speech synthesis failed: ${e.message}"))
+        }
+    }
+}
+```
 
-| CapabilityType | Description | Input | Output |
-|----------------|-------------|-------|--------|
-| `LLM` | Large Language Model | Text | Text |
-| `ASR` | Speech Recognition | Audio | Text |
-| `TTS` | Text-to-Speech | Text | Audio |
-| `VLM` | Vision Language Model | Image + Text | Text |
-| `GUARDIAN` | Content Safety | Text | Safety Analysis |
+## Error Handling
 
-## That's It!
+Always return structured errors using `RunnerError`:
 
-Your runner will be automatically discovered and integrated into the BreezeApp engine. The system handles:
-- ✅ Automatic discovery via annotations  
-- ✅ Priority-based selection
-- ✅ Memory management and cleanup
-- ✅ Error handling and fallbacks
-- ✅ Hardware detection and validation
+```kotlin
+// Input validation errors (4xx)
+return InferenceResult.error(RunnerError("E400", "Invalid input: text cannot be empty"))
 
-Focus on implementing your AI logic - the engine handles everything else.
+// Processing errors (5xx) 
+return InferenceResult.error(RunnerError("E101", "API call failed: ${e.message}"))
+
+// Resource errors
+return InferenceResult.error(RunnerError("E501", "Model not loaded"))
+```
+
+**Error Code Guidelines:**
+- **E4xx**: Client errors (invalid input, missing params)
+- **E5xx**: Server errors (model loading, API failures) 
+- **E1xx**: Processing errors (inference failures)
+
+## Testing
+
+Your runner works immediately:
+```kotlin
+// Engine automatically finds and uses your runner
+val request = InferenceRequest(inputs = mapOf("text" to "Hello"))
+val result = engineManager.runInference(request, CapabilityType.LLM)
+```
+
+## Key Points
+
+✅ **Auto-discovery** - No registration needed  
+✅ **Parameter UI** - Define schemas for automatic settings UI  
+✅ **Streaming** - Implement `FlowStreamingRunner` for real-time responses  
+✅ **Error handling** - Use `RunnerError` for structured errors  
+✅ **Memory management** - Engine handles loading/unloading  
+
+## Need Help?
+
+- 📋 **Start with template** - `templates/CustomRunner.kt` 
+- 🚀 **Streaming patterns** - `runner/STREAMING_GUIDE.md` for detailed streaming implementation
+- 📁 **Real examples** - `executorch/`, `openrouter/`, `sherpa/`, `mock/` directories
+- 🧪 **Test patterns** - `src/test/` for usage examples
+
+**Focus on your AI logic - the engine handles the rest!**
