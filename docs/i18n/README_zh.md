@@ -6,35 +6,10 @@
 
 BreezeApp Engine 是新一代的 AI 框架，專為打造強大、模組化、可擴展的 AI 體驗而設計。它強調型別安全、現代 Android 實踐，以及優秀的開發者體驗。
 
-## 📁 專案結構
+### 📦 最新版本
 
-```
-BreezeApp-engine/
-├── android/                    # Android 專案根目錄
-│   ├── EdgeAI/                # EdgeAI 函式庫模組
-│   ├── breeze-app-engine/     # 主要 AI 引擎模組
-│   ├── build.gradle.kts       # 根建構腳本
-│   ├── settings.gradle.kts    # 專案設定
-│   └── jitpack.yml           # JitPack 設定
-├── docs/                      # 文件
-│   ├── QUICK_START.md         # 快速開始指南
-│   ├── CONTRIBUTING.md        # 貢獻指南
-│   ├── ARCHITECTURE.md        # 架構指南
-│   ├── RUNNER_DEVELOPMENT.md  # Runner 開發指南
-│   ├── MODEL_DOWNLOAD_UI_TUTORIAL.md  # 模型下載 UI 教程
-│   ├── PERMISSION_SYSTEM.md   # 權限系統文件
-│   ├── internal/              # 內部開發文件
-│   └── i18n/                  # 國際化
-│       ├── README_zh.md       # 中文 README
-│       ├── QUICK_START_zh.md  # 中文快速開始
-│       ├── CONTRIBUTING_zh.md # 中文貢獻指南
-│       ├── ARCHITECTURE_zh.md # 中文架構指南
-│       ├── RUNNER_DEVELOPMENT_zh.md # 中文 runner 指南
-│       └── internal/          # 中文內部文件
-├── README.md                  # 本文件
-├── LICENSE                    # 授權條款
-└── .github/                   # GitHub 工作流程
-```
+- `BreezeApp-engine`: `v0.1.1`
+- `EdgeAI`: `v0.1.7`
 
 ## ✨ 專案核心：AI 引擎
 
@@ -62,52 +37,23 @@ graph TD
 
 這種乾淨的分層讓引擎能保持與 UI 無關、專注於服務導向。
 
-## 🚀 如何開始：依你的角色選擇
+## 🚀 如何開始
 
-了解大致架構後，根據你的目標選擇切入點：
+根據你的目標選擇路徑。你是想用引擎建構應用，還是為引擎建構新功能？
 
----
+### 📱 對於 App 開發者（使用引擎）
 
-### 📱 我是 App 開發者...
+如果你想為你的 Android 應用加入 AI 功能，這是你的路徑。
 
-*...我想在我的應用中**使用** BreezeApp Engine。*
+1.  **從這裡開始：** 我們的 **[BreezeApp Client 指南](../../BreezeApp-client/android/breeze-app-client/README.md)** 是最好的起點。它提供如何整合 `EdgeAI` SDK 並進行第一次 API 呼叫的逐步教程。
+2.  **探索 API：** `EdgeAI` SDK 是引擎的公開 API。你可以在 **[EdgeAI README](../android/EdgeAI/README.md)** 中探索其功能和資料模型。
 
-太棒了！你只需專注於 API 的使用。
+### 🧠 對於 AI/ML 工程師（擴展引擎）
 
-1. **從這裡開始：** 請參考 **[快速開始指南](./QUICK_START_zh.md)**，這是一個完整的指南，展示如何連接服務並使用其功能。
-2. **了解 API：** 接著閱讀 **[README](../../android/EdgeAI/docs/i18n/README_zh.md)**，了解你會用到的 `AIRequest` 和 `AIResponse` 模型。
-3. **JitPack 整合：** 參考 **[使用指南](../../android/EdgeAI/docs/i18n/USAGE_GUIDE_zh.md)**，學習如何透過 JitPack 整合 EdgeAI。
-4. **權限系統：** 了解我們統一的權限管理系統 **[權限系統指南](./PERMISSION_SYSTEM_zh.md)**。
+如果你想為引擎本身添加新模型或 AI 能力。
 
----
-
-### 🧠 我是 AI/ML 工程師...
-
-*...我想為 BreezeApp Engine **擴充新模型**。*
-
-很棒！你的路徑是實作 runner。
-
-1. **從這裡開始：** 請參考 **[架構指南](./ARCHITECTURE_zh.md)**，這裡說明了路由引擎的內部架構。
-2. **開發你的第一個 Runner：** 依照 **[🧩 Runner 開發指南](./RUNNER_DEVELOPMENT_zh.md)**，一步步建立、測試並整合新 runner。
-
----
-
-### 🏗️ 我是建構工程師...
-
-*...我想**建構與部署**這個專案。*
-
-沒問題！你需要知道：
-
-1. **Android 專案：** 所有 Android 相關檔案都在 `android/` 目錄下
-2. **建構指令：**
-   ```bash
-   cd android
-   ./gradlew :EdgeAI:assembleRelease
-   ./gradlew :breeze-app-engine:assembleRelease
-   ```
-3. **JitPack 發布：** 請參考 **[android/EdgeAI/docs/JitPack_Release_SOP.md](../../android/EdgeAI/docs/i18n/JitPack_Release_SOP_zh.md)** 了解發布流程。
-
----
+1.  **了解設計：** **[架構指南](./ARCHITECTURE.md)** 說明了引擎的內部設計以及所有部分如何配合。
+2.  **建構 Runner：** 依照 **[Runner 開發指南](./RUNNER_DEVELOPMENT.md)** 學習如何實作能被引擎發現的新 `Runner`。
 
 ## 🤝 歡迎加入社群與貢獻
 
@@ -115,16 +61,3 @@ graph TD
 
 * **貢獻指南：** 請閱讀我們的 **[貢獻指南](./CONTRIBUTING_zh.md)**。
 * **有問題？** 歡迎開 issue，我們樂意協助。
-
----
-
-## 📦 JitPack 整合
-
-EdgeAI 模組可透過 JitPack 輕鬆整合：
-
-```kotlin
-// 加到你的 app build.gradle.kts
-implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
-```
-
-詳細用法請見 **[android/EdgeAI/docs/USAGE_GUIDE.md](../../android/EdgeAI/docs/i18n/USAGE_GUIDE_zh.md)**。 
