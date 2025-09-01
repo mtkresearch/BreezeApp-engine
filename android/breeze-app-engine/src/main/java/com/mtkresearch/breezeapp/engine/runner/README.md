@@ -134,33 +134,6 @@ Error codes are centralized in `RunnerError.Code` to ensure consistency. Use the
 - **E4xx**: Client/Input Errors (e.g., invalid parameters, permissions)
 - **E5xx**: Server/Resource Errors (e.g., model loading, resource unavailable)
 
-Here is the complete list of defined codes:
-
-| Code   | Constant                 | Description                                       |
-|--------|--------------------------|---------------------------------------------------|
-| `E101` | `PROCESSING_ERROR`       | General processing or inference failure.          |
-| `E102` | `ASR_FAILURE`            | ASR-specific transcription failure.               |
-| `E103` | `TTS_FAILURE`            | TTS-specific speech synthesis failure.            |
-| `E400` | `INVALID_INPUT`          | Invalid, missing, or unsupported input.           |
-| `E401` | `PERMISSION_DENIED`      | Permission denied.                                |
-| `E404` | `RUNNER_NOT_FOUND`       | No suitable runner found for the request.         |
-| `E405` | `CAPABILITY_NOT_SUPPORTED` | Runner does not support the requested capability. |
-| `E406` | `STREAMING_NOT_SUPPORTED`| Streaming is not supported by the runner.         |
-| `E500` | `MODEL_DOWNLOAD_FAILED`  | Failed to download a required model.              |
-| `E501` | `RESOURCE_UNAVAILABLE`   | A required resource is not available.             |
-| `E502` | `MODEL_LOAD_FAILED`      | A model failed to initialize during loading.      |
-| `E503` | `HARDWARE_NOT_SUPPORTED` | Runner hardware requirements not met.             |
-| `E504` | `INSUFFICIENT_RESOURCES` | Not enough resources (e.g., RAM) to run.          |
-
-## Testing
-
-Your runner works immediately:
-```kotlin
-// Engine automatically finds and uses your runner
-val request = InferenceRequest(inputs = mapOf("text" to "Hello"))
-val result = engineManager.runInference(request, CapabilityType.LLM)
-```
-
 ## Key Points
 
 ✅ **Auto-discovery** - No registration needed  
