@@ -44,20 +44,10 @@ graph TD
     F --> J
     E --> K
 
-    style E fill:#ff9999,stroke:#ff0000
-    style F fill:#99ccff,stroke:#0066cc
-    style C fill:#ffcc99,stroke:#ff6600
+    style E fill:#ff9999,stroke:#ff0000,color:#000000
+    style F fill:#99ccff,stroke:#0066cc,color:#000000
+    style C fill:#ffcc99,stroke:#ff6600,color:#000000
 ```
-
-### 架構層級對應
-
-| **架構層級** | **目的** | **範例組件** |
-|-------------|----------|-------------|
-| **外部層** | 客戶端應用和系統 UI | `BreezeApp Client`, 第三方應用, Android 設定 |
-| **介面適配層** | 將外部請求轉換為內部格式 | `EdgeAI SDK` + `EngineServiceBinder` (AIDL), `NotificationManager`, `PermissionManager` |
-| **業務邏輯層** | 核心業務邏輯和協調 | `AIEngineManager`, `RunnerManager`, `GuardianPipeline` |
-| **實體層** | 領域模型和業務規則 | `InferenceRequest`, `InferenceResult`, `CapabilityType` |
-| **基礎設施層** | AI 實作和數據持久化 | `ExecutorchLLMRunner`, `ModelManager`, `StorageService` |
 
 ## 架構原則
 
@@ -173,6 +163,15 @@ graph TD
     E --> F{輸出安全檢查}
     F -->|安全| G[傳遞回應]
     F -->|不安全| H[過濾/遮蔽回應]
+
+    style A fill:#E8F5E9,stroke:#4CAF50,color:#000000
+    style B fill:#FFF9C4,stroke:#FFC107,color:#000000
+    style C fill:#E3F2FD,stroke:#2196F3,color:#000000
+    style D fill:#FFEBEE,stroke:#F44336,color:#000000
+    style E fill:#E3F2FD,stroke:#2196F3,color:#000000
+    style F fill:#FFF9C4,stroke:#FFC107,color:#000000
+    style G fill:#E8F5E9,stroke:#4CAF50,color:#000000
+    style H fill:#FFEBEE,stroke:#F44336,color:#000000
 ```
 
 **Guardian 功能**：
@@ -200,6 +199,9 @@ graph TD
 - **安全性**：客戶端無法覆蓋關鍵參數
 - **靈活性**：適當參數的每請求自訂
 
+**客戶端覆蓋注意事項：**
+客戶端覆蓋透過 `InferenceRequest` 中的 `params` 欄位提供。這些參數會直接傳遞給選定的 runner，允許對推論行為進行動態的、每請求調整（例如，`temperature`、`max_tokens` 或特定的 `model` ID）。系統會優先使用這些客戶端提供的參數，而非引擎設定和 Runner 預設值。
+
 ## 模型管理模式
 
 模型作為一級資源進行管理：
@@ -212,6 +214,13 @@ graph TD
     D --> E[驗證模型]
     E --> C
     C --> F[準備推論]
+
+    style A fill:#E8F5E9,stroke:#4CAF50,color:#000000
+    style B fill:#FFF9C4,stroke:#FFC107,color:#000000
+    style C fill:#E3F2FD,stroke:#2196F3,color:#000000
+    style D fill:#F3E5F5,stroke:#9C27B0,color:#000000
+    style E fill:#E1F5FE,stroke:#00BCD4,color:#000000
+    style F fill:#E0F2F1,stroke:#009688,color:#000000
 ```
 
 **主要功能**：

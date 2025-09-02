@@ -44,9 +44,9 @@ graph TD
     F --> J
     E --> K
 
-    style E fill:#ff9999,stroke:#ff0000
-    style F fill:#99ccff,stroke:#0066cc
-    style C fill:#ffcc99,stroke:#ff6600
+    style E fill:#ff9999,stroke:#ff0000,color:#000000
+    style F fill:#99ccff,stroke:#0066cc,color:#000000
+    style C fill:#ffcc99,stroke:#ff6600,color:#000000
 ```
 
 ## Architectural Principles
@@ -163,6 +163,15 @@ graph TD
     E --> F{Output Safety Check}
     F -->|Safe| G[Deliver Response]
     F -->|Unsafe| H[Filter/Mask Response]
+
+    style A fill:#E8F5E9,stroke:#4CAF50,color:#000000
+    style B fill:#FFF9C4,stroke:#FFC107,color:#000000
+    style C fill:#E3F2FD,stroke:#2196F3,color:#000000
+    style D fill:#FFEBEE,stroke:#F44336,color:#000000
+    style E fill:#E3F2FD,stroke:#2196F3,color:#000000
+    style F fill:#FFF9C4,stroke:#FFC107,color:#000000
+    style G fill:#E8F5E9,stroke:#4CAF50,color:#000000
+    style H fill:#FFEBEE,stroke:#F44336,color:#000000
 ```
 
 **Guardian Features**:
@@ -190,6 +199,9 @@ This approach ensures:
 - **Security**: Clients cannot override critical parameters
 - **Flexibility**: Per-request customization for appropriate parameters
 
+**Note on Client Overrides:**
+Client overrides are provided via the `params` field in the `InferenceRequest`. These parameters are passed directly to the selected runner, allowing for dynamic, per-request adjustments to inference behavior (e.g., `temperature`, `max_tokens`, or specific `model` IDs). The system prioritizes these client-provided parameters over Engine Settings and Runner Defaults.
+
 ## Model Management Pattern
 
 Models are managed as first-class resources:
@@ -202,6 +214,13 @@ graph TD
     D --> E[Validate Model]
     E --> C
     C --> F[Ready for Inference]
+
+    style A fill:#E8F5E9,stroke:#4CAF50,color:#000000
+    style B fill:#FFF9C4,stroke:#FFC107,color:#000000
+    style C fill:#E3F2FD,stroke:#2196F3,color:#000000
+    style D fill:#F3E5F5,stroke:#9C27B0,color:#000000
+    style E fill:#E1F5FE,stroke:#00BCD4,color:#000000
+    style F fill:#E0F2F1,stroke:#009688,color:#000000
 ```
 
 **Key Features**:
