@@ -73,14 +73,27 @@ val request = chatRequest(
 )
 
 EdgeAI.chat(request).collect { response ->
-    val content = when {
-        response.choices.isNotEmpty() -> {
-            val choice = response.choices.first()
-            choice.delta?.content ?: choice.message?.content ?: ""
+    // This matches the actual production usage in ChatViewModel
+    val choice = response.choices.firstOrNull()
+    
+    // For streaming: check if still ongoing (no finishReason)
+    if (choice?.finishReason == null) {
+        choice?.delta?.content?.let { chunk ->
+            if (chunk.isNotBlank()) {
+                appendToUI(chunk) // Streaming chunk
+            }
         }
-        else -> ""
     }
-    updateUI(content)
+    
+    // For final response or non-streaming
+    choice?.message?.content?.let { finalContent ->
+        updateUI(finalContent) // Final content
+    }
+    
+    // Check completion
+    if (choice?.finishReason != null) {
+        onStreamComplete(choice.finishReason)
+    }
 }
 ```
 

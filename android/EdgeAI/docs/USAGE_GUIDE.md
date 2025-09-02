@@ -11,13 +11,32 @@
 ### Custom Parameters
 
 ```kotlin
-// Advanced chat request with custom parameters
+// Using builder function (simple)
 val request = chatRequest(
     prompt = "Write a short story",
     maxTokens = 500,
     temperature = 0.7f,
+    stream = true
+)
+
+// Using full ChatRequest constructor (advanced)
+val messages = listOf(
+    ChatMessage(role = "system", content = "You are a helpful AI assistant."),
+    ChatMessage(role = "user", content = "Write a short story")
+)
+
+val metadata = mutableMapOf<String, String>()
+metadata["top_k"] = "40"
+metadata["repetition_penalty"] = "1.1"
+
+val request = ChatRequest(
+    model = "", // Empty string means let engine decide
+    messages = messages,
+    temperature = 0.7f,
     topP = 0.9f,
-    stream = true  // Enable streaming for real-time responses
+    maxCompletionTokens = 500,
+    stream = true,
+    metadata = metadata
 )
 ```
 
@@ -54,17 +73,26 @@ Add these permissions to your `AndroidManifest.xml`:
 
 ```kotlin
 EdgeAI.chat(request).collect { response ->
-    when (response) {
-        is ChatResponse.Stream -> {
-            // Real-time streaming response
-            val content = response.delta?.content ?: ""
-            updateUI(content)
+    // This pattern matches ChatViewModel.kt production usage
+    val choice = response.choices.firstOrNull()
+    
+    // Handle streaming chunks (no finishReason = still streaming)
+    if (choice?.finishReason == null) {
+        choice?.delta?.content?.let { chunk ->
+            if (chunk.isNotBlank()) {
+                appendToMessage(chunk) // Append streaming chunk
+            }
         }
-        is ChatResponse.Final -> {
-            // Final complete response
-            val fullContent = response.choices.firstOrNull()?.message?.content
-            updateUI(fullContent)
-        }
+    }
+    
+    // Handle final response
+    choice?.message?.content?.let { finalContent ->
+        setFinalMessage(finalContent) // Set complete message
+    }
+    
+    // Check if streaming completed
+    choice?.finishReason?.let { reason ->
+        onStreamingComplete(reason) // "stop", "length", etc.
     }
 }
 ```
@@ -82,22 +110,41 @@ val job = launch {
 job.cancel()
 ```
 
-### Using Listeners (Alternative to Flow)
+### Error Handling with Flow
 
 ```kotlin
-EdgeAI.chat(request, object : ChatListener {
-    override fun onStream(delta: ChatChoice) {
-        // Handle streaming response
+EdgeAI.chat(request)
+    .catch { error ->
+        when (error) {
+            is InvalidInputException -> {
+                // Handle invalid input (e.g., empty prompt, invalid parameters)
+                Log.e("Chat", "Invalid input: ${error.message}")
+            }
+            is ModelNotFoundException -> {
+                // Handle model not found
+                Log.e("Chat", "Model not found: ${error.message}")
+            }
+            is ServiceConnectionException -> {
+                // Handle service not available
+                Log.e("Chat", "Service connection error: ${error.message}")
+            }
+            is EdgeAIException -> {
+                // Handle other EdgeAI errors (includes Guardian violations)
+                Log.e("Chat", "EdgeAI error: ${error.message}")
+            }
+            else -> {
+                // Handle unexpected errors
+                Log.e("Chat", "Unexpected error: ${error.message}")
+            }
+        }
     }
-    
-    override fun onComplete(response: ChatResponse) {
-        // Handle final response
+    .collect { response ->
+        // Handle successful response
+        val content = response.choices.firstOrNull()?.let { choice ->
+            choice.delta?.content ?: choice.message?.content
+        } ?: ""
+        updateUI(content)
     }
-    
-    override fun onError(error: EdgeAIException) {
-        // Handle error
-    }
-})
 ```
 
 ---

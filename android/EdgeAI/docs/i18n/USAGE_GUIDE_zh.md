@@ -11,13 +11,32 @@
 ### 自訂參數
 
 ```kotlin
-// 具有自訂參數的進階聊天請求
+// 使用建構器函數（簡單）
 val request = chatRequest(
     prompt = "寫一個短篇故事",
     maxTokens = 500,
     temperature = 0.7f,
+    stream = true
+)
+
+// 使用完整的 ChatRequest 建構器（進階）
+val messages = listOf(
+    ChatMessage(role = "system", content = "你是一個有用的AI助手。"),
+    ChatMessage(role = "user", content = "寫一個短篇故事")
+)
+
+val metadata = mutableMapOf<String, String>()
+metadata["top_k"] = "40"
+metadata["repetition_penalty"] = "1.1"
+
+val request = ChatRequest(
+    model = "", // 空字串表示讓引擎決定
+    messages = messages,
+    temperature = 0.7f,
     topP = 0.9f,
-    stream = true  // 啟用串流以獲得即時回應
+    maxCompletionTokens = 500,
+    stream = true,
+    metadata = metadata
 )
 ```
 
@@ -54,17 +73,26 @@ EdgeAI.setLogLevel(LogLevel.ERROR)
 
 ```kotlin
 EdgeAI.chat(request).collect { response ->
-    when (response) {
-        is ChatResponse.Stream -> {
-            // 即時串流回應
-            val content = response.delta?.content ?: ""
-            updateUI(content)
+    // 此模式符合 ChatViewModel.kt 的生產環境用法
+    val choice = response.choices.firstOrNull()
+    
+    // 處理串流片段（沒有 finishReason = 仍在串流中）
+    if (choice?.finishReason == null) {
+        choice?.delta?.content?.let { chunk ->
+            if (chunk.isNotBlank()) {
+                appendToMessage(chunk) // 附加串流片段
+            }
         }
-        is ChatResponse.Final -> {
-            // 最終完整回應
-            val fullContent = response.choices.firstOrNull()?.message?.content
-            updateUI(fullContent)
-        }
+    }
+    
+    // 處理最終回應
+    choice?.message?.content?.let { finalContent ->
+        setFinalMessage(finalContent) // 設定完整訊息
+    }
+    
+    // 檢查串流是否完成
+    choice?.finishReason?.let { reason ->
+        onStreamingComplete(reason) // "stop", "length" 等
     }
 }
 ```
@@ -82,22 +110,41 @@ val job = launch {
 job.cancel()
 ```
 
-### 使用監聽器（Flow 的替代方案）
+### 使用 Flow 進行錯誤處理
 
 ```kotlin
-EdgeAI.chat(request, object : ChatListener {
-    override fun onStream(delta: ChatChoice) {
-        // 處理串流回應
+EdgeAI.chat(request)
+    .catch { error ->
+        when (error) {
+            is InvalidInputException -> {
+                // 處理無效輸入（例如：空提示、無效參數）
+                Log.e("Chat", "無效輸入: ${error.message}")
+            }
+            is ModelNotFoundException -> {
+                // 處理模型未找到
+                Log.e("Chat", "模型未找到: ${error.message}")
+            }
+            is ServiceConnectionException -> {
+                // 處理服務不可用
+                Log.e("Chat", "服務連接錯誤: ${error.message}")
+            }
+            is EdgeAIException -> {
+                // 處理其他 EdgeAI 錯誤（包括 Guardian 違規）
+                Log.e("Chat", "EdgeAI 錯誤: ${error.message}")
+            }
+            else -> {
+                // 處理意外錯誤
+                Log.e("Chat", "意外錯誤: ${error.message}")
+            }
+        }
     }
-    
-    override fun onComplete(response: ChatResponse) {
-        // 處理最終回應
+    .collect { response ->
+        // 處理成功回應
+        val content = response.choices.firstOrNull()?.let { choice ->
+            choice.delta?.content ?: choice.message?.content
+        } ?: ""
+        updateUI(content)
     }
-    
-    override fun onError(error: EdgeAIException) {
-        // 處理錯誤
-    }
-})
 ```
 
 ---
