@@ -2,6 +2,8 @@ name: Update README with Latest Versions
 
 on:
   push:
+    branches:
+      - main
     tags:
       - '*'
   schedule:
