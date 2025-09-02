@@ -8,8 +8,8 @@ BreezeApp Engine is a next-generation framework for creating powerful, modular, 
 
 ### 📦 Latest Versions
 
-- `BreezeApp-engine`: `v0.1.1`
-- `EdgeAI`: `v0.1.7`
+- `BreezeApp-engine`: `{{BREEZEAPP_ENGINE_VERSION}}`
+- `EdgeAI`: `{{EDGEAI_VERSION}}`
 
 ## ✨ The Heart of the Project: The AI Engine
 

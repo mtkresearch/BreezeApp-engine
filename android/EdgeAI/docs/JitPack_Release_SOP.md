@@ -43,7 +43,7 @@ plugins {
 }
 
 group = "com.github.mtkresearch" // JitPack specific, keep unchanged
-version = "edgeai-v0.1.0" // Version number, must match Git Tag
+version = "EdgeAI-v0.1.7" // Version number, must match Git Tag
 
 afterEvaluate {
     publishing {
@@ -52,7 +52,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId = "com.github.mtkresearch"
                 artifactId = "EdgeAI"
-                version = "edgeai-v0.1.0" // Must match the version above
+                version = "EdgeAI-v0.1.7" // Must match the version above
             }
         }
     }
@@ -98,12 +98,12 @@ env:
 ### ✅ Step 1: Update Version Number
 Open `EdgeAI/build.gradle.kts`:
 ```kotlin
-version = "edgeai-v0.1.1"  // Increment version number
+version = "EdgeAI-v0.1.7"  // Increment version number
 ```
 
 Also update the version in the `publishing` block:
 ```kotlin
-version = "edgeai-v0.1.1" // Must match the version above
+version = "EdgeAI-v0.1.7" // Must match the version above
 ```
 
 ---
@@ -111,7 +111,7 @@ version = "edgeai-v0.1.1" // Must match the version above
 ### ✅ Step 2: Commit Changes
 ```bash
 git add EdgeAI/build.gradle.kts
-git commit -m "Release EdgeAI edgeai-v0.1.1"
+git commit -m "Release EdgeAI EdgeAI-v0.1.7"
 git push origin main
 ```
 
@@ -119,8 +119,8 @@ git push origin main
 
 ### ✅ Step 3: Create Git Tag
 ```bash
-git tag EdgeAI-v0.1.1
-git push origin EdgeAI-v0.1.1
+git tag EdgeAI-v0.1.7
+git push origin EdgeAI-v0.1.7
 ```
 
 ---
@@ -129,7 +129,7 @@ git push origin EdgeAI-v0.1.1
 
 Go to the following URL to confirm the build status is green (success):
 ```
-https://jitpack.io/#mtkresearch/BreezeApp-engine/EdgeAI-v0.1.1
+https://jitpack.io/#mtkresearch/BreezeApp-engine/EdgeAI-v0.1.7
 ```
 
 ---
@@ -143,7 +143,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
 }
 ```
 
@@ -154,7 +154,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
 }
 ```
 
@@ -234,12 +234,12 @@ edgeai-v0.2.0
 vim EdgeAI/build.gradle.kts
 
 # 2. Commit & Push
-git commit -am "Release EdgeAI-v0.1.1"
+git commit -am "Release EdgeAI-v0.1.7"
 git push origin main
 
 # 3. Tag & Push
-git tag EdgeAI-v0.1.1
-git push origin EdgeAI-v0.1.1
+git tag EdgeAI-v0.1.7
+git push origin EdgeAI-v0.1.7
 ```
 
 ---
@@ -248,13 +248,13 @@ git push origin EdgeAI-v0.1.1
 
 1. **Check JitPack Status**:
    ```
-   https://jitpack.io/#mtkresearch/BreezeApp-engine/EdgeAI-v0.1.1
+   https://jitpack.io/#mtkresearch/BreezeApp-engine/EdgeAI-v0.1.7
    ```
 
 2. **Test Dependency Import**:
    Add to test project:
    ```kotlin
-   implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
+   implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
    ```
 
 3. **Confirm Functionality**:

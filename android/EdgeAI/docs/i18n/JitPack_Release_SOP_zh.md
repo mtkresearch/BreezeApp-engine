@@ -17,8 +17,8 @@
 v1.2.3
 
 # 範例
-EdgeAI-v0.1.1  # 第一個正式版本
-EdgeAI-v0.1.2  # 修訂版本
+EdgeAI-v0.1.7  # 當前版本
+EdgeAI-v0.1.8  # 下一個修訂版本
 EdgeAI-v0.2.0  # 功能版本
 ```
 
@@ -53,10 +53,10 @@ EdgeAI-v0.2.0  # 功能版本
 git checkout main
 
 # 建立標籤
-git tag -a EdgeAI-v0.1.2 -m "Release EdgeAI SDK v0.1.2"
+git tag -a EdgeAI-v0.1.8 -m "Release EdgeAI SDK v0.1.8"
 
 # 推送標籤
-git push origin EdgeAI-v0.1.2
+git push origin EdgeAI-v0.1.8
 ```
 
 ### 2. JitPack 自動建置
@@ -73,7 +73,7 @@ JitPack 會自動檢測新的標籤並開始建置：
 ```kotlin
 // 測試新版本
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.2")
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
 }
 ```
 
@@ -112,7 +112,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = "com.github.mtkresearch"
             artifactId = "BreezeApp-engine"
-            version = "EdgeAI-v0.1.2"
+            version = "EdgeAI-v0.1.7"
             
             afterEvaluate {
                 from(components["release"])
@@ -126,8 +126,8 @@ publishing {
 
 ```kotlin
 // gradle.properties
-VERSION_NAME=0.1.2
-VERSION_CODE=12
+VERSION_NAME=0.1.7
+VERSION_CODE=17
 ```
 
 ---
@@ -194,12 +194,12 @@ fun testChatAPI() {
 
 ```bash
 # 如果需要回滾版本
-git tag -d EdgeAI-v0.1.2
-git push origin :refs/tags/EdgeAI-v0.1.2
+git tag -d EdgeAI-v0.1.8
+git push origin :refs/tags/EdgeAI-v0.1.8
 
 # 建立新的修正版本
-git tag -a EdgeAI-v0.1.3 -m "Fix critical issue"
-git push origin EdgeAI-v0.1.3
+git tag -a EdgeAI-v0.1.9 -m "Fix critical issue"
+git push origin EdgeAI-v0.1.9
 ```
 
 ---
