@@ -14,7 +14,7 @@
 
 ```kotlin
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:{{EDGEAI_VERSION}}")
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
 }
 ```
 

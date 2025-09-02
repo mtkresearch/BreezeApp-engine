@@ -39,7 +39,7 @@ graph TD
 ```kotlin
 // 在您的 app 的 build.gradle.kts 中
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.1")
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
 }
 ```
 
