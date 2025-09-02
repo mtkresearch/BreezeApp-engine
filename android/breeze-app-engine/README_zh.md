@@ -1118,47 +1118,51 @@ sequenceDiagram
 ### 12.1 新增自訂 Runner
 
 ```mermaid
-graph TD
-    subgraph "Custom Runner Development"
-        A[1. Implement BaseRunner<br/>🏗️ Interface Implementation]
-        B[2. Add @AIRunner Annotation<br/>🏷️ Metadata Declaration]
-        C[3. Define Parameter Schema<br/>📋 UI Configuration]
-        D[4. Hardware Support Check<br/>🔧 isSupported() Method]
-        E[5. Model Loading Logic<br/>📦 load() Implementation]
-        F[6. Inference Processing<br/>🧠 run() / runAsFlow()]
-        G[7. Resource Cleanup<br/>🗑️ unload() Method]
+graph LR
+    subgraph Dev["自訂 Runner 開發"]
+        direction TB
+        A[1. 實作 BaseRunner<br/>🏗️ 介面實作]
+        B[2. 新增 @AIRunner 註解<br/>🏷️ 中繼資料宣告]
+        C[3. 定義參數 Schema<br/>📋 UI 配置]
+        D[4. 硬體支援檢查<br/>🔧 isSupported 方法]
+        E[5. 模型載入邏輯<br/>📦 load 實作]
+        F[6. 推論處理<br/>🧠 run / runAsFlow]
+        G[7. 資源清理<br/>🗑️ unload 方法]
+        
+        A --> B
+        B --> C
+        C --> D
+        D --> E
+        E --> F
+        F --> G
     end
 
-    subgraph "Registration & Discovery"
-        H[Automatic Discovery<br/>🔍 Annotation Scanning]
-        I[RunnerRegistry Storage<br/>📋 Central Repository]
-        J[Priority Resolution<br/>📊 Selection Algorithm]
-        K[Hardware Validation<br/>✅ Runtime Checks]
+    subgraph Reg["註冊與探索"]
+        direction TB
+        H[自動探索<br/>🔍 註解掃描]
+        I[RunnerRegistry 儲存<br/>📋 中央儲存庫]
+        J[優先順序解析<br/>📊 選擇演算法]
+        K[硬體驗證<br/>✅ 執行期檢查]
+        
+        H --> I
+        I --> J
+        J --> K
     end
 
-    subgraph "Testing & Validation"
-        L[Unit Tests<br/>🧪 Isolated Testing]
-        M[Integration Tests<br/>🔗 End-to-end Testing]
-        N[Parameter Validation<br/>✅ Schema Compliance]
-        O[Error Handling<br/>❌ Failure Scenarios]
+    subgraph Test["測試與驗證"]
+        direction TB
+        L[單元測試<br/>🧪 獨立測試]
+        M[整合測試<br/>🔗 端對端測試]
+        N[參數驗證<br/>✅ Schema 合規性]
+        O[錯誤處理<br/>❌ 失敗情境]
+        
+        L --> M
+        M --> N
+        N --> O
     end
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
 
     G --> H
-    H --> I
-    I --> J
-    J --> K
-
     K --> L
-    L --> M
-    M --> N
-    N --> O
 
     style A fill:#E8F5E9,stroke:#4CAF50,color:#000000
     style H fill:#E1F5FE,stroke:#00BCD4,color:#000000

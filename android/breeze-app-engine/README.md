@@ -1118,47 +1118,51 @@ sequenceDiagram
 ### 12.1 Adding Custom Runners
 
 ```mermaid
-graph TD
-    subgraph "Custom Runner Development"
+graph LR
+    subgraph Dev["Custom Runner Development"]
+        direction TB
         A[1. Implement BaseRunner<br/>🏗️ Interface Implementation]
         B[2. Add @AIRunner Annotation<br/>🏷️ Metadata Declaration]
         C[3. Define Parameter Schema<br/>📋 UI Configuration]
-        D[4. Hardware Support Check<br/>🔧 isSupported() Method]
-        E[5. Model Loading Logic<br/>📦 load() Implementation]
-        F[6. Inference Processing<br/>🧠 run() / runAsFlow()]
-        G[7. Resource Cleanup<br/>🗑️ unload() Method]
+        D[4. Hardware Support Check<br/>🔧 isSupported Method]
+        E[5. Model Loading Logic<br/>📦 load Implementation]
+        F[6. Inference Processing<br/>🧠 run / runAsFlow]
+        G[7. Resource Cleanup<br/>🗑️ unload Method]
+        
+        A --> B
+        B --> C
+        C --> D
+        D --> E
+        E --> F
+        F --> G
     end
 
-    subgraph "Registration & Discovery"
+    subgraph Reg["Registration & Discovery"]
+        direction TB
         H[Automatic Discovery<br/>🔍 Annotation Scanning]
         I[RunnerRegistry Storage<br/>📋 Central Repository]
         J[Priority Resolution<br/>📊 Selection Algorithm]
         K[Hardware Validation<br/>✅ Runtime Checks]
+        
+        H --> I
+        I --> J
+        J --> K
     end
 
-    subgraph "Testing & Validation"
+    subgraph Test["Testing & Validation"]
+        direction TB
         L[Unit Tests<br/>🧪 Isolated Testing]
         M[Integration Tests<br/>🔗 End-to-end Testing]
         N[Parameter Validation<br/>✅ Schema Compliance]
         O[Error Handling<br/>❌ Failure Scenarios]
+        
+        L --> M
+        M --> N
+        N --> O
     end
 
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
-
     G --> H
-    H --> I
-    I --> J
-    J --> K
-
     K --> L
-    L --> M
-    M --> N
-    N --> O
 
     style A fill:#E8F5E9,stroke:#4CAF50,color:#000000
     style H fill:#E1F5FE,stroke:#00BCD4,color:#000000
