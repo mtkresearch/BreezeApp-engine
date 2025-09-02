@@ -101,6 +101,10 @@ annotation class AIRunner(
      * runners have a valid model to load during initial setup.
      * 
      * Default: "" (no default model specified)
+     *
+     * **Note:** For local runners, this ID should align with the `id` field in
+     * `breeze-app-engine/src/main/assets/fullModelList.json`. For cloud/API-based
+     * runners, this should align with the model name expected by the external API.
      */
     val defaultModel: String = ""
 )

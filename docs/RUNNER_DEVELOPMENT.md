@@ -5,6 +5,7 @@ Create custom AI runners for BreezeApp Engine in 3 simple steps.
 ## Quick Start
 
 ### 1. Copy the Template
+Under the `android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engine/runner` directory,
 ```bash
 cp templates/CustomRunner.kt yourvendor/YourRunner.kt
 ```
@@ -15,7 +16,7 @@ cp templates/CustomRunner.kt yourvendor/YourRunner.kt
     vendor = VendorType.UNKNOWN,           // Choose your vendor
     priority = RunnerPriority.NORMAL,      // HIGH/NORMAL/LOW  
     capabilities = [CapabilityType.LLM],   // LLM/ASR/TTS/VLM/GUARDIAN
-    defaultModel = "your-model-name"
+    defaultModel = "your-model-name" // Align with fullModelList.json 'id' for local models, or API name for cloud models.
 )
 class YourRunner : BaseRunner, FlowStreamingRunner {
     // Implementation...
@@ -24,18 +25,37 @@ class YourRunner : BaseRunner, FlowStreamingRunner {
 
 ### 3. Implement Your AI Logic
 ```kotlin
-// For LLM:
-private fun processTextInput(text: String): String {
-    return apiClient.generateText(text)
+// The `run` method from `BaseRunner` and `runAsFlow` from `FlowStreamingRunner` are the primary entry points
+// for your runner's inference logic. This is where your runner receives the `InferenceRequest` and returns an `InferenceResult`.
+
+// Example `run` method implementation:
+override fun run(request: InferenceRequest): InferenceResult {
+    // Input data (text, audio, image) is in `request.inputs`.
+    val inputText = request.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
+
+    // Your core AI logic (e.g., calling an API or local model)
+    val aiResponse = apiClient.generateText(inputText)
+
+    // Output should be returned via `InferenceResult.textOutput()`, `InferenceResult.audioOutput()`, etc.
+    return InferenceResult.textOutput(text = aiResponse)
 }
 
-// For ASR:
-private fun fun processAudioInput(audio: ByteArray): String {
-    return apiClient.transcribeAudio(audio)
-}
+// For streaming runners, implement `runAsFlow` (see template for examples).
+// Example `runAsFlow` method implementation:
+override fun runAsFlow(request: InferenceRequest): Flow<InferenceResult> = flow {
+    val inputText = request.inputs[InferenceRequest.INPUT_TEXT] as? String ?: ""
+    var accumulatedText = ""
 
-// For TTS, VLM, GUARDIAN - see template for examples
+    // Simulate streaming output
+    apiClient.streamGenerate(inputText) { chunk ->
+        accumulatedText += chunk
+        emit(InferenceResult.textOutput(text = accumulatedText, partial = true))
+    }
+    // Emit final result
+    emit(InferenceResult.textOutput(text = accumulatedText, partial = false))
+}
 ```
+For more detailed streaming patterns and best practices, refer to: [Streaming Implementation Guide](../android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engine/runner/STREAMING_GUIDE.md)
 
 **That's it!** The engine automatically discovers and integrates your runner.
 
@@ -133,6 +153,8 @@ Error codes are centralized in `RunnerError.Code` to ensure consistency. Use the
 - **E1xx**: Processing Errors (e.g., inference failure)
 - **E4xx**: Client/Input Errors (e.g., invalid parameters, permissions)
 - **E5xx**: Server/Resource Errors (e.g., model loading, resource unavailable)
+
+Detailed error codes are defined in `engine/model/RunnerError.kt`.
 
 ## Key Points
 
