@@ -40,7 +40,7 @@ graph TD
 ```kotlin
 // In your app's build.gradle.kts
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
+    implementation("com.github.mtkresearch:BreezeApp-engine:{{EDGEAI_VERSION}}")
 }
 ```
 

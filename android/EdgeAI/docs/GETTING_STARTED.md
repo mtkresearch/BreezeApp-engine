@@ -14,7 +14,7 @@ Add EdgeAI SDK to your `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
+    implementation("com.github.mtkresearch:BreezeApp-engine:{{EDGEAI_VERSION}}")
 }
 ```
 
