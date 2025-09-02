@@ -15,7 +15,7 @@ BreezeApp Engine 是新一代的 AI 框架，專為打造強大、模組化、�
 
 本專案最重要的部分是 **`android/breeze-app-engine`**。
 
-你可以把它想像成一個強大的「無頭」**AI 大腦**，在 Android 上以背景服務方式運作，完全獨立於任何 UI。它的唯一目標是管理、執行並提供 AI 能力（如文字生成、語音辨識等）給任何需要的應用程式。
+你可以把它想像成一個強大的「無UI」**AI 大腦**，在 Android 上以背景服務方式運作，完全獨立於任何 UI。它的唯一目標是管理、執行並提供 AI 能力（如文字生成、語音辨識等）給任何需要的應用程式。
 
 將複雜的 AI 邏輯與 UI 解耦，讓開發者能輕鬆為應用加入先進的 AI 功能。
 
@@ -24,12 +24,13 @@ BreezeApp Engine 是新一代的 AI 框架，專為打造強大、模組化、�
 執行時，你的 App（Client）會送出 `AIRequest` 給引擎，AI 引擎處理後回傳 `AIResponse`。這個互動完全與 UI 邏輯分離。
 
 ```mermaid
+%%{init: {'flowchart': {'useMaxWidth': false, 'width': 800}}}%%
 graph TD
-    A["📱 Client App<br/>(android/breeze-app-engine)"]
-    B["🧠 AI Engine<br/>(android/breeze-app-engine)"]
+    A["📱 Client App<br/>(breeze-app-client)"]
+    B["🧠 AI Engine<br/>(breeze-app-engine)"]
 
-    A -- "Send AIRequest<br>(如 EdgeAI.chat/EdgeAI.tts/EdgeAI.asr)" --> B
-    B -- "Return AIResponse" --> A
+    A -- "發送 AIRequest<br>(如 EdgeAI.chat/EdgeAI.tts/EdgeAI.asr)" --> B
+    B -- "回傳 AIResponse" --> A
 
     style A fill:#E8F5E9,stroke:#4CAF50
     style B fill:#E3F2FD,stroke:#2196F3
@@ -45,15 +46,15 @@ graph TD
 
 如果你想為你的 Android 應用加入 AI 功能，這是你的路徑。
 
-1.  **從這裡開始：** 我們的 **[BreezeApp Client 指南](../../BreezeApp-client/android/breeze-app-client/README.md)** 是最好的起點。它提供如何整合 `EdgeAI` SDK 並進行第一次 API 呼叫的逐步教程。
+1.  **從這裡開始：** 我們的 **[BreezeApp Client 指南](https://github.com/mtkresearch/BreezeApp-client/blob/174b3717575664dd8b08f195cbfad9aad5c300f1/docs/i18n/README_zh.md)** 是最好的起點。它提供如何整合 `EdgeAI` SDK 並進行第一次 API 呼叫的逐步教程。
 2.  **探索 API：** `EdgeAI` SDK 是引擎的公開 API。你可以在 **[EdgeAI README](../android/EdgeAI/README.md)** 中探索其功能和資料模型。
 
 ### 🧠 對於 AI/ML 工程師（擴展引擎）
 
 如果你想為引擎本身添加新模型或 AI 能力。
 
-1.  **了解設計：** **[架構指南](./ARCHITECTURE.md)** 說明了引擎的內部設計以及所有部分如何配合。
-2.  **建構 Runner：** 依照 **[Runner 開發指南](./RUNNER_DEVELOPMENT.md)** 學習如何實作能被引擎發現的新 `Runner`。
+1.  **了解設設計：** **[架構指南](./ARCHITECTUR_zh.md)** 說明了引擎的內部設計以及所有部分如何配合。
+2.  **建構 Runner：** 依照 **[Runner 開發指南](./RUNNER_DEVELOPMENT_zh.md)** 學習如何實作能被引擎發現的新 `Runner`。
 
 ## 🤝 歡迎加入社群與貢獻
 

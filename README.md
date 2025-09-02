@@ -24,9 +24,10 @@ By decoupling the complex AI logic from the UI, we empower app developers to add
 At runtime, your app (the client) sends an `AIRequest` to the engine. The engine processes it and responds with an `AIResponse`. This interaction is completely decoupled from UI logic.
 
 ```mermaid
+%%{init: {'flowchart': {'useMaxWidth': false, 'width': 800}}}%%
 graph TD
-    A["📱 Client App<br/>(android/breeze-app-engine)"]
-    B["🧠 AI Engine<br/>(android/breeze-app-engine)"]
+    A["📱 Client App<br/>(breeze-app-client)"]
+    B["🧠 AI Engine<br/>(breeze-app-engine)"]
 
     A -- "Send AIRequest<br>(e.g. EdgeAI.chat/EdgeAI.tts/EdgeAI.asr)" --> B
     B -- "Return AIResponse" --> A
@@ -45,7 +46,7 @@ Your path depends on your goal. Are you building an app *with* the engine, or bu
 
 If you want to add AI features to your Android app, this is your path.
 
-1.  **Start Here:** Our **[BreezeApp Client Guide](../BreezeApp-client/android/breeze-app-client/README.md)** is the best place to begin. It provides a step-by-step tutorial on how to integrate the `EdgeAI` SDK and make your first API call.
+1.  **Start Here:** Our **[BreezeApp Client Guide](https://github.com/mtkresearch/BreezeApp-client/blob/174b3717575664dd8b08f195cbfad9aad5c300f1/README.md)** is the best place to begin. It provides a step-by-step tutorial on how to integrate the `EdgeAI` SDK and make your first API call.
 2.  **Explore the API:** The `EdgeAI` SDK is the public API for the engine. You can explore its features and data models in the **[EdgeAI README](./android/EdgeAI/README.md)**.
 
 ### 🧠 For AI/ML Engineers (Extending the Engine)
