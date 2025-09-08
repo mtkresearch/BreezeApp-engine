@@ -26,6 +26,33 @@ class LlamaStackGuardianRunner(
         private const val DEFAULT_SHIELD_ID = "_safety"
         private const val DEFAULT_GUARDIAN_MODEL = "meta-llama/Llama-Guard-3-1B"
         private const val DEFAULT_OLLAMA_MODEL = "llama-guard3:1b"
+        
+        // S1-S14 Guardian Violation Types with Traditional Chinese descriptions
+        private val VIOLATION_TYPES = mapOf(
+            "S1" to ViolationType("S1", "暴力犯罪", "您的訊息包含可能涉及暴力犯罪的內容"),
+            "S2" to ViolationType("S2", "非暴力犯罪", "您的訊息包含可能涉及非暴力犯罪的內容"),
+            "S3" to ViolationType("S3", "性相關犯罪", "您的訊息包含可能涉及性相關犯罪的內容"),
+            "S4" to ViolationType("S4", "兒童利用", "您的訊息包含可能涉及兒童利用的內容"),
+            "S5" to ViolationType("S5", "專業諮詢違法", "您的訊息包含可能涉及專業諮詢違法的內容"),
+            "S6" to ViolationType("S6", "隱私侵犯", "您的訊息包含可能涉及隱私侵犯的內容"),
+            "S7" to ViolationType("S7", "智慧財產權侵犯", "您的訊息包含可能涉及智慧財產權侵犯的內容"),
+            "S8" to ViolationType("S8", "仇恨言論", "您的訊息包含可能涉及仇恨言論的內容"),
+            "S9" to ViolationType("S9", "自我傷害", "您的訊息包含可能涉及自我傷害的內容"),
+            "S10" to ViolationType("S10", "身體傷害", "您的訊息包含可能涉及身體傷害的內容"),
+            "S11" to ViolationType("S11", "經濟傷害", "您的訊息包含可能涉及經濟傷害的內容"),
+            "S12" to ViolationType("S12", "欺詐詐騙", "您的訊息包含可能涉及欺詐詐騙的內容"),
+            "S13" to ViolationType("S13", "政府決策", "您的訊息包含可能影響政府決策的內容"),
+            "S14" to ViolationType("S14", "其他安全風險", "您的訊息包含可能涉及其他安全風險的內容")
+        )
+    }
+    
+    // Violation Type data class
+    private data class ViolationType(
+        val code: String,
+        val category: String,
+        val message: String
+    ) {
+        fun formatMessage(): String = "[$code: $category] $message"
     }
 
     private var llamaStackClient: LlamaStackClientClient? = null
@@ -73,24 +100,31 @@ class LlamaStackGuardianRunner(
                     riskScore = 0.0,
                     categories = emptyList(),
                     action = GuardianAction.NONE,
-                    filteredText = null,
+                    filteredText = "Guardian服務暫時無法使用，系統已自動通過此訊息", // Localized message for connection errors
                     details = mapOf(
                         "error_type" to "connection_unavailable",
                         "endpoint" to this.config!!.endpoint,
                         "fallback_reason" to "LlamaStack server not available",
-                        "recommended_action" to "Check LlamaStack server status"
+                        "recommended_action" to "Check LlamaStack server status",
+                        "violation_type" to "CONNECTION_ERROR",
+                        "violation_message" to "[連線錯誤] Guardian服務暫時無法使用，系統已自動通過此訊息"
                     )
                 )
             }
             
-            // For other errors, still use safe fallback
+            // For other errors, still use safe fallback with violation type info
             GuardianAnalysisResult(
                 status = GuardianStatus.SAFE,
                 riskScore = 0.0,
                 categories = emptyList(),
                 action = GuardianAction.NONE,
-                filteredText = null,
-                details = mapOf("error" to (e.message ?: "Unknown error"), "fallback" to true)
+                filteredText = "Guardian分析發生錯誤，系統已自動通過此訊息", // Localized message for general errors
+                details = mapOf(
+                    "error" to (e.message ?: "Unknown error"), 
+                    "fallback" to true,
+                    "violation_type" to "ANALYSIS_ERROR",
+                    "violation_message" to "[分析錯誤] Guardian分析發生錯誤，系統已自動通過此訊息"
+                )
             )
         }
     }
@@ -293,6 +327,13 @@ class LlamaStackGuardianRunner(
             )
         }
 
+        // Parse violation metadata to extract S1-S14 type information
+        val violationMetadata = violation.metadata().toString()
+        val violationType = extractViolationType(violationMetadata)
+        
+        Log.d(TAG, "Violation metadata: $violationMetadata")
+        Log.d(TAG, "Extracted violation type: ${violationType?.code}")
+
         // Map violation to our guardian categories and determine overall risk
         val categories = mutableListOf<GuardianCategory>()
         
@@ -303,8 +344,8 @@ class LlamaStackGuardianRunner(
             else -> 0.5
         }
 
-        // Map to our categories (simplified - could be enhanced with metadata parsing)
-        categories.add(GuardianCategory.UNSAFE_CONTENT)
+        // Map to specific guardian categories based on violation type
+        categories.add(mapViolationTypeToCategory(violationType))
 
         // Update overall status based on violation level
         val overallStatus = when (violation.violationLevel().value()) {
@@ -326,18 +367,87 @@ class LlamaStackGuardianRunner(
             else -> GuardianAction.NONE
         }
 
+        // Build detailed result with violation type information
+        val details = mutableMapOf<String, Any>(
+            "violations_count" to 1,
+            "strictness_applied" to strictness,
+            "llamastack_shield" to true
+        )
+
+        // Add violation type information if available
+        violationType?.let { vType ->
+            details["violation_type"] = vType.code
+            details["violation_category"] = vType.category
+            details["violation_message"] = vType.formatMessage()
+        }
+
         return GuardianAnalysisResult(
             status = overallStatus,
             riskScore = adjustedRiskScore,
             categories = categories.distinct(),
             action = action,
-            filteredText = null,
-            details = mapOf(
-                "violations_count" to 1,
-                "strictness_applied" to strictness,
-                "llamastack_shield" to true
-            )
+            filteredText = violationType?.formatMessage(), // Set formatted violation message as filtered text
+            details = details.toMap()
         )
+    }
+    
+    /**
+     * Extract S1-S14 violation type from LlamaStack violation metadata
+     */
+    private fun extractViolationType(metadata: String): ViolationType? {
+        // Try to find S1-S14 pattern in metadata
+        val pattern = Regex("S(1[0-4]|[1-9])")
+        val match = pattern.find(metadata.uppercase())
+        
+        return if (match != null) {
+            val violationCode = match.value
+            VIOLATION_TYPES[violationCode]
+        } else {
+            // Fallback to mapping based on keywords in metadata
+            mapMetadataToViolationType(metadata)
+        }
+    }
+    
+    /**
+     * Map metadata keywords to S1-S14 violation types as fallback
+     */
+    private fun mapMetadataToViolationType(metadata: String): ViolationType? {
+        val lowerMetadata = metadata.lowercase()
+        
+        return when {
+            lowerMetadata.contains("violence") || lowerMetadata.contains("violent") -> VIOLATION_TYPES["S1"]
+            lowerMetadata.contains("crime") || lowerMetadata.contains("illegal") -> VIOLATION_TYPES["S2"]
+            lowerMetadata.contains("sexual") || lowerMetadata.contains("adult") -> VIOLATION_TYPES["S3"]
+            lowerMetadata.contains("child") || lowerMetadata.contains("minor") -> VIOLATION_TYPES["S4"]
+            lowerMetadata.contains("hate") || lowerMetadata.contains("discrimination") -> VIOLATION_TYPES["S8"]
+            lowerMetadata.contains("self-harm") || lowerMetadata.contains("suicide") -> VIOLATION_TYPES["S9"]
+            lowerMetadata.contains("harm") || lowerMetadata.contains("injury") -> VIOLATION_TYPES["S10"]
+            lowerMetadata.contains("fraud") || lowerMetadata.contains("scam") -> VIOLATION_TYPES["S12"]
+            else -> VIOLATION_TYPES["S14"] // Default to "Other Safety Risks"
+        }
+    }
+    
+    /**
+     * Map S1-S14 violation type to GuardianCategory
+     */
+    private fun mapViolationTypeToCategory(violationType: ViolationType?): GuardianCategory {
+        return when (violationType?.code) {
+            "S1" -> GuardianCategory.VIOLENCE          // S1: Violent Crimes
+            "S2" -> GuardianCategory.UNSAFE_CONTENT    // S2: Non-Violent Crimes  
+            "S3" -> GuardianCategory.SEXUAL_CONTENT    // S3: Sex-Related Crimes
+            "S4" -> GuardianCategory.SEXUAL_CONTENT    // S4: Child Exploitation (map to sexual content)
+            "S5" -> GuardianCategory.UNSAFE_CONTENT    // S5: Defamatory Content
+            "S6" -> GuardianCategory.PII               // S6: Privacy
+            "S7" -> GuardianCategory.UNSAFE_CONTENT    // S7: Intellectual Property  
+            "S8" -> GuardianCategory.HATE_SPEECH       // S8: Indiscriminate Weapons
+            "S9" -> GuardianCategory.SELF_HARM         // S9: Hate
+            "S10" -> GuardianCategory.SELF_HARM        // S10: Suicide & Self-Harm
+            "S11" -> GuardianCategory.VIOLENCE         // S11: Sexual Content (Adult)
+            "S12" -> GuardianCategory.SPAM             // S12: Elections
+            "S13" -> GuardianCategory.UNSAFE_CONTENT   // S13: Code Interpreter Abuse
+            "S14" -> GuardianCategory.UNSAFE_CONTENT   // S14: Other Safety Risks
+            else -> GuardianCategory.UNSAFE_CONTENT
+        }
     }
 
     // Minimal config data class (reuse pattern from LlamaStackRunner)
