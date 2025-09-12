@@ -13,6 +13,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.delay
 
@@ -96,43 +97,54 @@ class LlamaStackRunner(
     }
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
-        throw UnsupportedOperationException("Non-streaming run is not supported for LlamaStack. Use runAsFlow instead.")
-    }
-
-    override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
         if (!isLoaded.get() || llamaStackClient == null || config == null) {
-            trySend(InferenceResult.error(RunnerError.modelNotLoaded()))
-            close()
-            return@callbackFlow
+            return InferenceResult.error(RunnerError.modelNotLoaded())
         }
 
         val startTime = System.currentTimeMillis()
-
-        try {
-            val result = when {
-                hasVisionInput(input) -> processVisionRequest(input)
-                hasRAGRequest(input) -> processRAGRequest(input)
-                hasAgentRequest(input) -> processAgentRequest(input)
-                else -> processStandardLLMRequest(input)
+        return try {
+            val result = runBlocking {
+                when {
+                    hasVisionInput(input) -> processVisionRequest(input)
+                    hasRAGRequest(input) -> processRAGRequest(input)
+                    hasAgentRequest(input) -> processAgentRequest(input)
+                    else -> processStandardLLMRequest(input)
+                }
             }
-
-            val enhancedResult = enhanceResultWithMetrics(result, startTime, getRequestType(input), input)
             
-            if (result.error == null) {
-                emitTextAsStream(result.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: "")
-            } else {
-                trySend(enhancedResult)
-            }
-
+            enhanceResultWithMetrics(result, startTime, getRequestType(input), input)
         } catch (e: Exception) {
             Log.e(TAG, "Error processing request", e)
-            trySend(InferenceResult.error(RunnerError.runtimeError("Processing failed: ${e.message}")))
+            InferenceResult.error(RunnerError.runtimeError("Processing failed: ${e.message}"))
         }
+    }
+
+    /**
+     * STREAMING NOT YET SUPPORTED BY LLAMASTACK SDK
+     * 
+     * According to Llama Stack official documentation (as of v0.2.14):
+     * "Streaming response is a work-in-progress for local and remote inference"
+     * 
+     * Current behavior: Falls back to non-streaming run() and emits single complete result.
+     * 
+     * TODO: Update this when LlamaStack SDK adds proper streaming support:
+     * - Replace chatCompletion() with chatCompletionStreaming() 
+     * - Handle streaming response chunks properly
+     * - Remove this fallback implementation
+     * 
+     * Track: https://github.com/meta-llama/llama-stack-client-kotlin/issues
+     */
+    override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
+        Log.w(TAG, "⚠️  LlamaStack streaming not yet supported by SDK - falling back to non-streaming")
+        Log.w(TAG, "    See: https://github.com/meta-llama/llama-stack-client-kotlin (Known Issues #1)")
+        
+        // Fallback to non-streaming implementation and emit as single result
+        val result = run(input, stream = false)
+        trySend(result)
         
         close()
-        
         awaitClose {
-            Log.d(TAG, "Flow is closing")
+            Log.d(TAG, "Flow closed - LlamaStack non-streaming fallback completed")
         }
     }
 
@@ -354,30 +366,6 @@ class LlamaStackRunner(
         }
     }
 
-    private suspend fun kotlinx.coroutines.channels.ProducerScope<InferenceResult>.emitTextAsStream(fullText: String) {
-        if (fullText.isEmpty()) {
-            trySend(InferenceResult.textOutput(text = "", metadata = mapOf(), partial = false))
-            return
-        }
-        
-        val words = fullText.split(" ")
-        
-        words.forEachIndexed { index, word ->
-            val tokenToSend = word + if (index < words.size - 1) " " else ""
-            
-            trySend(InferenceResult.textOutput(
-                text = tokenToSend,
-                metadata = mapOf("partial_tokens" to (index + 1)),
-                partial = true
-            ))
-            
-            if (coroutineContext.isActive) {
-                delay(50)
-            }
-        }
-        
-        trySend(InferenceResult.textOutput(text = "", metadata = mapOf(), partial = false))
-    }
 
     private fun hasVisionInput(input: InferenceRequest): Boolean {
         return input.inputs.containsKey(InferenceRequest.INPUT_IMAGE) && 
