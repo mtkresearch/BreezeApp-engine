@@ -9,15 +9,15 @@ import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 
 /**
- * GuardianPipeline - Core Guardian Processing Engine
+ * GuardianPipeline - Simplified Input-Only Guardian
  * 
- * Centralizes all guardian-related processing logic and provides a clean API
- * for integrating guardian checks into the AI pipeline.
+ * Provides input validation only. Output filtering and progressive analysis
+ * have been removed for simplified architecture.
  * 
  * This class is designed to be:
- * - Lightweight and efficient
+ * - Lightweight and efficient (input validation only)
  * - Easy to integrate with existing AIEngineManager
- * - Extensible for future guardian features
+ * - Minimal responsibility scope (input blocking only)
  */
 class GuardianPipeline(
     private val runnerManager: RunnerManager,
@@ -71,95 +71,7 @@ class GuardianPipeline(
         return performGuardianAnalysis(textContent, config, isInput = true)
     }
     
-    /**
-     * Perform output filtering check.
-     * 
-     * @param result The AI output result to filter
-     * @param config Guardian configuration
-     * @return GuardianCheckResult indicating the outcome
-     */
-    suspend fun checkOutput(
-        result: InferenceResult,
-        config: GuardianPipelineConfig
-    ): GuardianCheckResult {
-        
-        if (!config.shouldCheckOutput() || result.error != null) {
-            return GuardianCheckResult.skip("Output filtering disabled or result failed")
-        }
-        
-        logger.d(TAG, "Performing output filtering")
-        
-        // Extract text content from result
-        val textContent = extractTextFromResult(result)
-        if (textContent.isNullOrBlank()) {
-            return GuardianCheckResult.skip("No text content to filter")
-        }
-        
-        return performGuardianAnalysis(textContent, config, isInput = false)
-    }
     
-    /**
-     * Progressive Guardian analysis for streaming content
-     * Processes content in micro-batches to maintain streaming feel while ensuring safety
-     * 
-     * @param contentBuffer The accumulated content buffer
-     * @param config Guardian configuration with micro-batch settings
-     * @return List of GuardianMaskingResult indicating which parts to mask
-     */
-    /**
-     * Progressive Guardian analysis for streaming content.
-     * Processes content in micro-batches to maintain streaming feel while ensuring safety.
-     *
-     * @param contentBuffer The accumulated content buffer.
-     * @param config Guardian configuration with micro-batch settings.
-     * @return List of [GuardianMaskingResult] indicating which parts to mask.
-     */
-    suspend fun checkProgressiveOutput(
-        contentBuffer: String,
-        config: GuardianPipelineConfig
-    ): List<GuardianMaskingResult> {
-
-        if (!config.shouldCheckOutput() || contentBuffer.isBlank()) {
-            return emptyList()
-        }
-
-        val microBatchSize = config.microBatchSize
-        val windowOverlap = config.windowOverlap
-
-        logger.d(TAG, "Progressive Guardian analysis - buffer length: ${contentBuffer.length}, batch size: $microBatchSize")
-
-        // Split content into overlapping micro-batches
-        val microBatches = createMicroBatches(contentBuffer, microBatchSize, windowOverlap)
-        val maskingResults = mutableListOf<GuardianMaskingResult>()
-
-        for ((index, batch) in microBatches.withIndex()) {
-            try {
-                val checkResult = performGuardianAnalysis(batch.content, config, isInput = false)
-
-                if (checkResult is GuardianCheckResult.Failed) {
-                    // Create masking result for this batch
-                    val maskingResult = GuardianMaskingResult(
-                        startIndex = batch.startIndex,
-                        endIndex = batch.endIndex,
-                        originalText = batch.content,
-                        maskedText = applySmartMasking(batch.content),
-                        violationCategories = checkResult.analysisResult.categories,
-                        riskScore = checkResult.analysisResult.riskScore
-                    )
-                    maskingResults.add(maskingResult)
-                    logger.w(TAG, "Progressive Guardian violation detected in batch $index: ${checkResult.analysisResult.categories}")
-                } else {
-                    logger.d(TAG, "Progressive Guardian batch $index passed")
-                }
-
-            } catch (e: Exception) {
-                logger.e(TAG, "Progressive Guardian analysis failed for batch $index", e)
-                // Continue processing other batches
-            }
-        }
-
-        return maskingResults
-    }
     
     /**
      * Create guardian configuration from request parameters and global settings.
@@ -406,23 +318,3 @@ class GuardianPipeline(
     }
 }
 
-/**
- * Represents a content batch for progressive analysis
- */
-data class ContentBatch(
-    val startIndex: Int,
-    val endIndex: Int,
-    val content: String
-)
-
-/**
- * Result of progressive Guardian masking analysis
- */
-data class GuardianMaskingResult(
-    val startIndex: Int,
-    val endIndex: Int,
-    val originalText: String,
-    val maskedText: String,
-    val violationCategories: List<GuardianCategory>,
-    val riskScore: Double
-)

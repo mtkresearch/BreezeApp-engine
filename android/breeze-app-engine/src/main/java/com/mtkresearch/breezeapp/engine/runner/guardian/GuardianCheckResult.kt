@@ -70,17 +70,16 @@ sealed class GuardianCheckResult {
             RunnerError("G002", "Internal error: Guardian passed but converted to error result")
         )
         is Failed -> {
-            val messageProvider = context?.let { GuardianMessageProvider(it) }
-            val primaryCategory = analysisResult.categories.firstOrNull() ?: GuardianCategory.TOXICITY
-            
-            val userMessage = messageProvider?.getGuardianMessage(primaryCategory, true) 
-                ?: "您的訊息包含不適當的內容，請修改後重新發送"
-            
-            val suggestion = messageProvider?.getGuardianSuggestion(primaryCategory) 
-                ?: "請使用更積極正面的表達方式"
-            
-            val reason = messageProvider?.getGuardianReason(primaryCategory, analysisResult.riskScore) 
-                ?: "檢測到有害內容 (風險分數: ${String.format("%.2f", analysisResult.riskScore)})"
+            // Prioritize detailed violation message from guardian analysis (S1-S14 formatted)
+            val userMessage = if (!analysisResult.filteredText.isNullOrBlank()) {
+                analysisResult.filteredText
+            } else {
+                // Fallback to GuardianMessageProvider for generic messages
+                val messageProvider = context?.let { GuardianMessageProvider(it) }
+                val primaryCategory = analysisResult.categories.firstOrNull() ?: GuardianCategory.TOXICITY
+                messageProvider?.getGuardianMessage(primaryCategory, true) 
+                    ?: "您的訊息包含不適當的內容，請修改後重新發送"
+            }
             
             InferenceResult.error(
                 RunnerError(

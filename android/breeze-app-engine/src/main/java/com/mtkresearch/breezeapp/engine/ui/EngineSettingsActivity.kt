@@ -100,7 +100,8 @@ class EngineSettingsActivity : AppCompatActivity() {
             "LLM" to CapabilityType.LLM,
             "ASR" to CapabilityType.ASR,
             "TTS" to CapabilityType.TTS,
-            "VLM" to CapabilityType.VLM
+            "VLM" to CapabilityType.VLM,
+            "Guardian" to CapabilityType.GUARDIAN
         )
         
         capabilities.forEach { (title, capability) ->

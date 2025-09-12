@@ -27,7 +27,7 @@ class AIRunnerAnnotationTest {
         priority = RunnerPriority.HIGH
     )
     class TestMediaTekRunner : BaseRunner {
-        override fun load(modelId: String, settings: EngineSettings): Boolean = true
+        override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean = true
         override fun run(input: InferenceRequest, stream: Boolean): InferenceResult = 
             InferenceResult.success(mapOf("test" to "result"))
         override fun unload() {}
@@ -38,7 +38,7 @@ class AIRunnerAnnotationTest {
 
     @AIRunner(capabilities = [CapabilityType.ASR, CapabilityType.TTS])
     class TestDefaultsRunner : BaseRunner {
-        override fun load(modelId: String, settings: EngineSettings): Boolean = true
+        override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean = true
         override fun run(input: InferenceRequest, stream: Boolean): InferenceResult = 
             InferenceResult.success(mapOf("test" to "result"))
         override fun unload() {}

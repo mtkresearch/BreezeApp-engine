@@ -17,8 +17,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.transform
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -107,21 +105,24 @@ class AIEngineManager(
         }
 
         return try {
-            // 1. Get effective guardian configuration
+            // 1. Guardian Configuration Assessment
             val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
             val effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
+            
+            logger.d(TAG, "Guardian mode for request $requestId: ${effectiveGuardianConfig.mode}")
             
             // 2. Input Guardian Check (if enabled)
             if (effectiveGuardianConfig.shouldCheckInput()) {
                 logger.d(TAG, "Performing guardian input validation for request $requestId")
                 val inputCheckResult = guardianPipeline.checkInput(request, effectiveGuardianConfig)
                 if (inputCheckResult is com.mtkresearch.breezeapp.engine.runner.guardian.GuardianCheckResult.Failed) {
-                    logger.w(TAG, "Request $requestId dropped due to guardian input violation: ${inputCheckResult.analysisResult.status}")
+                    logger.w(TAG, "Request $requestId blocked by guardian input validation: ${inputCheckResult.analysisResult.status}")
                     return inputCheckResult.toInferenceResult(context)
                 }
+                logger.d(TAG, "Guardian input validation passed for request $requestId")
             }
             
-            // 3. Normal AI Processing
+            // 3. AI Processing with Guardian Mode Awareness
             val aiResult = selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     logger.d(TAG, "Processing request $requestId with runner: ${runner.getRunnerInfo().name}")
@@ -134,14 +135,26 @@ class AIEngineManager(
                 }
             )
             
-            // 4. Output Guardian Check (if enabled and AI succeeded)
-            if (effectiveGuardianConfig.shouldCheckOutput() && aiResult.error == null) {
-                logger.d(TAG, "Performing guardian output filtering for request $requestId")
-                val outputCheckResult = guardianPipeline.checkOutput(aiResult, effectiveGuardianConfig)
-                return outputCheckResult.applyToResult(aiResult)
+            // 4. Output Guardian Check (mode-dependent)
+            when (effectiveGuardianConfig.mode) {
+                com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.INPUT_ONLY -> {
+                    // NEW: Input-only mode - no output processing (recommended)
+                    logger.d(TAG, "INPUT_ONLY Guardian mode - skipping output check for request $requestId")
+                    aiResult
+                }
+                
+                com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.FULL -> {
+                    // FULL mode deprecated - no output filtering
+                    logger.w(TAG, "FULL Guardian mode deprecated, no output filtering for request $requestId")
+                    aiResult
+                }
+                
+                com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.DISABLED -> {
+                    // No Guardian processing
+                    logger.d(TAG, "Guardian disabled - no output check for request $requestId")
+                    aiResult
+                }
             }
-            
-            aiResult
             
         } catch (e: Exception) {
             logger.e(TAG, "Error processing request", e)
@@ -153,7 +166,7 @@ class AIEngineManager(
     }
 
     /**
-     * 處理串流推論請求
+     * 處理串流推論請求 - Simplified Input-Only Guardian
      * @param request 推論請求
      * @param capability 所需能力
      * @param preferredRunner 偏好的 Runner (可選)
@@ -172,19 +185,25 @@ class AIEngineManager(
         }
 
         try {
+            // 1. Guardian Configuration Assessment
             val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
             val effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
+            
+            logger.d(TAG, "Guardian mode for stream request $requestId: ${effectiveGuardianConfig.mode}")
 
+            // 2. Input Guardian Check (blocking) - Core Guardian responsibility
             if (effectiveGuardianConfig.shouldCheckInput()) {
                 logger.d(TAG, "Performing guardian input validation for stream request $requestId")
                 val inputCheckResult = guardianPipeline.checkInput(request, effectiveGuardianConfig)
                 if (inputCheckResult is com.mtkresearch.breezeapp.engine.runner.guardian.GuardianCheckResult.Failed) {
-                    logger.w(TAG, "Stream request $requestId dropped due to guardian input violation: ${inputCheckResult.analysisResult.status}")
+                    logger.w(TAG, "Stream request $requestId blocked by guardian input validation: ${inputCheckResult.analysisResult.status}")
                     emit(inputCheckResult.toInferenceResult(context))
                     return@flow
                 }
+                logger.d(TAG, "Guardian input validation passed for stream request $requestId")
             }
 
+            // 3. Select Processing Path Based on Guardian Mode
             selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
                     if (runner !is FlowStreamingRunner) {
@@ -192,30 +211,33 @@ class AIEngineManager(
                         return@fold
                     }
 
-                    logger.d(TAG, "Starting StreamingCompletionOrchestrator for request $requestId")
-                    val orchestrator = StreamingCompletionOrchestrator(
-                        llmRunner = runner,
-                        guardianPipeline = guardianPipeline,
-                        request = request,
-                        guardianConfig = effectiveGuardianConfig,
-                        logger = logger
-                    )
-
-                    // The orchestrator returns a unified result stream.
-                    // We adapt it back to the Flow<InferenceResult> expected by the client.
-                    orchestrator.execute().collect { result ->
-                        when (result) {
-                            is com.mtkresearch.breezeapp.engine.model.StreamingChatResult.Content -> emit(result.inferenceResult)
-                            is com.mtkresearch.breezeapp.engine.model.StreamingChatResult.Mask -> {
-                                // The new architecture sends masking info separately.
-                                // The client protocol needs to be updated to handle this new event type.
-                                // For now, we log it and the client will ignore it.
-                                logger.w(TAG, "Guardian masking action received for stream $requestId: ${result.maskingAction}")
+                    // Route to appropriate processing path based on Guardian mode
+                    when (effectiveGuardianConfig.mode) {
+                        com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.INPUT_ONLY -> {
+                            // NEW: Simplified direct streaming path (recommended)
+                            logger.d(TAG, "Using INPUT_ONLY Guardian mode - direct LLM streaming for request $requestId")
+                            runner.runAsFlow(request).collect { result ->
+                                emit(result)
                             }
-                            is com.mtkresearch.breezeapp.engine.model.StreamingChatResult.Complete -> {
-                                logger.d(TAG, "Stream $requestId completed via orchestrator.")
+                            logger.d(TAG, "INPUT_ONLY Guardian streaming completed for request $requestId")
+                        }
+                        
+                        com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.FULL -> {
+                            // FULL mode deprecated - use INPUT_ONLY for better performance
+                            logger.w(TAG, "FULL Guardian mode deprecated, falling back to INPUT_ONLY behavior for request $requestId")
+                            runner.runAsFlow(request).collect { result ->
+                                emit(result)
                             }
-                            is com.mtkresearch.breezeapp.engine.model.StreamingChatResult.Error -> emit(InferenceResult.error(result.error))
+                            logger.d(TAG, "FULL Guardian (deprecated) streaming completed for request $requestId")
+                        }
+                        
+                        com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.DISABLED -> {
+                            // Direct streaming with no Guardian processing
+                            logger.d(TAG, "Guardian disabled - direct LLM streaming for request $requestId")
+                            runner.runAsFlow(request).collect { result ->
+                                emit(result)
+                            }
+                            logger.d(TAG, "Guardian disabled streaming completed for request $requestId")
                         }
                     }
                 },
@@ -499,11 +521,11 @@ class AIEngineManager(
             // Direct method call - clean architecture approach
             val isSupported = runner.isSupported()
             logger.d(TAG, "Runtime hardware support check for ${runner.javaClass.simpleName}: $isSupported")
-            return isSupported
+            isSupported
             
         } catch (e: Exception) {
             logger.d(TAG, "Runtime hardware support check failed for ${runner.javaClass.simpleName}, assuming supported")
-            return true  // Fail safe - if we can't verify support, assume supported for compatibility
+            true  // Fail safe - if we can't verify support, assume supported for compatibility
         }
     }
 
@@ -622,10 +644,5 @@ class AIEngineManager(
     }
 }
 
-/**
- * Guardian Filter Extension for Flow<InferenceResult>
- * 
- * Applies real-time guardian filtering to streaming inference results.
- * Each result in the stream is checked against the guardian configuration
- * and filtered/blocked accordingly.
- */
+// Note: StreamingCompletionOrchestrator removed - Guardian now only validates input
+// Output filtering and progressive analysis removed for simplified architecture

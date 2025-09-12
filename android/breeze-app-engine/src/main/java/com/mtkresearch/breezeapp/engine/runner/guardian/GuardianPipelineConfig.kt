@@ -10,6 +10,15 @@ enum class GuardianCheckpoint {
 }
 
 /**
+ * Guardian operational modes for transition management.
+ */
+enum class GuardianMode {
+    FULL,        // Full Guardian (input + output validation) - Current behavior
+    INPUT_ONLY,  // Input-only Guardian (simplified architecture) - New default
+    DISABLED     // Guardian completely disabled
+}
+
+/**
  * Guardian failure handling strategies.
  */
 enum class GuardianFailureStrategy {
@@ -25,29 +34,36 @@ enum class GuardianFailureStrategy {
  */
 data class GuardianPipelineConfig(
     val enabled: Boolean = false,
+    val mode: GuardianMode = GuardianMode.INPUT_ONLY, // NEW: Transition-friendly mode
     val checkpoints: Set<GuardianCheckpoint> = setOf(GuardianCheckpoint.INPUT_VALIDATION),
     val strictnessLevel: String = "medium", // low, medium, high
     val guardianRunnerName: String? = null, // Specific guardian runner, null for auto-select
     val failureStrategy: GuardianFailureStrategy = GuardianFailureStrategy.BLOCK,
     val streamingWordAccumulationCount: Int = 20,
-    // Progressive streaming parameters, defaults from client implementation
-    val microBatchSize: Int = 3,
-    val windowOverlap: Int = 1
+    // Deprecated progressive streaming parameters removed
+    val microBatchSize: Int = 3, // Kept for compatibility but unused
+    val windowOverlap: Int = 1   // Kept for compatibility but unused
 ) {
 
     /**
      * Check if input validation is enabled.
+     * 
+     * For backward compatibility, respects both mode and checkpoint settings.
      */
-    fun shouldCheckInput(): Boolean = enabled &&
-        (checkpoints.contains(GuardianCheckpoint.INPUT_VALIDATION) ||
-         checkpoints.contains(GuardianCheckpoint.BOTH))
+    fun shouldCheckInput(): Boolean = when {
+        !enabled -> false
+        mode == GuardianMode.DISABLED -> false
+        mode == GuardianMode.INPUT_ONLY -> true
+        mode == GuardianMode.FULL -> (checkpoints.contains(GuardianCheckpoint.INPUT_VALIDATION) ||
+                                      checkpoints.contains(GuardianCheckpoint.BOTH))
+        else -> false
+    }
 
+    
     /**
-     * Check if output filtering is enabled.
+     * Check if this configuration uses the simplified input-only architecture.
      */
-    fun shouldCheckOutput(): Boolean = enabled &&
-        (checkpoints.contains(GuardianCheckpoint.OUTPUT_FILTERING) ||
-         checkpoints.contains(GuardianCheckpoint.BOTH))
+    fun isInputOnlyMode(): Boolean = mode == GuardianMode.INPUT_ONLY
 
     companion object {
         /**
@@ -56,29 +72,47 @@ data class GuardianPipelineConfig(
         val DISABLED = GuardianPipelineConfig(enabled = false)
 
         /**
-         * Safe default configuration with both input and output validation.
+         * Safe default configuration with INPUT_ONLY mode (NEW DEFAULT).
+         * This provides the simplified architecture with optimal performance.
          */
         val DEFAULT_SAFE = GuardianPipelineConfig(
             enabled = true,
-            checkpoints = setOf(GuardianCheckpoint.BOTH),
+            mode = GuardianMode.INPUT_ONLY, // NEW: Simplified default
+            checkpoints = setOf(GuardianCheckpoint.INPUT_VALIDATION),
             strictnessLevel = "medium",
             failureStrategy = GuardianFailureStrategy.BLOCK,
             streamingWordAccumulationCount = 20,
-            microBatchSize = 3,
-            windowOverlap = 1
+            microBatchSize = 3, // Deprecated but maintained for compatibility
+            windowOverlap = 1   // Deprecated but maintained for compatibility
         )
+        
 
         /**
-         * Maximum protection configuration.
+         * Maximum protection configuration with INPUT_ONLY mode.
+         * Provides strongest input validation with optimal performance.
          */
         val MAXIMUM_PROTECTION = GuardianPipelineConfig(
             enabled = true,
-            checkpoints = setOf(GuardianCheckpoint.BOTH),
+            mode = GuardianMode.INPUT_ONLY, // NEW: Use simplified architecture
+            checkpoints = setOf(GuardianCheckpoint.INPUT_VALIDATION),
             strictnessLevel = "high",
-            failureStrategy = GuardianFailureStrategy.FILTER,
-            streamingWordAccumulationCount = 10, // A lower threshold for max protection
-            microBatchSize = 2,
-            windowOverlap = 1
+            failureStrategy = GuardianFailureStrategy.BLOCK, // Block for maximum protection
+            streamingWordAccumulationCount = 10,
+            microBatchSize = 2, // Deprecated but maintained for compatibility
+            windowOverlap = 1   // Deprecated but maintained for compatibility
+        )
+        
+        /**
+         * Input-only Guardian configuration with relaxed settings.
+         * Optimal for performance-critical applications.
+         */
+        val INPUT_ONLY_RELAXED = GuardianPipelineConfig(
+            enabled = true,
+            mode = GuardianMode.INPUT_ONLY,
+            checkpoints = setOf(GuardianCheckpoint.INPUT_VALIDATION),
+            strictnessLevel = "low",
+            failureStrategy = GuardianFailureStrategy.WARN,
+            streamingWordAccumulationCount = 30
         )
     }
 }
