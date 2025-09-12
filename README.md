@@ -38,6 +38,23 @@ graph TD
 
 This clean separation allows the engine to remain UI-agnostic and service-oriented.
 
+## 🤖 Supported AI Providers
+
+BreezeApp Engine integrates with multiple AI providers, each bringing unique capabilities:
+
+| Provider | Type | LLM | VLM | ASR | TTS | Guardian | Streaming |
+|----------|------|:---:|:---:|:---:|:---:|:--------:|:---------:|
+| **MediaTek** | Local NPU | ✅ | 🚧 | ❌ | ❌ | ❌ | ✅ |
+| **ExecuTorch** | Local | ✅ | 🚧 | ❌ | ❌ | ❌ | ✅ |
+| **LlamaStack** | Remote | ✅ | ✅ | ❌ | ❌ | ✅ | ❌* |
+| **OpenRouter** | Remote | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Sherpa** | Local | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+
+**Legend**: ✅ Supported | 🚧 Experimental | ❌ Not Supported  
+***Note**: LlamaStack streaming is not yet supported by the official SDK. Falls back to non-streaming mode.
+
+*For detailed technical implementation, see [Engine Architecture →](./android/breeze-app-engine/README.md#10-supported-ai-runners)*
+
 ## 🚀 How to Get Started
 
 Your path depends on your goal. Are you building an app *with* the engine, or building a new feature *for* the engine?

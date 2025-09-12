@@ -949,23 +949,9 @@ graph TD
 
 ## 10. Supported AI Runners
 
-### 10.1 Runner Capability Matrix
+For the complete provider capability matrix, see [Supported AI Providers](../../README.md#🤖-supported-ai-providers) in the main README.
 
-The system currently supports multiple AI Runners, each optimized for different AI capabilities:
-
-| Runner | Type | LLM | VLM | ASR | TTS | Streaming | Runtime Params |
-|--------|------|:---:|:---:|:---:|:---:|:---------:|:---------------:|
-| **ExecutorchLLMRunner** | Local | ✅ | 🚧 | ❌ | ❌ | ✅ | ✅ |
-| **MTKLLMRunner** | Local NPU | ✅ | 🚧 | ❌ | ❌ | ✅ | ✅ |
-| **LlamaStackRunner** | Remote | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
-| **OpenRouterRunner** | Remote | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
-| **SherpaASRRunner** | Local | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ |
-| **SherpaTTSRunner** | Local | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **MockRunner** | Test | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-**Legend**: ✅ Supported | 🚧 Experimental | ❌ Not Supported
-
-### 10.2 Runtime Parameters System
+### 10.1 Runtime Parameters System
 
 Supports dynamic parameter adjustment without reloading models:
 
