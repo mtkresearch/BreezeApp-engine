@@ -553,7 +553,7 @@ class LlamaStackGuardianRunner(
         companion object {
             fun fromParams(params: Map<String, Any>, defaultModel: String): LlamaStackGuardianConfig {
                 return LlamaStackGuardianConfig(
-                    endpoint = (params["endpoint"] as? String)?.takeIf { it.isNotBlank() } ?: "http://localhost:8321",
+                    endpoint = (params["endpoint"] as? String)?.takeIf { it.isNotBlank() } ?: "http://127.0.0.1:8321",
                     apiKey = params["api_key"] as? String,
                     shieldId = params["shield_id"] as? String ?: DEFAULT_SHIELD_ID,
                     guardianModel = params["guardian_model"] as? String ?: DEFAULT_GUARDIAN_MODEL,

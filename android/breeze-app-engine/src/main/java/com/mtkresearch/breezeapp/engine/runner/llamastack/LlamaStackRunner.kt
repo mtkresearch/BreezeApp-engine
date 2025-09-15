@@ -29,7 +29,7 @@ class LlamaStackRunner(
 
     companion object {
         private const val TAG = "LlamaStackRunner"
-        private const val DEFAULT_MODEL_ID = "llama-3.2:3b"
+        private const val DEFAULT_MODEL_ID = "llama3.2:3b"
     }
 
     private var llamaStackClient: LlamaStackClientClient? = null
@@ -528,7 +528,7 @@ class LlamaStackRunner(
                     minLength = 10,
                     pattern = Regex("^https?://.*")
                 ),
-                defaultValue = "http://localhost:5050",
+                defaultValue = "http://127.0.0.1:8321",
                 isRequired = true,
                 category = "Connection"
             ),
@@ -550,7 +550,7 @@ class LlamaStackRunner(
                     options = listOf(
                         SelectionOption("llama-3.2-90b-vision-instruct", "Llama 3.2 90B Vision", "Best for vision tasks"),
                         SelectionOption("llama-3.2-11b-vision-instruct", "Llama 3.2 11B Vision", "Balanced vision model"),
-                        SelectionOption("llama-3.2:3b", "Llama 3.2 3B", "Lightweight text model"),
+                        SelectionOption("llama3.2:3b", "Llama 3.2 3B", "Lightweight text model"),
                         SelectionOption("llama-3.1-70b-instruct", "Llama 3.1 70B", "Large text model"),
                         SelectionOption("llama-3.1-8b-instruct", "Llama 3.1 8B", "Efficient text model")
                     ),

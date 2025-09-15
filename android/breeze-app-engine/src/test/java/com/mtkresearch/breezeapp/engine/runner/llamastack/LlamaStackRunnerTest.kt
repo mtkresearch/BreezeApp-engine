@@ -16,7 +16,7 @@ class LlamaStackRunnerTest {
     fun setup() {
         runner = LlamaStackRunner(context = null)
         mockSettings = EngineSettings().withRunnerParameters("llamastack", mapOf(
-            "endpoint" to "http://localhost:8080",
+            "endpoint" to "http://127.0.0.1:8321",
             "model_id" to "llama-3.2-11b-vision-instruct",
             "temperature" to 0.7f,
             "enable_vision" to true
@@ -166,7 +166,7 @@ class LlamaStackConfigTest {
     fun `should create valid development config`() {
         val config = LlamaStackConfig.development()
         
-        assertEquals("http://localhost:8080", config.endpoint)
+        assertEquals("http://127.0.0.1:8321", config.endpoint)
         assertNull("Dev config should not have API key", config.apiKey)
         assertEquals("llama-3.2-11b-vision-instruct", config.modelId)
         assertTrue("Should enable vision", config.enableVision)
