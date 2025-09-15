@@ -27,22 +27,9 @@ class LlamaStackGuardianRunner(
         private const val DEFAULT_GUARDIAN_MODEL = "meta-llama/Llama-Guard-3-1B"
         private const val DEFAULT_OLLAMA_MODEL = "llama-guard3:1b"
         
-        // S1-S14 Guardian Violation Types with Traditional Chinese descriptions
-        private val VIOLATION_TYPES = mapOf(
-            "S1" to ViolationType("S1", "暴力犯罪", "您的訊息包含可能涉及暴力犯罪的內容"),
-            "S2" to ViolationType("S2", "非暴力犯罪", "您的訊息包含可能涉及非暴力犯罪的內容"),
-            "S3" to ViolationType("S3", "性相關犯罪", "您的訊息包含可能涉及性相關犯罪的內容"),
-            "S4" to ViolationType("S4", "兒童利用", "您的訊息包含可能涉及兒童利用的內容"),
-            "S5" to ViolationType("S5", "專業諮詢違法", "您的訊息包含可能涉及專業諮詢違法的內容"),
-            "S6" to ViolationType("S6", "隱私侵犯", "您的訊息包含可能涉及隱私侵犯的內容"),
-            "S7" to ViolationType("S7", "智慧財產權侵犯", "您的訊息包含可能涉及智慧財產權侵犯的內容"),
-            "S8" to ViolationType("S8", "仇恨言論", "您的訊息包含可能涉及仇恨言論的內容"),
-            "S9" to ViolationType("S9", "自我傷害", "您的訊息包含可能涉及自我傷害的內容"),
-            "S10" to ViolationType("S10", "身體傷害", "您的訊息包含可能涉及身體傷害的內容"),
-            "S11" to ViolationType("S11", "經濟傷害", "您的訊息包含可能涉及經濟傷害的內容"),
-            "S12" to ViolationType("S12", "欺詐詐騙", "您的訊息包含可能涉及欺詐詐騙的內容"),
-            "S13" to ViolationType("S13", "政府決策", "您的訊息包含可能影響政府決策的內容"),
-            "S14" to ViolationType("S14", "其他安全風險", "您的訊息包含可能涉及其他安全風險的內容")
+        // S1-S13 Guardian Violation Types mapping to resource string IDs
+        private val VIOLATION_TYPE_CODES = listOf(
+            "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13"
         )
     }
     
@@ -100,14 +87,14 @@ class LlamaStackGuardianRunner(
                     riskScore = 0.0,
                     categories = emptyList(),
                     action = GuardianAction.NONE,
-                    filteredText = "Guardian服務暫時無法使用，系統已自動通過此訊息", // Localized message for connection errors
+                    filteredText = getLocalizedString("guardian_service_unavailable"), // Localized message for connection errors
                     details = mapOf(
                         "error_type" to "connection_unavailable",
                         "endpoint" to this.config!!.endpoint,
                         "fallback_reason" to "LlamaStack server not available",
                         "recommended_action" to "Check LlamaStack server status",
                         "violation_type" to "CONNECTION_ERROR",
-                        "violation_message" to "[連線錯誤] Guardian服務暫時無法使用，系統已自動通過此訊息"
+                        "violation_message" to "[${getLocalizedString("guardian_connection_error")}] ${getLocalizedString("guardian_service_unavailable")}"
                     )
                 )
             }
@@ -118,12 +105,12 @@ class LlamaStackGuardianRunner(
                 riskScore = 0.0,
                 categories = emptyList(),
                 action = GuardianAction.NONE,
-                filteredText = "Guardian分析發生錯誤，系統已自動通過此訊息", // Localized message for general errors
+                filteredText = getLocalizedString("guardian_analysis_error"), // Localized message for general errors
                 details = mapOf(
                     "error" to (e.message ?: "Unknown error"), 
                     "fallback" to true,
                     "violation_type" to "ANALYSIS_ERROR",
-                    "violation_message" to "[分析錯誤] Guardian分析發生錯誤，系統已自動通過此訊息"
+                    "violation_message" to "[${getLocalizedString("guardian_analysis_error_type")}] ${getLocalizedString("guardian_analysis_error")}"
                 )
             )
         }
@@ -205,6 +192,99 @@ class LlamaStackGuardianRunner(
     }
 
     override fun isSupported(): Boolean = true
+    
+    /**
+     * Get localized string using context
+     */
+    private fun getLocalizedString(stringKey: String): String {
+        if (context == null) {
+            // Fallback to English if no context available
+            return when (stringKey) {
+                "guardian_service_unavailable" -> "Guardian service is temporarily unavailable, message allowed by system"
+                "guardian_connection_error" -> "Connection Error"
+                "guardian_analysis_error" -> "Guardian analysis error occurred, message allowed by system"
+                "guardian_analysis_error_type" -> "Analysis Error"
+                else -> "Guardian check failed"
+            }
+        }
+        
+        try {
+            val resourceId = context.resources.getIdentifier(stringKey, "string", context.packageName)
+            return if (resourceId != 0) {
+                context.getString(resourceId)
+            } else {
+                // Fallback to English
+                when (stringKey) {
+                    "guardian_service_unavailable" -> "Guardian service is temporarily unavailable, message allowed by system"
+                    "guardian_connection_error" -> "Connection Error"
+                    "guardian_analysis_error" -> "Guardian analysis error occurred, message allowed by system"
+                    "guardian_analysis_error_type" -> "Analysis Error"
+                    else -> "Guardian check failed"
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get localized string for key: $stringKey", e)
+            return "Guardian check failed"
+        }
+    }
+    
+    /**
+     * Create localized ViolationType from violation code
+     */
+    private fun createViolationType(code: String): ViolationType? {
+        if (context == null) {
+            // Fallback to English if no context available
+            return createEnglishViolationType(code)
+        }
+        
+        try {
+            val categoryKey = "guardian_violation_${code.lowercase()}_category"
+            val messageKey = "guardian_violation_${code.lowercase()}_message"
+            
+            val categoryResourceId = context.resources.getIdentifier(categoryKey, "string", context.packageName)
+            val messageResourceId = context.resources.getIdentifier(messageKey, "string", context.packageName)
+            
+            val category = if (categoryResourceId != 0) {
+                context.getString(categoryResourceId)
+            } else {
+                createEnglishViolationType(code)?.category ?: "Safety Violation"
+            }
+            
+            val message = if (messageResourceId != 0) {
+                context.getString(messageResourceId)
+            } else {
+                createEnglishViolationType(code)?.message ?: "Content safety check failed"
+            }
+            
+            return ViolationType(code, category, message)
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to create localized violation type for code: $code", e)
+            return createEnglishViolationType(code)
+        }
+    }
+    
+    /**
+     * Create English fallback ViolationType
+     */
+    private fun createEnglishViolationType(code: String): ViolationType? {
+        return when (code) {
+            "S1" -> ViolationType("S1", "Violent Crimes", "Your message contains content that may involve violent crimes")
+            "S2" -> ViolationType("S2", "Non-Violent Crimes", "Your message contains content that may involve non-violent crimes")
+            "S3" -> ViolationType("S3", "Sex-Related Crimes", "Your message contains content that may involve sex-related crimes")
+            "S4" -> ViolationType("S4", "Child Sexual Exploitation", "Your message contains content that may involve child sexual exploitation")
+            "S5" -> ViolationType("S5", "Defamation", "Your message contains content that may be defamatory")
+            "S6" -> ViolationType("S6", "Specialized Advice", "Your message contains specialized financial, medical, or legal advice")
+            "S7" -> ViolationType("S7", "Privacy", "Your message contains sensitive personal information that may violate privacy")
+            "S8" -> ViolationType("S8", "Intellectual Property", "Your message contains content that may violate intellectual property rights")
+            "S9" -> ViolationType("S9", "Indiscriminate Weapons", "Your message contains content related to indiscriminate weapons")
+            "S10" -> ViolationType("S10", "Hate", "Your message contains content that may involve hate speech")
+            "S11" -> ViolationType("S11", "Suicide & Self-Harm", "Your message contains content that may involve suicide or self-harm")
+            "S12" -> ViolationType("S12", "Sexual Content", "Your message contains adult sexual content")
+            "S13" -> ViolationType("S13", "Elections", "Your message contains content related to elections")
+            else -> null
+        }
+    }
 
     override fun getParameterSchema(): List<ParameterSchema> {
         return listOf(
@@ -327,7 +407,7 @@ class LlamaStackGuardianRunner(
             )
         }
 
-        // Parse violation metadata to extract S1-S14 type information
+        // Parse violation metadata to extract S1-S13 type information
         val violationMetadata = violation.metadata().toString()
         val violationType = extractViolationType(violationMetadata)
         
@@ -392,16 +472,20 @@ class LlamaStackGuardianRunner(
     }
     
     /**
-     * Extract S1-S14 violation type from LlamaStack violation metadata
+     * Extract S1-S13 violation type from LlamaStack violation metadata
      */
     private fun extractViolationType(metadata: String): ViolationType? {
-        // Try to find S1-S14 pattern in metadata
-        val pattern = Regex("S(1[0-4]|[1-9])")
+        // Try to find S1-S13 pattern in metadata
+        val pattern = Regex("S(1[0-3]|[1-9])")
         val match = pattern.find(metadata.uppercase())
         
         return if (match != null) {
             val violationCode = match.value
-            VIOLATION_TYPES[violationCode]
+            if (VIOLATION_TYPE_CODES.contains(violationCode)) {
+                createViolationType(violationCode)
+            } else {
+                null
+            }
         } else {
             // Fallback to mapping based on keywords in metadata
             mapMetadataToViolationType(metadata)
@@ -409,43 +493,49 @@ class LlamaStackGuardianRunner(
     }
     
     /**
-     * Map metadata keywords to S1-S14 violation types as fallback
+     * Map metadata keywords to S1-S13 violation types as fallback
      */
     private fun mapMetadataToViolationType(metadata: String): ViolationType? {
         val lowerMetadata = metadata.lowercase()
         
-        return when {
-            lowerMetadata.contains("violence") || lowerMetadata.contains("violent") -> VIOLATION_TYPES["S1"]
-            lowerMetadata.contains("crime") || lowerMetadata.contains("illegal") -> VIOLATION_TYPES["S2"]
-            lowerMetadata.contains("sexual") || lowerMetadata.contains("adult") -> VIOLATION_TYPES["S3"]
-            lowerMetadata.contains("child") || lowerMetadata.contains("minor") -> VIOLATION_TYPES["S4"]
-            lowerMetadata.contains("hate") || lowerMetadata.contains("discrimination") -> VIOLATION_TYPES["S8"]
-            lowerMetadata.contains("self-harm") || lowerMetadata.contains("suicide") -> VIOLATION_TYPES["S9"]
-            lowerMetadata.contains("harm") || lowerMetadata.contains("injury") -> VIOLATION_TYPES["S10"]
-            lowerMetadata.contains("fraud") || lowerMetadata.contains("scam") -> VIOLATION_TYPES["S12"]
-            else -> VIOLATION_TYPES["S14"] // Default to "Other Safety Risks"
+        val violationCode = when {
+            lowerMetadata.contains("violence") || lowerMetadata.contains("violent") -> "S1"
+            lowerMetadata.contains("crime") || lowerMetadata.contains("illegal") -> "S2"
+            lowerMetadata.contains("sexual") || lowerMetadata.contains("adult") -> "S3"
+            lowerMetadata.contains("child") || lowerMetadata.contains("minor") -> "S4"
+            lowerMetadata.contains("defamatory") || lowerMetadata.contains("specialized") -> "S5"
+            lowerMetadata.contains("privacy") || lowerMetadata.contains("personal") -> "S6"
+            lowerMetadata.contains("intellectual") || lowerMetadata.contains("copyright") -> "S7"
+            lowerMetadata.contains("weapon") || lowerMetadata.contains("indiscriminate") -> "S8"
+            lowerMetadata.contains("hate") || lowerMetadata.contains("discrimination") -> "S9"
+            lowerMetadata.contains("self-harm") || lowerMetadata.contains("suicide") -> "S10"
+            lowerMetadata.contains("sexual content") -> "S11"
+            lowerMetadata.contains("election") || lowerMetadata.contains("political") -> "S12"
+            lowerMetadata.contains("code") || lowerMetadata.contains("interpreter") -> "S13"
+            else -> null
         }
+        
+        return violationCode?.let { createViolationType(it) }
     }
     
     /**
-     * Map S1-S14 violation type to GuardianCategory
+     * Map S1-S13 violation type to GuardianCategory (corrected according to official specification)
      */
     private fun mapViolationTypeToCategory(violationType: ViolationType?): GuardianCategory {
         return when (violationType?.code) {
             "S1" -> GuardianCategory.VIOLENCE          // S1: Violent Crimes
             "S2" -> GuardianCategory.UNSAFE_CONTENT    // S2: Non-Violent Crimes  
             "S3" -> GuardianCategory.SEXUAL_CONTENT    // S3: Sex-Related Crimes
-            "S4" -> GuardianCategory.SEXUAL_CONTENT    // S4: Child Exploitation (map to sexual content)
-            "S5" -> GuardianCategory.UNSAFE_CONTENT    // S5: Defamatory Content
-            "S6" -> GuardianCategory.PII               // S6: Privacy
-            "S7" -> GuardianCategory.UNSAFE_CONTENT    // S7: Intellectual Property  
-            "S8" -> GuardianCategory.HATE_SPEECH       // S8: Indiscriminate Weapons
-            "S9" -> GuardianCategory.SELF_HARM         // S9: Hate
-            "S10" -> GuardianCategory.SELF_HARM        // S10: Suicide & Self-Harm
-            "S11" -> GuardianCategory.VIOLENCE         // S11: Sexual Content (Adult)
-            "S12" -> GuardianCategory.SPAM             // S12: Elections
-            "S13" -> GuardianCategory.UNSAFE_CONTENT   // S13: Code Interpreter Abuse
-            "S14" -> GuardianCategory.UNSAFE_CONTENT   // S14: Other Safety Risks
+            "S4" -> GuardianCategory.SEXUAL_CONTENT    // S4: Child Sexual Exploitation
+            "S5" -> GuardianCategory.UNSAFE_CONTENT    // S5: Defamation
+            "S6" -> GuardianCategory.UNSAFE_CONTENT    // S6: Specialized Advice
+            "S7" -> GuardianCategory.PII               // S7: Privacy  
+            "S8" -> GuardianCategory.UNSAFE_CONTENT    // S8: Intellectual Property
+            "S9" -> GuardianCategory.VIOLENCE          // S9: Indiscriminate Weapons
+            "S10" -> GuardianCategory.HATE_SPEECH      // S10: Hate
+            "S11" -> GuardianCategory.SELF_HARM        // S11: Suicide & Self-Harm
+            "S12" -> GuardianCategory.SEXUAL_CONTENT   // S12: Sexual Content
+            "S13" -> GuardianCategory.UNSAFE_CONTENT   // S13: Elections
             else -> GuardianCategory.UNSAFE_CONTENT
         }
     }
