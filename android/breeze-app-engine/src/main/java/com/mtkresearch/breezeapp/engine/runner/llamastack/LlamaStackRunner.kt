@@ -135,16 +135,50 @@ class LlamaStackRunner(
      * Track: https://github.com/meta-llama/llama-stack-client-kotlin/issues
      */
     override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = callbackFlow {
-        Log.w(TAG, "⚠️  LlamaStack streaming not yet supported by SDK - falling back to non-streaming")
-        Log.w(TAG, "    See: https://github.com/meta-llama/llama-stack-client-kotlin (Known Issues #1)")
-        
-        // Fallback to non-streaming implementation and emit as single result
-        val result = run(input, stream = false)
-        trySend(result)
-        
+        if (!isLoaded.get() || llamaStackClient == null || config == null) {
+            trySend(InferenceResult.error(RunnerError.modelNotLoaded()))
+            close()
+            return@callbackFlow
+        }
+
+        val startTime = System.currentTimeMillis()
+
+        try {
+            when {
+                hasVisionInput(input) -> {
+                    // VLM: Use non-streaming (Guardian-like behavior)
+                    Log.d(TAG, "VLM request: Using non-streaming mode")
+                    val result = processVisionRequest(input)
+                    trySend(enhanceResultWithMetrics(result, startTime, getRequestType(input), input))
+                }
+                hasRAGRequest(input) -> {
+                    // RAG: Use non-streaming (Guardian-like behavior)
+                    Log.d(TAG, "RAG request: Using non-streaming mode")
+                    val result = processRAGRequest(input)
+                    trySend(enhanceResultWithMetrics(result, startTime, getRequestType(input), input))
+                }
+                hasAgentRequest(input) -> {
+                    // Agent: Use non-streaming (Guardian-like behavior)
+                    Log.d(TAG, "Agent request: Using non-streaming mode")
+                    val result = processAgentRequest(input)
+                    trySend(enhanceResultWithMetrics(result, startTime, getRequestType(input), input))
+                }
+                else -> {
+                    // Standard LLM chat: Use proper streaming
+                    Log.d(TAG, "Standard LLM chat: Using streaming mode")
+                    processStandardLLMRequestStreaming(input, startTime) { result ->
+                        trySend(result)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Streaming error", e)
+            trySend(InferenceResult.error(RunnerError.runtimeError("Streaming failed: ${e.message}")))
+        }
+
         close()
         awaitClose {
-            Log.d(TAG, "Flow closed - LlamaStack non-streaming fallback completed")
+            Log.d(TAG, "Streaming flow closed")
         }
     }
 
@@ -363,6 +397,116 @@ class LlamaStackRunner(
         } catch (e: Exception) {
             Log.e(TAG, "Agent processing failed with official SDK", e)
             InferenceResult.error(RunnerError.runtimeError("Agent processing failed: ${e.message}"))
+        }
+    }
+
+    private suspend fun processStandardLLMRequestStreaming(
+        input: InferenceRequest,
+        startTime: Long,
+        emit: (InferenceResult) -> Unit
+    ) {
+        val text = input.inputs[InferenceRequest.INPUT_TEXT] as? String
+
+        if (text.isNullOrBlank()) {
+            emit(InferenceResult.error(RunnerError.invalidInput("Text input is required")))
+            return
+        }
+
+        val runtimeConfig = resolveRuntimeParameters(input)
+        val clientForRequest = getClientForRequest(runtimeConfig)
+
+        try {
+            Log.d(TAG, "Starting streaming LLM request: model=${runtimeConfig.modelId}")
+
+            // Create messages using same pattern as non-streaming
+            val userMessage = UserMessage.builder()
+                .content(InterleavedContent.ofString(text))
+                .build()
+            val messages = listOf(Message.ofUser(userMessage))
+
+            val chatCompletionParams = InferenceChatCompletionParams.builder()
+                .modelId(runtimeConfig.modelId)
+                .messages(messages.toList())
+                .build()
+
+            // Use streaming API from official LlamaStack SDK
+            val responseStream = clientForRequest.inference().chatCompletionStreaming(chatCompletionParams)
+            var accumulatedText = ""
+
+            // Use the official ChatCompletionResponseStreamChunk API
+            responseStream.use { stream ->
+                stream.asSequence().forEach { chunk ->
+                    val event = chunk.event()
+                    val eventType = event.eventType()
+                    val stopReason = event.stopReason()
+
+                    when (eventType) {
+                        ChatCompletionResponseStreamChunk.Event.EventType.START -> {
+                            // START event - just log, don't emit content
+                        }
+                        ChatCompletionResponseStreamChunk.Event.EventType.PROGRESS -> {
+                            // PROGRESS event - extract and emit new content
+                            val delta = event.delta()
+                            val textContent = try {
+                                // Try to extract text content from delta
+                                when {
+                                    delta.text() != null -> delta.text()!!.text()
+                                    else -> ""
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed to extract text from delta: ${e.message}")
+                                ""
+                            }
+
+                            if (textContent.isNotEmpty()) {
+                                accumulatedText += textContent
+
+                                // Send partial result with ONLY the new delta content (like OpenRouter)
+                                emit(InferenceResult.textOutput(
+                                    text = textContent,
+                                    metadata = mapOf(
+                                        InferenceResult.META_MODEL_NAME to runtimeConfig.modelId,
+                                        InferenceResult.META_SESSION_ID to input.sessionId,
+                                        "inference_mode" to "remote_streaming",
+                                        "capability_type" to "LLM",
+                                        "endpoint_used" to runtimeConfig.endpoint,
+                                        "sdk_version" to "official-0.2.14"
+                                    ),
+                                    partial = true
+                                ))
+                            }
+                        }
+                        ChatCompletionResponseStreamChunk.Event.EventType.COMPLETE -> {
+                            // COMPLETE event - send final result
+                            Log.d(TAG, "Streaming complete: ${accumulatedText.length} characters")
+
+                            emit(InferenceResult.textOutput(
+                                text = accumulatedText,
+                                metadata = mapOf(
+                                    InferenceResult.META_MODEL_NAME to runtimeConfig.modelId,
+                                    InferenceResult.META_SESSION_ID to input.sessionId,
+                                    "inference_mode" to "remote_streaming",
+                                    "capability_type" to "LLM",
+                                    "endpoint_used" to runtimeConfig.endpoint,
+                                    "sdk_version" to "official-0.2.14",
+                                    "finish_reason" to (stopReason?.toString() ?: "complete"),
+                                    InferenceResult.META_PROCESSING_TIME_MS to (System.currentTimeMillis() - startTime)
+                                ),
+                                partial = false
+                            ))
+                            return@forEach // Exit after completion
+                        }
+                    }
+                }
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Streaming LLM processing failed", e)
+            Log.w(TAG, "Falling back to non-streaming for this request")
+
+            // Fallback to non-streaming if streaming fails
+            val result = processStandardLLMRequest(input)
+            emit(enhanceResultWithMetrics(result, startTime, "LLM", input))
         }
     }
 
