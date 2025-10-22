@@ -107,6 +107,51 @@
         ] }
       ],
       "entry_point": { "type": "whisper", "value": "sherpa-onnx-whisper-base" }
+    },
+    {
+      "id": "openai/gpt-oss-20b:free",
+      "runner": "OpenRouterLLMRunner",
+      "backend": "api",
+      "ramGB": 1,
+      "capabilities": ["LLM"],
+      "files": [],
+      "entry_point": { "type": "api", "value": "openai/gpt-oss-20b:free" }
+    },
+    {
+      "id": "llama-3.2-90b-vision-instruct",
+      "runner": "LlamaStackRunner",
+      "backend": "api",
+      "ramGB": 1,
+      "capabilities": ["LLM", "VLM"],
+      "files": [],
+      "entry_point": { "type": "api", "value": "llama-3.2-90b-vision-instruct" }
+    },
+    {
+      "id": "llama3.2:3b",
+      "runner": "LlamaStackRunner",
+      "backend": "api",
+      "ramGB": 1,
+      "capabilities": ["LLM"],
+      "files": [],
+      "entry_point": { "type": "api", "value": "llama3.2:3b" }
+    },
+    {
+      "id": "llama3.2:1b",
+      "runner": "LlamaStackRunner",
+      "backend": "api",
+      "ramGB": 1,
+      "capabilities": ["LLM"],
+      "files": [],
+      "entry_point": { "type": "api", "value": "llama3.2:1b" }
+    },
+    {
+      "id": "willqiu/Llama-Breeze2-8B-Instruct",
+      "runner": "LlamaStackRunner",
+      "backend": "api",
+      "ramGB": 1,
+      "capabilities": ["LLM"],
+      "files": [],
+      "entry_point": { "type": "api", "value": "willqiu/Llama-Breeze2-8B-Instruct" }
     }
   ]
 } 
