@@ -1,5 +1,34 @@
+# macOS
 .DS_Store
+
+# Agent files
 .agent.md
+
+# Breeze-specific
 *.aar
 sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/
 vits-mr-20250709/
+.claude/
+.specify/
+specs/
+
+# Kotlin/Android
+build/
+out/
+.gradle/
+.idea/
+*.class
+*.jar
+*.iml
+*.log
+*.swp
+*.tmp
+local.properties
+
+# Environment
+.env*
+*.secret*
+
+# Test
+coverage/
+*.test

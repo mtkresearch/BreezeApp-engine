@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    BreezeApp-engine AndroidManifest
+
+    This manifest defines:
+    - Custom signature-level permission for service binding
+    - AI Engine service with permission protection
+    - Service metadata and configuration
+
+    Security Model:
+    - Only apps signed with the same certificate can bind to the service
+    - Signature verification enforced by Android system + SignatureValidator
+
+    @author BreezeApp Team
+    @since 1.0.0
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ========================================================================
+         CUSTOM PERMISSION DEFINITION (T030-T031)
+         ======================================================================== -->
+
+    <!--
+        Custom permission for binding to BreezeApp AI Engine service.
+
+        Protection Level: signature
+        - Only apps signed with the same certificate can request this permission
+        - System automatically grants permission without user interaction
+        - No runtime permission prompts shown to users
+
+        Usage:
+        - Client apps must declare: <uses-permission android:name="..." />
+        - Service protected by: android:permission="..."
+    -->
+    <permission
+        android:name="com.mtkresearch.breezeapp.engine.permission.BIND_AI_SERVICE"
+        android:protectionLevel="signature"
+        android:label="@string/permission_bind_engine_label"
+        android:description="@string/permission_bind_engine_desc"
+        android:icon="@android:drawable/ic_secure" />
+
+    <!--
+        Optional: Privileged permission variant for system/OEM apps.
+        Commented out by default. Uncomment only if needed for:
+        - System pre-installed scenarios
+        - OEM customization requirements
+        - Enterprise deployment situations
+
+        Note: Requires apps to be system apps or have privileged permissions.
+    -->
+    <!--
+    <permission
+        android:name="com.mtkresearch.breezeapp.engine.permission.BIND_AI_SERVICE_PRIVILEGED"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/permission_bind_engine_privileged_label"
+        android:description="@string/permission_bind_engine_privileged_desc"
+        android:icon="@android:drawable/ic_secure" />
+    -->
+
+    <!-- ========================================================================
+         REQUIRED PERMISSIONS FOR ENGINE
+         ======================================================================== -->
+
+    <!-- Storage access for AI model files -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- Wake lock for long-running AI inference tasks -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Foreground service for keeping engine alive during inference -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- Optional: Network for model downloads (can be disabled if models bundled) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- ========================================================================
+         SDK VERSION REQUIREMENTS
+         ======================================================================== -->
+
+    <uses-sdk
+        android:minSdkVersion="34"
+        android:targetSdkVersion="34"
+        tools:overrideLibrary="" />
+
+    <!-- ========================================================================
+         APPLICATION CONFIGURATION
+         ======================================================================== -->
+
+    <application
+        android:allowBackup="false"
+        android:extractNativeLibs="true"
+        android:usesCleartextTraffic="false"
+        android:supportsRtl="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        tools:targetApi="31">
+
+        <!-- ====================================================================
+             AI ENGINE SERVICE (T039-T044)
+             ==================================================================== -->
+
+        <!--
+            Main AI inference service.
+
+            Configuration (T039-T042):
+            - android:exported="true": Allows cross-app binding
+            - android:permission: Enforces signature-level permission check
+            - android:process=":ai_engine": Runs in isolated process for stability
+            - android:isolatedProcess="false": Allows access to shared resources
+            - android:foregroundServiceType="dataSync": Required for Android 14+
+            - android:enabled="true": Service is enabled by default
+            - android:stopWithTask="false": Service continues after app closes
+
+            Intent Filter (T043):
+            - Action: com.mtkresearch.breezeapp.engine.AI_SERVICE
+            - Category: DEFAULT (standard service binding)
+            - Allows explicit binding by action name
+
+            Metadata (T044):
+            - engine.version: Semantic version string (e.g., "1.0.0")
+            - engine.api_version: AIDL interface version number (integer)
+        -->
+        <service
+            android:name="com.mtkresearch.breezeapp.engine.service.AIEngineService"
+            android:exported="true"
+            android:permission="com.mtkresearch.breezeapp.engine.permission.BIND_AI_SERVICE"
+            android:process=":ai_engine"
+            android:isolatedProcess="false"
+            android:foregroundServiceType="dataSync"
+            android:enabled="true"
+            android:stopWithTask="false"
+            android:directBootAware="false">
+
+            <!-- Intent filter for explicit binding -->
+            <intent-filter>
+                <action android:name="com.mtkresearch.breezeapp.engine.AI_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- Service metadata -->
+            <meta-data
+                android:name="com.mtkresearch.breezeapp.engine.version"
+                android:value="@string/engine_version" />
+            <meta-data
+                android:name="com.mtkresearch.breezeapp.engine.api_version"
+                android:value="2" />
+            <meta-data
+                android:name="com.mtkresearch.breezeapp.engine.description"
+                android:value="@string/service_description" />
+        </service>
+
+        <!-- ====================================================================
+             OPTIONAL COMPONENTS
+             ==================================================================== -->
+
+        <!--
+            Optional: Background model pre-loading service
+            Uncomment if you want to pre-load AI models on device boot
+        -->
+        <!--
+        <service
+            android:name=".service.ModelPreloadService"
+            android:exported="false"
+            android:enabled="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </service>
+        -->
+
+        <!--
+            Optional: Boot receiver for model pre-loading
+        -->
+        <!--
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:enabled="false"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        -->
+
+        <!--
+            Optional: Diagnostics activity for debugging/QA
+            Useful for development but not required for production
+        -->
+        <!--
+        <activity
+            android:name=".ui.DiagnosticsActivity"
+            android:label="@string/diagnostics_title"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        -->
+
+        <!-- ====================================================================
+             FILE PROVIDER (for model file sharing if needed)
+             ==================================================================== -->
+
+        <!--
+            FileProvider for sharing model files with client apps (if needed).
+            Use only for trusted clients with signature verification.
+        -->
+        <!--
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        -->
+
+    </application>
+
+</manifest>
