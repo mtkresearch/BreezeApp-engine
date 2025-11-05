@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,17 +14,36 @@ android {
 
     signingConfigs {
         create("release") {
-            // In a real project, you would use a secure properties file or environment variables
-            // For this example, we'll point to the debug keystore but keep the structure separate.
-            storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            // Production release keystore
+            // Store sensitive data in keystore.properties or environment variables for security
+            val keystorePropertiesFile = rootProject.file("keystore.properties")
+
+            if (keystorePropertiesFile.exists()) {
+                val keystoreProperties = Properties()
+                keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+
+                storeFile = file(keystoreProperties.getProperty("storeFile")
+                    ?: "${System.getProperty("user.home")}/Resource/android_key_mr")
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            } else {
+                // Fallback to production keystore with environment variables
+                storeFile = file(System.getProperty("KEYSTORE_FILE")
+                    ?: "${System.getProperty("user.home")}/Resource/android_key_mr")
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getProperty("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS") ?: System.getProperty("KEY_ALIAS") ?: "key0"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: System.getProperty("KEY_PASSWORD")
+            }
         }
     }
 
     defaultConfig {
+        applicationId = "com.mtkresearch.breezeapp.engine"
         minSdk = 34
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
