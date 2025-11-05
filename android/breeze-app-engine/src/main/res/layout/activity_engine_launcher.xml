@@ -8,74 +8,34 @@
     android:fitsSystemWindows="true"
     tools:context=".ui.BreezeAppEngineLauncherActivity">
 
-    <!-- Status Bar Overlay for Premium Look -->
-    <View
-        android:id="@+id/statusBarOverlay"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="@color/surface_variant"
-        android:alpha="0.1"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/guideline_top" />
-
-    <!-- Guidelines for Premium Spacing -->
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guideline_top"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.15" />
-
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guideline_bottom"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.85" />
-
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guideline_start"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.08" />
-
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guideline_end"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.92" />
-
-    <!-- Premium Card Container -->
+    <!-- Premium Card Container - Simplified Layout -->
     <androidx.cardview.widget.CardView
         android:id="@+id/mainCard"
         android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="24dp"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="12dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginVertical="48dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="4dp"
         app:cardBackgroundColor="@color/surface"
-        app:layout_constraintTop_toBottomOf="@+id/guideline_top"
-        app:layout_constraintBottom_toTopOf="@+id/guideline_bottom"
-        app:layout_constraintStart_toEndOf="@+id/guideline_start"
-        app:layout_constraintEnd_toStartOf="@+id/guideline_end">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.4">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="32dp">
+            android:padding="24dp">
 
-            <!-- Premium App Icon with Glow Effect -->
+            <!-- App Icon - Simplified -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/iconContainer"
-                android:layout_width="120dp"
-                android:layout_height="120dp"
-                app:cardCornerRadius="60dp"
-                app:cardElevation="8dp"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
                 app:cardBackgroundColor="@color/primary"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -83,8 +43,8 @@
 
                 <ImageView
                     android:id="@+id/appIcon"
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_brain"
                     android:tint="@color/on_primary"
@@ -92,14 +52,14 @@
 
             </androidx.cardview.widget.CardView>
 
-            <!-- Premium Title -->
+            <!-- Title -->
             <TextView
                 android:id="@+id/titleText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="16dp"
                 android:text="BreezeApp Engine"
-                android:textSize="28sp"
+                android:textSize="24sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
                 android:gravity="center"
@@ -107,60 +67,59 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
 
-            <!-- Premium Subtitle -->
+            <!-- Subtitle -->
             <TextView
                 android:id="@+id/subtitleText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="On-Device AI Processing Engine"
-                android:textSize="16sp"
+                android:layout_marginTop="4dp"
+                android:text="On-Device AI Processing"
+                android:textSize="14sp"
                 android:textColor="@color/text_secondary"
                 android:gravity="center"
                 app:layout_constraintTop_toBottomOf="@+id/titleText"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
 
-            <!-- Status Indicator with Animation -->
+            <!-- Status Indicator - Simplified -->
             <LinearLayout
                 android:id="@+id/statusContainer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
+                android:layout_marginTop="20dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_status_indicator"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="8dp"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
                 app:layout_constraintTop_toBottomOf="@+id/subtitleText"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
 
                 <View
                     android:id="@+id/statusDot"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
                     android:background="@drawable/bg_status_dot_active"
-                    android:layout_marginEnd="8dp" />
+                    android:layout_marginEnd="6dp" />
 
                 <TextView
                     android:id="@+id/statusText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Service Starting..."
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textColor="@color/success" />
 
             </LinearLayout>
 
-            <!-- Feature List -->
+            <!-- Feature List - Compact -->
             <LinearLayout
                 android:id="@+id/featureList"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
+                android:layout_marginTop="24dp"
                 android:orientation="vertical"
-                android:alpha="0.9"
                 app:layout_constraintTop_toBottomOf="@+id/statusContainer"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
@@ -170,23 +129,22 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="12dp">
+                    android:layout_marginBottom="8dp">
 
                     <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:src="@drawable/ic_check_circle"
                         android:tint="@color/success"
-                        android:layout_marginEnd="12dp" />
+                        android:layout_marginEnd="8dp" />
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Real-time AI Chat Processing"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_secondary"
-                         />
+                        android:text="Real-time AI Chat"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary" />
 
                 </LinearLayout>
 
@@ -195,23 +153,22 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="12dp">
+                    android:layout_marginBottom="8dp">
 
                     <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:src="@drawable/ic_check_circle"
                         android:tint="@color/success"
-                        android:layout_marginEnd="12dp" />
+                        android:layout_marginEnd="8dp" />
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Text-to-Speech and Speech Recognition"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_secondary"
-                         />
+                        android:text="Speech Recognition & TTS"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary" />
 
                 </LinearLayout>
 
@@ -222,94 +179,91 @@
                     android:gravity="center_vertical">
 
                     <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
                         android:src="@drawable/ic_check_circle"
                         android:tint="@color/success"
-                        android:layout_marginEnd="12dp" />
+                        android:layout_marginEnd="8dp" />
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="100% On-Device Privacy Protection"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_secondary"
-                         />
+                        android:text="100% On-Device Privacy"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary" />
 
                 </LinearLayout>
 
             </LinearLayout>
 
-            <!-- Premium Action Buttons -->
+            <!-- Action Buttons - Clean Layout -->
             <LinearLayout
                 android:id="@+id/actionButtons"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
                 android:orientation="vertical"
-                android:gravity="center"
-                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/featureList"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
 
-                <!-- First Row of Buttons -->
+                <!-- Engine Settings Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnEngineSettings"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Configure AI Engine"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    app:icon="@drawable/ic_settings"
+                    app:iconGravity="start"
+                    app:cornerRadius="12dp"
+                    app:backgroundTint="@color/primary" />
+
+                <!-- Status & Info Buttons Row -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:gravity="center"
-                    android:layout_marginBottom="8dp">
+                    android:weightSum="2">
 
-                    <Button
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnViewNotifications"
                         style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="0dp"
-                        android:layout_height="56dp"
+                        android:layout_height="48dp"
                         android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
+                        android:layout_marginEnd="4dp"
                         android:text="View Status"
-                        android:textSize="14sp"
-                        android:textColor="@color/primary"
-                        
+                        android:textSize="13sp"
+                        android:textAllCaps="false"
                         app:icon="@drawable/ic_notifications"
-                        app:iconGravity="textStart"
-                        app:cornerRadius="16dp"
-                        app:strokeColor="@color/primary"
-                        app:strokeWidth="2dp" />
+                        app:iconGravity="start"
+                        app:iconSize="18dp"
+                        app:cornerRadius="12dp"
+                        app:strokeColor="@color/outline"
+                        app:strokeWidth="1dp" />
 
-                    <Button
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnServiceInfo"
-                        style="@style/Widget.Material3.Button"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="0dp"
-                        android:layout_height="56dp"
+                        android:layout_height="48dp"
                         android:layout_weight="1"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="4dp"
                         android:text="Learn More"
-                        android:textSize="14sp"
-                        android:textColor="@color/primary"
-                        
+                        android:textSize="13sp"
+                        android:textAllCaps="false"
                         app:icon="@drawable/ic_info"
-                        app:iconGravity="textStart"
-                        app:cornerRadius="16dp"
-                        app:backgroundTint="@color/primary" />
+                        app:iconGravity="start"
+                        app:iconSize="18dp"
+                        app:cornerRadius="12dp"
+                        app:strokeColor="@color/outline"
+                        app:strokeWidth="1dp" />
 
                 </LinearLayout>
-
-                <!-- Second Row - Engine Settings Button -->
-                <Button
-                    android:id="@+id/btnEngineSettings"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="Configure AI Engine"
-                    android:textSize="14sp"
-                    android:textColor="@color/primary"
-                    
-                    app:icon="@drawable/ic_settings"
-                    app:iconGravity="textStart"
-                    app:cornerRadius="16dp"
-                    app:strokeColor="@color/primary"
-                    app:strokeWidth="2dp" />
 
             </LinearLayout>
 
@@ -317,16 +271,17 @@
 
     </androidx.cardview.widget.CardView>
 
-    <!-- Premium Close Button -->
+    <!-- Close Button - Minimal -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabClose"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="24dp"
+        android:layout_margin="16dp"
+        app:fabSize="mini"
         android:src="@drawable/ic_close"
-        app:tint="@color/on_primary"
-        app:backgroundTint="@color/surface_variant"
-        app:elevation="6dp"
+        app:tint="@color/text_primary"
+        app:backgroundTint="@color/surface"
+        app:elevation="2dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 

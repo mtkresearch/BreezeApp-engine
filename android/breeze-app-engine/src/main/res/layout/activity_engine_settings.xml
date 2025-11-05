@@ -32,25 +32,30 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="12dp">
 
-            <!-- Capability Tabs -->
+            <!-- Capability Tabs - Simplified -->
             <com.google.android.material.tabs.TabLayout
                 android:id="@+id/tabLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="12dp"
+                android:background="@color/surface"
                 app:tabMode="scrollable"
-                app:tabGravity="start" />
+                app:tabGravity="start"
+                app:tabIndicatorColor="@color/primary"
+                app:tabSelectedTextColor="@color/primary"
+                app:tabTextColor="@color/text_secondary"
+                app:tabIndicatorHeight="3dp" />
 
-            <!-- Runner Selection Section -->
-            <LinearLayout
+            <!-- Runner Selection Section - Cleaner Card -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:background="@drawable/bg_surface_variant"
-                android:orientation="vertical"
-                android:elevation="4dp">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/surface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -62,24 +67,25 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Runner Selection"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:textStyle="bold"
-                        android:textColor="?attr/colorOnSurface"
-                        android:layout_marginBottom="12dp" />
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="8dp" />
 
                     <TextView
                         android:id="@+id/tvCapabilityLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Select runner for LLM capability:"
-                        android:textSize="14sp"
-                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_secondary"
                         android:layout_marginBottom="8dp" />
 
                     <Spinner
                         android:id="@+id/spinnerRunners"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:minHeight="48dp"
                         android:layout_marginBottom="8dp" />
 
                     <TextView
@@ -88,7 +94,7 @@
                         android:layout_height="wrap_content"
                         android:text="Runner description will appear here"
                         android:textSize="12sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/text_tertiary"
                         android:layout_marginBottom="8dp" />
 
                     <LinearLayout
@@ -104,8 +110,9 @@
                             android:text="✓ Supported"
                             android:background="@drawable/chip_success_background"
                             android:textColor="@android:color/white"
-                            android:paddingStart="12dp"
-                            android:paddingEnd="12dp"
+                            android:textSize="11sp"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
                             android:paddingTop="4dp"
                             android:paddingBottom="4dp"
                             android:visibility="gone" />
@@ -117,8 +124,9 @@
                             android:text="✗ Not Supported"
                             android:background="@drawable/chip_error_background"
                             android:textColor="@android:color/white"
-                            android:paddingStart="12dp"
-                            android:paddingEnd="12dp"
+                            android:textSize="11sp"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
                             android:paddingTop="4dp"
                             android:paddingBottom="4dp"
                             android:visibility="gone" />
@@ -127,17 +135,17 @@
 
                 </LinearLayout>
 
-            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-            <!-- Dynamic Parameters Section -->
-            <LinearLayout
+            <!-- Dynamic Parameters Section - Cleaner Card -->
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardParameters"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:background="@drawable/bg_surface_variant"
-                android:orientation="vertical"
-                android:elevation="4dp">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/surface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -149,18 +157,18 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Runner Parameters"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:textStyle="bold"
-                        android:textColor="?attr/colorOnSurface"
-                        android:layout_marginBottom="12dp" />
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="8dp" />
 
                     <TextView
                         android:id="@+id/tvParametersHint"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Select a runner to configure its parameters"
-                        android:textSize="14sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="13sp"
+                        android:textColor="@color/text_tertiary"
                         android:layout_marginBottom="12dp"
                         android:gravity="center"
                         android:textStyle="italic" />
@@ -174,17 +182,19 @@
 
                 </LinearLayout>
 
-            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-            <!-- Save Button -->
-            <Button
+            <!-- Save Button - Material Button -->
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSave"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="52dp"
                 android:text="Save Settings"
-                android:textSize="16sp"
-                android:background="@drawable/bg_primary_button"
-                android:layout_marginBottom="16dp" />
+                android:textSize="15sp"
+                android:textAllCaps="false"
+                app:cornerRadius="12dp"
+                app:backgroundTint="@color/primary"
+                android:layout_marginBottom="12dp" />
 
         </LinearLayout>
 
