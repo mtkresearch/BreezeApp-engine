@@ -44,7 +44,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     private lateinit var tvRunnerDescription: TextView
     private lateinit var chipSupported: TextView
     private lateinit var chipNotSupported: TextView
-    private lateinit var cardParameters: LinearLayout
+    private lateinit var cardParameters: com.google.android.material.card.MaterialCardView
     private lateinit var tvParametersHint: TextView
     private lateinit var containerParameters: LinearLayout
     private lateinit var btnSave: Button
