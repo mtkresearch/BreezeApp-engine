@@ -216,8 +216,10 @@
                     android:layout_marginBottom="8dp"
                     android:text="Configure AI Engine"
                     android:textSize="14sp"
+                    android:textColor="@color/on_primary"
                     android:textAllCaps="false"
                     app:icon="@drawable/ic_settings"
+                    app:iconTint="@color/on_primary"
                     app:iconGravity="start"
                     app:cornerRadius="12dp"
                     app:backgroundTint="@color/primary" />
