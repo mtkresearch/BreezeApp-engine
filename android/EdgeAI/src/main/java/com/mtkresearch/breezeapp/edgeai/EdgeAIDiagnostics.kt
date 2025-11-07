@@ -18,7 +18,7 @@ internal object EdgeAIDiagnostics {
     private const val TAG = "EdgeAIDiagnostics"
     private const val ROUTER_PACKAGE = "com.mtkresearch.breezeapp.engine"
     private const val ROUTER_SERVICE_CLASS = "com.mtkresearch.breezeapp.engine.BreezeAppEngineService"
-    private const val REQUIRED_PERMISSION = "com.mtkresearch.breezeapp.permission.BIND_AI_ROUTER_SERVICE"
+    private const val REQUIRED_PERMISSION = "com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE"
     
     /**
      * Performs comprehensive diagnostic checks internally for SDK troubleshooting

@@ -14,3 +14,10 @@ internal/
 sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/
 vits-mr-20250709/
 *.aar
+
+# Keystore credentials (NEVER commit these!)
+keystore.properties
+*.jks
+*.keystore
+*.aab
+*.apk

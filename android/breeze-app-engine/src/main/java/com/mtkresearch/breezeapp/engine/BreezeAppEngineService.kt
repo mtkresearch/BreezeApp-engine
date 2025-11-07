@@ -35,7 +35,7 @@ class BreezeAppEngineService : Service() {
     
     companion object {
         private const val TAG = "BreezeAppEngineService"
-        private const val PERMISSION = "com.mtkresearch.breezeapp.permission.BIND_AI_ROUTER_SERVICE"
+        private const val PERMISSION = "com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE"
         
         @Volatile
         private var instance: BreezeAppEngineService? = null
@@ -96,16 +96,14 @@ class BreezeAppEngineService : Service() {
     }
     
     override fun onBind(intent: Intent?): IBinder? {
-        Log.d(TAG, "onBind() - Simplified Architecture")
-        
-        // Permission check (skip in debug)
-        if (!BuildConfig.DEBUG && 
-            checkCallingOrSelfPermission(PERMISSION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            Log.w(TAG, "Permission denied")
-            return null
-        }
-        
-        return serviceOrchestrator.getServiceBinder()
+        Log.d(TAG, "onBind() called - intent=$intent")
+
+        // Permission is enforced by android:permission in manifest
+        // No need for manual permission check here - Android system handles it
+
+        val binder = serviceOrchestrator.getServiceBinder()
+        Log.i(TAG, "onBind() returning binder: $binder")
+        return binder
     }
     
     override fun onUnbind(intent: Intent?): Boolean {
