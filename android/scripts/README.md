@@ -33,7 +33,44 @@ cd android/scripts
 
 ---
 
-### 2. `release-build.sh`
+### 2. `release-edgeai.sh`
+
+**Location**: `android/scripts/release-edgeai.sh`
+
+**Purpose**: Release EdgeAI library to JitPack by version bumping, committing, tagging, and pushing.
+
+**Usage**:
+```bash
+cd android/scripts
+./release-edgeai.sh [VERSION_TYPE]
+```
+
+**What it does**:
+- ✅ Increments version in `EdgeAI/build.gradle.kts`
+- ✅ Updates both `version` and `publishing.version`
+- ✅ Commits the version change
+- ✅ Creates git tag `EdgeAI-vX.Y.Z`
+- ✅ Pushes to remote repository
+- ✅ Triggers JitPack automatic build
+
+**Examples**:
+```bash
+./release-edgeai.sh              # Patch: EdgeAI-v0.1.4 → v0.1.5
+./release-edgeai.sh minor        # Minor: EdgeAI-v0.1.4 → v0.2.0
+./release-edgeai.sh major        # Major: EdgeAI-v0.1.4 → v1.0.0
+./release-edgeai.sh -v 1.0.0     # Manual version
+```
+
+**JitPack Usage**:
+```kotlin
+dependencies {
+    implementation("com.github.mtkresearch.BreezeApp-engine:EdgeAI:EdgeAI-v0.1.5")
+}
+```
+
+---
+
+### 3. `release-build.sh`
 
 **Location**: `android/release-build.sh`
 
