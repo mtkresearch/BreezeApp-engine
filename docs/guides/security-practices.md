@@ -35,8 +35,8 @@ Client App                    BreezeApp Engine
     |         Extract cert          |
     |         Verify SHA-256        |
     |                               |
-    |<----- Return binder ---------|  (if authorized)
-    |<----- Return null -----------|  (if unauthorized)
+    |<------ Return binder ---------|  (if authorized)
+    |<------ Return null -----------|  (if unauthorized)
 ```
 
 ### Implementation
