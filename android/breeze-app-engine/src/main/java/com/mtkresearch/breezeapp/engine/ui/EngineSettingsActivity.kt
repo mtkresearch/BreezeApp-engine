@@ -4,7 +4,9 @@ import android.os.Bundle
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.view.WindowManager
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -14,9 +16,11 @@ import com.mtkresearch.breezeapp.engine.R
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.ReloadResult
+import com.mtkresearch.breezeapp.engine.model.ui.UnsavedChangesState
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
+import com.mtkresearch.breezeapp.engine.ui.dialogs.showUnsavedChangesDialog
 import kotlinx.coroutines.launch
 
 /**
@@ -32,9 +36,20 @@ import kotlinx.coroutines.launch
  * - Real-time validation
  */
 class EngineSettingsActivity : AppCompatActivity() {
-    
+
     companion object {
         private const val TAG = "EngineSettingsActivity"
+    }
+
+    /**
+     * Enum representing the current state of the save operation.
+     * Used for UI feedback and navigation blocking during async saves.
+     */
+    private enum class SaveOperationState {
+        IDLE,           // No save in progress
+        IN_PROGRESS,    // Save operation executing
+        SUCCESS,        // Save completed successfully
+        FAILED          // Save operation failed
     }
     
     // UI Components
@@ -48,6 +63,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     private lateinit var tvParametersHint: TextView
     private lateinit var containerParameters: LinearLayout
     private lateinit var btnSave: Button
+    private lateinit var progressOverlay: FrameLayout
     
     // State
     private var currentCapability: CapabilityType = CapabilityType.LLM
@@ -55,14 +71,33 @@ class EngineSettingsActivity : AppCompatActivity() {
     private var currentRunnerParameters: MutableMap<String, Any> = mutableMapOf()
     private var availableRunners: Map<CapabilityType, List<RunnerInfo>> = emptyMap()
     private var runnerParameters: Map<String, List<ParameterSchema>> = emptyMap()
-    
+
+    // Unsaved changes tracking
+    private val unsavedChangesState = UnsavedChangesState()
+    private var navigationConfirmed = false
+
     // Direct RunnerManager access
     private var runnerManager: RunnerManager? = null
     
+    private val onBackPressedCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            Log.d(TAG, "Back button pressed! Has unsaved changes: ${unsavedChangesState.hasAnyUnsavedChanges()}")
+
+            if (unsavedChangesState.hasAnyUnsavedChanges()) {
+                Log.d(TAG, "Showing unsaved changes dialog")
+                showUnsavedChangesDialogAndNavigate()
+            } else {
+                Log.d(TAG, "No unsaved changes, allowing back navigation")
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_engine_settings)
-        
+
         setupToolbar()
         initViews()
         setupTabs()
@@ -70,6 +105,9 @@ class EngineSettingsActivity : AppCompatActivity() {
         loadSettings()
         setupEventListeners()
         setupObservers()
+
+        // Setup unsaved changes detection
+        onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
     }
     
     private fun setupToolbar() {
@@ -93,6 +131,10 @@ class EngineSettingsActivity : AppCompatActivity() {
         tvParametersHint = findViewById(R.id.tvParametersHint)
         containerParameters = findViewById(R.id.containerParameters)
         btnSave = findViewById(R.id.btnSave)
+        progressOverlay = findViewById(R.id.progressOverlay)
+
+        // Initialize Save button as disabled (no changes yet)
+        btnSave.isEnabled = false
     }
     
     private fun setupTabs() {
@@ -330,19 +372,33 @@ class EngineSettingsActivity : AppCompatActivity() {
             // Parameter input based on type
             when (schema.type.toString().lowercase(java.util.Locale.ROOT)) {
                 "float", "double", "number" -> {
+                    // Get the actual value being displayed (prioritize saved value, fallback to default)
+                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
+                    var isInitializing = true
+
                     val editText = android.widget.EditText(this).apply {
                         hint = "Enter ${schema.type}"
                         inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-                        setText(currentValues[schema.name]?.toString() ?: schema.defaultValue?.toString() ?: "")
-                        
+
+                        // Set initial value
+                        setText(initialValue?.toString() ?: "")
+
+                        // Add listener AFTER setText
                         addTextChangedListener(object : android.text.TextWatcher {
                             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                             override fun afterTextChanged(s: android.text.Editable?) {
+                                // Skip the first call triggered by setText()
+                                if (isInitializing) {
+                                    isInitializing = false
+                                    return
+                                }
+
                                 try {
                                     val value = s.toString().toDoubleOrNull()
                                     if (value != null) {
                                         currentRunnerParameters[schema.name] = value
+                                        onParameterChanged(schema.name, value, initialValue)
                                     }
                                 } catch (e: Exception) {
                                     Log.w(TAG, "Invalid number input for ${schema.name}")
@@ -353,19 +409,28 @@ class EngineSettingsActivity : AppCompatActivity() {
                     container.addView(editText)
                 }
                 "int", "integer" -> {
+                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
+                    var isInitializing = true
+
                     val editText = android.widget.EditText(this).apply {
                         hint = "Enter integer"
                         inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                        setText(currentValues[schema.name]?.toString() ?: schema.defaultValue?.toString() ?: "")
-                        
+                        setText(initialValue?.toString() ?: "")
+
                         addTextChangedListener(object : android.text.TextWatcher {
                             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                             override fun afterTextChanged(s: android.text.Editable?) {
+                                if (isInitializing) {
+                                    isInitializing = false
+                                    return
+                                }
+
                                 try {
                                     val value = s.toString().toIntOrNull()
                                     if (value != null) {
                                         currentRunnerParameters[schema.name] = value
+                                        onParameterChanged(schema.name, value, initialValue)
                                     }
                                 } catch (e: Exception) {
                                     Log.w(TAG, "Invalid integer input for ${schema.name}")
@@ -376,26 +441,45 @@ class EngineSettingsActivity : AppCompatActivity() {
                     container.addView(editText)
                 }
                 "boolean" -> {
+                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
+                    var isInitializing = true
+
                     val switch = android.widget.Switch(this).apply {
                         text = "Enable ${schema.name}"
-                        isChecked = currentValues[schema.name] as? Boolean ?: schema.defaultValue as? Boolean ?: false
-                        
+                        isChecked = initialValue as? Boolean ?: false
+
                         setOnCheckedChangeListener { _, isChecked ->
+                            if (isInitializing) {
+                                isInitializing = false
+                                return@setOnCheckedChangeListener
+                            }
+
                             currentRunnerParameters[schema.name] = isChecked
+                            onParameterChanged(schema.name, isChecked, initialValue)
                         }
                     }
                     container.addView(switch)
                 }
                 else -> {
+                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
+                    var isInitializing = true
+
                     val editText = android.widget.EditText(this).apply {
                         hint = "Enter ${schema.type}"
-                        setText(currentValues[schema.name]?.toString() ?: schema.defaultValue?.toString() ?: "")
-                        
+                        setText(initialValue?.toString() ?: "")
+
                         addTextChangedListener(object : android.text.TextWatcher {
                             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                             override fun afterTextChanged(s: android.text.Editable?) {
-                                currentRunnerParameters[schema.name] = s.toString()
+                                if (isInitializing) {
+                                    isInitializing = false
+                                    return
+                                }
+
+                                val value = s.toString()
+                                currentRunnerParameters[schema.name] = value
+                                onParameterChanged(schema.name, value, initialValue)
                             }
                         })
                     }
@@ -421,7 +505,8 @@ class EngineSettingsActivity : AppCompatActivity() {
         }
         
         btnSave.setOnClickListener {
-            saveSettings()
+            // Save without navigating away (stay in settings)
+            saveSettingsWithoutNavigate()
         }
     }
     
@@ -476,5 +561,150 @@ class EngineSettingsActivity : AppCompatActivity() {
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    override fun finish() {
+        if (unsavedChangesState.hasAnyUnsavedChanges() && !navigationConfirmed) {
+            showUnsavedChangesDialogAndNavigate()
+        } else {
+            super.finish()
+        }
+    }
+
+    private fun showUnsavedChangesDialogAndNavigate() {
+        val dirtyRunners = unsavedChangesState.getDirtyRunners()
+        showUnsavedChangesDialog(
+            dirtyRunners = dirtyRunners,
+            onSave = {
+                saveSettingsAndNavigate()
+            },
+            onDiscard = {
+                unsavedChangesState.clearAll()
+                navigationConfirmed = true
+                finish()
+            }
+        )
+    }
+
+    private fun saveSettingsAndNavigate() {
+        showSaveProgress()
+
+        lifecycleScope.launch {
+            try {
+                // Get currently selected runner name
+                val selectedRunner = getSelectedRunnerName() ?: run {
+                    hideSaveProgress()
+                    return@launch
+                }
+
+                // Build updated settings with current parameters
+                val updatedSettings = currentSettings.withRunnerParameters(
+                    selectedRunner,
+                    currentRunnerParameters
+                )
+
+                // Save via RunnerManager
+                runnerManager?.saveSettings(updatedSettings)
+
+                // Clear dirty state and navigate
+                unsavedChangesState.clearAll()
+                hideSaveProgress()
+                navigationConfirmed = true
+                finish()
+            } catch (e: Exception) {
+                hideSaveProgress()
+                Log.e(TAG, "Failed to save settings", e)
+                Toast.makeText(this@EngineSettingsActivity, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun saveSettingsWithoutNavigate() {
+        showSaveProgress()
+
+        lifecycleScope.launch {
+            try {
+                // Get currently selected runner name
+                val selectedRunner = getSelectedRunnerName() ?: run {
+                    hideSaveProgress()
+                    return@launch
+                }
+
+                // Build updated settings with current parameters
+                val updatedSettings = currentSettings.withRunnerParameters(
+                    selectedRunner,
+                    currentRunnerParameters
+                )
+
+                // Save via RunnerManager
+                runnerManager?.saveSettings(updatedSettings)
+
+                // Clear dirty state but DON'T navigate
+                unsavedChangesState.clearAll()
+                hideSaveProgress()
+
+                // Disable save button since no changes now
+                btnSave.isEnabled = false
+                onBackPressedCallback.isEnabled = false
+
+                Toast.makeText(this@EngineSettingsActivity, "Settings saved successfully", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                hideSaveProgress()
+                Log.e(TAG, "Failed to save settings", e)
+                Toast.makeText(this@EngineSettingsActivity, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun showSaveProgress() {
+        progressOverlay.visibility = View.VISIBLE
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        )
+    }
+
+    private fun hideSaveProgress() {
+        progressOverlay.visibility = View.GONE
+        window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+    }
+
+    private fun onParameterChanged(parameterName: String, currentValue: Any?, originalValue: Any?) {
+        val selectedRunner = getSelectedRunnerName() ?: return
+
+        Log.d(TAG, "onParameterChanged: param=$parameterName, original=$originalValue, current=$currentValue, runner=$selectedRunner")
+
+        // Normalize values for comparison (convert numeric types properly)
+        val normalizedOriginal = when (originalValue) {
+            is Number -> originalValue.toDouble()
+            else -> originalValue
+        }
+        val normalizedCurrent = when (currentValue) {
+            is Number -> currentValue.toDouble()
+            else -> currentValue
+        }
+
+        // Track the change in unsaved changes state
+        unsavedChangesState.trackChange(
+            capability = currentCapability,
+            runnerName = selectedRunner,
+            parameterName = parameterName,
+            originalValue = normalizedOriginal,
+            currentValue = normalizedCurrent
+        )
+
+        // Update UI state based on dirty status
+        val hasDirtyChanges = unsavedChangesState.hasAnyUnsavedChanges()
+        Log.d(TAG, "Dirty state: $hasDirtyChanges (original=$normalizedOriginal, current=$normalizedCurrent)")
+
+        onBackPressedCallback.isEnabled = hasDirtyChanges
+        btnSave.isEnabled = hasDirtyChanges
+
+        Log.d(TAG, "Save button enabled: ${btnSave.isEnabled}, Back callback enabled: ${onBackPressedCallback.isEnabled}")
+    }
+
+    private fun getSelectedRunnerName(): String? {
+        val selectedRunner = availableRunners[currentCapability]?.getOrNull(spinnerRunners.selectedItemPosition)
+        return selectedRunner?.name
     }
 }
