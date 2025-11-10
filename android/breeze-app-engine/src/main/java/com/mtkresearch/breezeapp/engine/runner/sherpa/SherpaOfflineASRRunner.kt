@@ -23,7 +23,8 @@ import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 @AIRunner(
     vendor = VendorType.SHERPA,
     priority = RunnerPriority.HIGH,
-    capabilities = [CapabilityType.ASR]
+    capabilities = [CapabilityType.ASR],
+    defaultModel = "Breeze-ASR-25-onnx"
 )
 class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
     companion object {
@@ -42,11 +43,11 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
             // Parse model type from config
             modelType = parseModelTypeFromSettings(modelId, settings)
             Log.i(TAG, "Using offline model type $modelType: ${getModelDescription(modelType)}")
-            
+
             Log.i(TAG, "Start to initialize offline model")
             initModel()
             Log.i(TAG, "Finished initializing offline model")
-            
+
             // CRITICAL FIX: Set isLoaded flag to true after successful initialization
             isLoaded.set(true)
             Log.i(TAG, "Model loaded successfully - isLoaded flag set to true")
@@ -60,18 +61,21 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
 
     private fun initModel() {
         Log.i(TAG, "Initializing offline model with type $modelType")
-        
+
         // Create offline recognizer with external storage configuration
         val featConfig = FeatureConfig(sampleRate = DEFAULT_SAMPLE_RATE, featureDim = 80)
         val modelConfig = createOfflineModelConfig(modelType)
-        
+
+        // Validate all required model files exist before initialization
+        validateModelFilesExist(modelConfig)
+
         val config = OfflineRecognizerConfig(
             featConfig = featConfig,
             modelConfig = modelConfig
         )
 
         recognizer = OfflineRecognizer(config = config)
-        
+
         Log.i(TAG, "Offline model initialized successfully with type $modelType (${getModelDescription(modelType)})")
     }
     
@@ -81,7 +85,7 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
      */
     private fun createOfflineModelConfig(type: Int): OfflineModelConfig {
         val modelsDir = context.filesDir.absolutePath + "/models"
-        
+
         return when (type) {
             0 -> {
                 val modelDir = "$modelsDir/Breeze-ASR-25-onnx"
@@ -111,6 +115,36 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
                 throw IllegalArgumentException("Unsupported offline model type: $type")
             }
         }
+    }
+
+    /**
+     * Validate that all required model files exist before creating OfflineRecognizer
+     * This prevents native crashes from invalid recognizer initialization
+     */
+    private fun validateModelFilesExist(modelConfig: OfflineModelConfig) {
+        val filesToCheck = mutableListOf<String>()
+
+        // Add whisper model files
+        modelConfig.whisper.encoder.takeIf { it.isNotEmpty() }?.let { filesToCheck.add(it) }
+        modelConfig.whisper.decoder.takeIf { it.isNotEmpty() }?.let { filesToCheck.add(it) }
+
+        // Add tokens file
+        modelConfig.tokens.takeIf { it.isNotEmpty() }?.let { filesToCheck.add(it) }
+
+        // Check each file
+        val missingFiles = filesToCheck.filter { path ->
+            val file = java.io.File(path)
+            !file.exists()
+        }
+
+        if (missingFiles.isNotEmpty()) {
+            val errorMsg = "Required ASR model files missing (${missingFiles.size}/${filesToCheck.size}):\n" +
+                    missingFiles.joinToString("\n") { "  - ${it.substringAfterLast('/')}" }
+            Log.e(TAG, errorMsg)
+            throw IllegalStateException(errorMsg)
+        }
+
+        Log.d(TAG, "All ${filesToCheck.size} required model files validated successfully")
     }
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
