@@ -18,8 +18,12 @@ import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.ReloadResult
 import com.mtkresearch.breezeapp.engine.model.ui.UnsavedChangesState
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
+import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
+import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelInfo
+import com.mtkresearch.breezeapp.engine.runner.openrouter.models.OpenRouterModelFetcher
 import com.mtkresearch.breezeapp.engine.ui.dialogs.showUnsavedChangesDialog
 import kotlinx.coroutines.launch
 
@@ -54,6 +58,11 @@ class EngineSettingsActivity : AppCompatActivity() {
     
     // UI Components
     private lateinit var tabLayout: TabLayout
+    private lateinit var cardPriceFilter: com.google.android.material.card.MaterialCardView
+    private lateinit var seekBarPrice: SeekBar
+    private lateinit var tvPriceLabel: TextView
+    private lateinit var tvModelCount: TextView
+    private lateinit var btnRefreshModels: Button
     private lateinit var tvCapabilityLabel: TextView
     private lateinit var spinnerRunners: Spinner
     private lateinit var tvRunnerDescription: TextView
@@ -64,7 +73,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     private lateinit var containerParameters: LinearLayout
     private lateinit var btnSave: Button
     private lateinit var progressOverlay: FrameLayout
-    
+
     // State
     private var currentCapability: CapabilityType = CapabilityType.LLM
     private var currentSettings: EngineSettings = EngineSettings.default()
@@ -78,6 +87,15 @@ class EngineSettingsActivity : AppCompatActivity() {
 
     // Direct RunnerManager access
     private var runnerManager: RunnerManager? = null
+
+    // Model fetching (for OpenRouter LLM)
+    private var allModels: List<ModelInfo> = emptyList()
+    private var filteredModels: List<ModelInfo> = emptyList()
+    private val modelFetcher by lazy {
+        OpenRouterModelFetcher(
+            prefs = getSharedPreferences("engine_settings_models", MODE_PRIVATE)
+        )
+    }
     
     private val onBackPressedCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
@@ -122,6 +140,11 @@ class EngineSettingsActivity : AppCompatActivity() {
     
     private fun initViews() {
         tabLayout = findViewById(R.id.tabLayout)
+        cardPriceFilter = findViewById(R.id.cardPriceFilter)
+        seekBarPrice = findViewById(R.id.seekBarPrice)
+        tvPriceLabel = findViewById(R.id.tvPriceLabel)
+        tvModelCount = findViewById(R.id.tvModelCount)
+        btnRefreshModels = findViewById(R.id.btnRefreshModels)
         tvCapabilityLabel = findViewById(R.id.tvCapabilityLabel)
         spinnerRunners = findViewById(R.id.spinnerRunners)
         tvRunnerDescription = findViewById(R.id.tvRunnerDescription)
@@ -135,6 +158,9 @@ class EngineSettingsActivity : AppCompatActivity() {
 
         // Initialize Save button as disabled (no changes yet)
         btnSave.isEnabled = false
+
+        // Setup price filter
+        setupPriceFilter()
     }
     
     private fun setupTabs() {
@@ -461,29 +487,35 @@ class EngineSettingsActivity : AppCompatActivity() {
                     container.addView(switch)
                 }
                 else -> {
-                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
-                    var isInitializing = true
+                    // Check if this is a SelectionType parameter
+                    if (schema.type is ParameterType.SelectionType) {
+                        handleSelectionType(schema, currentValues, container)
+                    } else {
+                        // Default to text input for unknown types
+                        val initialValue = currentValues[schema.name] ?: schema.defaultValue
+                        var isInitializing = true
 
-                    val editText = android.widget.EditText(this).apply {
-                        hint = "Enter ${schema.type}"
-                        setText(initialValue?.toString() ?: "")
+                        val editText = android.widget.EditText(this).apply {
+                            hint = "Enter ${schema.type}"
+                            setText(initialValue?.toString() ?: "")
 
-                        addTextChangedListener(object : android.text.TextWatcher {
-                            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                            override fun afterTextChanged(s: android.text.Editable?) {
-                                if (isInitializing) {
-                                    isInitializing = false
-                                    return
+                            addTextChangedListener(object : android.text.TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                                override fun afterTextChanged(s: android.text.Editable?) {
+                                    if (isInitializing) {
+                                        isInitializing = false
+                                        return
+                                    }
+
+                                    val value = s.toString()
+                                    currentRunnerParameters[schema.name] = value
+                                    onParameterChanged(schema.name, value, initialValue)
                                 }
-
-                                val value = s.toString()
-                                currentRunnerParameters[schema.name] = value
-                                onParameterChanged(schema.name, value, initialValue)
-                            }
-                        })
+                            })
+                        }
+                        container.addView(editText)
                     }
-                    container.addView(editText)
                 }
             }
             
@@ -497,13 +529,14 @@ class EngineSettingsActivity : AppCompatActivity() {
         spinnerRunners.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 updateRunnerInfo()
+                updatePriceFilterVisibility()
             }
-            
+
             override fun onNothingSelected(parent: AdapterView<*>?) {
                 clearParameterViews()
             }
         }
-        
+
         btnSave.setOnClickListener {
             // Save without navigating away (stay in settings)
             saveSettingsWithoutNavigate()
@@ -706,5 +739,208 @@ class EngineSettingsActivity : AppCompatActivity() {
     private fun getSelectedRunnerName(): String? {
         val selectedRunner = availableRunners[currentCapability]?.getOrNull(spinnerRunners.selectedItemPosition)
         return selectedRunner?.name
+    }
+
+    /**
+     * Handle SelectionType parameter - create dropdown
+     */
+    private fun handleSelectionType(
+        schema: ParameterSchema,
+        currentValues: Map<String, Any>,
+        container: LinearLayout
+    ) {
+        val selectionType = schema.type as ParameterType.SelectionType
+        val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+        // Determine options: use fetched models for OpenRouter model parameter, otherwise use schema options
+        val options = if (isOpenRouterRunner() && schema.name == "model" && filteredModels.isNotEmpty()) {
+            // Use dynamically fetched models
+            filteredModels.map { model ->
+                SelectionOption(
+                    key = model.id,
+                    displayName = model.getShortDisplayName(),
+                    description = model.description
+                )
+            }
+        } else {
+            // Use schema-defined options
+            selectionType.options
+        }
+
+        // Create spinner (dropdown)
+        val spinner = Spinner(this).apply {
+            val displayNames = options.map { it.displayName }
+            val adapter = ArrayAdapter(
+                this@EngineSettingsActivity,
+                android.R.layout.simple_spinner_item,
+                displayNames
+            ).apply {
+                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            this.adapter = adapter
+
+            // Set initial selection
+            val initialKey = initialValue?.toString()
+            val initialIndex = options.indexOfFirst { it.key == initialKey }
+            if (initialIndex >= 0) {
+                setSelection(initialIndex)
+            }
+
+            // Listen for selection changes
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                var isInitializing = true
+
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    if (isInitializing) {
+                        isInitializing = false
+                        return
+                    }
+
+                    val selectedOption = options[position]
+                    currentRunnerParameters[schema.name] = selectedOption.key
+                    onParameterChanged(schema.name, selectedOption.key, initialKey)
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+
+        container.addView(spinner)
+    }
+
+    /**
+     * Setup price filter UI and listeners
+     */
+    private fun setupPriceFilter() {
+        // SeekBar listener for price filtering
+        seekBarPrice.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val maxPrice = progressToPrice(progress)
+                updatePriceLabel(maxPrice)
+
+                // Filter models and update UI
+                if (allModels.isNotEmpty()) {
+                    filteredModels = modelFetcher.filterByPrice(allModels, maxPrice)
+                    updateModelCount()
+                }
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        // Refresh button listener
+        btnRefreshModels.setOnClickListener {
+            fetchModelsFromApi(forceRefresh = true)
+        }
+    }
+
+    /**
+     * Convert seekbar progress to price value
+     * Progress 0-100 mapped to price ranges
+     */
+    private fun progressToPrice(progress: Int): Double {
+        return when {
+            progress == 0 -> 0.0           // Free only
+            progress < 25 -> 0.000001      // Near-free ($0.000001)
+            progress < 50 -> 0.0001        // Very cheap ($0.0001)
+            progress < 75 -> 0.001         // Cheap ($0.001)
+            else -> 0.01                   // Standard ($0.01)
+        }
+    }
+
+    /**
+     * Update price label text
+     */
+    private fun updatePriceLabel(maxPrice: Double) {
+        tvPriceLabel.text = when {
+            maxPrice == 0.0 -> "Free models only"
+            maxPrice < 0.00001 -> "Up to ~Free"
+            else -> "Up to $${"%.6f".format(maxPrice)} per 1K tokens"
+        }
+    }
+
+    /**
+     * Update model count text
+     */
+    private fun updateModelCount() {
+        tvModelCount.text = "${filteredModels.size} models available"
+    }
+
+    /**
+     * Fetch models from OpenRouter API
+     */
+    private fun fetchModelsFromApi(forceRefresh: Boolean = false) {
+        // Only fetch for OpenRouterLLMRunner
+        if (!isOpenRouterRunner()) {
+            return
+        }
+
+        // Get API key from current settings
+        val apiKey = getCurrentApiKey()
+        if (apiKey.isNullOrBlank()) {
+            tvModelCount.text = "API key required"
+            Log.w(TAG, "Cannot fetch models: API key not set")
+            return
+        }
+
+        // Show loading state
+        tvModelCount.text = "Loading models..."
+        btnRefreshModels.isEnabled = false
+
+        lifecycleScope.launch {
+            val result = modelFetcher.fetchModels(apiKey, forceRefresh)
+
+            result.onSuccess { models ->
+                allModels = models
+                val maxPrice = progressToPrice(seekBarPrice.progress)
+                filteredModels = modelFetcher.filterByPrice(models, maxPrice)
+                updateModelCount()
+                btnRefreshModels.isEnabled = true
+                Log.d(TAG, "Successfully loaded ${models.size} models from OpenRouter")
+            }.onFailure { error ->
+                tvModelCount.text = "Failed to load models"
+                btnRefreshModels.isEnabled = true
+                Log.e(TAG, "Failed to fetch models", error)
+                Toast.makeText(
+                    this@EngineSettingsActivity,
+                    "Failed to fetch models: ${error.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    /**
+     * Check if current runner is OpenRouterLLMRunner
+     */
+    private fun isOpenRouterRunner(): Boolean {
+        val selectedRunner = getSelectedRunnerName()
+        return selectedRunner?.contains("OpenRouter", ignoreCase = true) == true
+    }
+
+    /**
+     * Get API key from current runner parameters
+     */
+    private fun getCurrentApiKey(): String? {
+        val selectedRunner = getSelectedRunnerName() ?: return null
+        val runnerParams = currentSettings.getRunnerParameters(selectedRunner)
+        return runnerParams["api_key"] as? String
+    }
+
+    /**
+     * Show/hide price filter based on runner selection
+     */
+    private fun updatePriceFilterVisibility() {
+        cardPriceFilter.visibility = if (isOpenRouterRunner()) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+
+        // Fetch models when OpenRouter runner is selected
+        if (isOpenRouterRunner() && allModels.isEmpty()) {
+            fetchModelsFromApi()
+        }
     }
 }
