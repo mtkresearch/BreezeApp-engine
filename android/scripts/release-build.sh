@@ -13,12 +13,24 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-BUILD_GRADLE="../breeze-app-engine/build.gradle.kts"
-BACKUP_FILE="../breeze-app-engine/build.gradle.kts.backup"
 MANUAL_VERSION=""
 MANUAL_CODE=""
 BUILD_TYPE="both"  # Default: both APK and AAB
 VERSION_TYPE="patch"  # Default to patch if not specified
+
+# Detect script location and set paths accordingly
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ "$SCRIPT_DIR" == */scripts ]]; then
+    # Running from android/scripts/
+    BUILD_GRADLE="../breeze-app-engine/build.gradle.kts"
+    BACKUP_FILE="../breeze-app-engine/build.gradle.kts.backup"
+    ANDROID_DIR=".."
+else
+    # Running from android/
+    BUILD_GRADLE="breeze-app-engine/build.gradle.kts"
+    BACKUP_FILE="breeze-app-engine/build.gradle.kts.backup"
+    ANDROID_DIR="."
+fi
 
 # Function to print colored output
 print_info() {
@@ -122,7 +134,9 @@ main() {
     # Check if build.gradle.kts exists
     if [ ! -f "$BUILD_GRADLE" ]; then
         print_error "build.gradle.kts not found at $BUILD_GRADLE"
-        print_info "Make sure you're running this script from the android/scripts/ directory"
+        print_info "This script can be run from:"
+        print_info "  - android/ directory: ./scripts/release-build.sh"
+        print_info "  - android/scripts/ directory: ./release-build.sh"
         exit 1
     fi
 
@@ -182,7 +196,7 @@ main() {
 
     # Clean build
     print_info "Cleaning previous builds..."
-    cd ..  # Go to android/ directory for gradle
+    cd "$ANDROID_DIR"  # Go to android/ directory for gradle
     ./gradlew clean
 
     # Create release directory
