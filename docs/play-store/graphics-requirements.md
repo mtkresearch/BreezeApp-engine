@@ -97,7 +97,7 @@ The feature graphic should communicate the app's purpose in one glance. For Bree
 2. **Right side (60%)**:
    - Simplified architecture diagram showing:
      - Engine service (center)
-     - Connected client apps (BreezeApp, BreezeApp Dot)
+     - Connected client apps (BreezeApp or other client apps)
      - AI capabilities icons (LLM, ASR, TTS, VLM)
 
 **Style Guidelines**:
@@ -156,7 +156,7 @@ Since BreezeApp-engine has no UI, we need creative solutions:
 ┌─────────────────────────────────────────┐
 │        Client Applications Layer        │
 │  ┌─────────────┐    ┌───────────────┐  │
-│  │ BreezeApp   │    │ BreezeApp Dot │  │
+│  │ BreezeApp   │    │ companion apps │  │
 │  │ (Main App)  │    │ (Voice-First) │  │
 │  └──────┬──────┘    └───────┬───────┘  │
 └─────────┼───────────────────┼───────────┘
@@ -253,7 +253,7 @@ val result = engineService.inferText(
 
 **Title**: "Powers Your Favorite Apps"
 
-**Content**: Show BreezeApp and BreezeApp Dot UI with arrows pointing to:
+**Content**: Show BreezeApp and companion apps UI with arrows pointing to:
 - "Powered by BreezeApp Engine ⚙️"
 - Show chat interface, voice interface
 - Emphasize offline capability
@@ -379,7 +379,7 @@ screenshot-06-developer-docs-phone.png
 - Voiceover: "Supports LLM, ASR, TTS, and more"
 
 **0:50-0:60** (Call to Action)
-- Show companion apps (BreezeApp, BreezeApp Dot)
+- Show companion apps (BreezeApp or other client apps)
 - Text overlay: "Install BreezeApp to get started"
 - GitHub logo: "Open Source - Apache 2.0"
 - Voiceover: "Download BreezeApp or build your own integration today"
@@ -427,7 +427,7 @@ Use this ASCII template as a guide for the architecture screenshot:
 ║  │                                             │    ║
 ║  │    ┌─────────┐          ┌──────────┐       │    ║
 ║  │    │BreezeApp│          │BreezeApp │       │    ║
-║  │    │  (UI)   │          │   Dot    │       │    ║
+║  │    │  (UI)   │          │  Client  │       │    ║
 ║  │    └────┬────┘          └─────┬────┘       │    ║
 ║  └─────────┼─────────────────────┼────────────┘    ║
 ║            │                     │                  ║

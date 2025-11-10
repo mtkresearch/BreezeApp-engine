@@ -135,7 +135,7 @@ Version 1.0.0 - Initial Release
 - Privacy-first: All processing on your device
 - No internet required after installation
 
-📱 Install BreezeApp or BreezeApp Dot to get started!
+📱 Install BreezeApp or companion apps to get started!
 
 🔒 Secure: Signature-level permission protection
 ⚡ Fast: Optimized for mobile devices

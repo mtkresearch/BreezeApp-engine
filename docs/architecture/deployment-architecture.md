@@ -34,7 +34,7 @@ BreezeApp-engine follows a **service-oriented deployment model** where a single 
 │  ┌────────────────────────────────────────────────────────┐ │
 │  │            Application Layer (Client APKs)             │ │
 │  │  ┌───────────────┐ ┌───────────────┐ ┌──────────────┐ │ │
-│  │  │   BreezeApp   │ │ BreezeApp Dot │ │ Third-Party  │ │ │
+│  │  │   BreezeApp   │ │ companion apps │ │ Third-Party  │ │ │
 │  │  │   (Main UI)   │ │ (Voice UI)    │ │  Apps        │ │ │
 │  │  └───────┬───────┘ └───────┬───────┘ └──────┬───────┘ │ │
 │  └──────────┼─────────────────┼─────────────────┼─────────┘ │
@@ -90,7 +90,7 @@ BreezeApp-engine follows a **service-oriented deployment model** where a single 
 │  │  │  UID: 10101  │  │  UID: 10102  │  │  UID: 10103  │ │ │
 │  │  │              │  │              │  │              │ │ │
 │  │  │  BreezeApp   │  │ BreezeApp    │  │  Engine      │ │ │
-│  │  │  (Main)      │  │ Dot          │  │  Service     │ │ │
+│  │  │  (Main)      │  │ Client       │  │  Service     │ │ │
 │  │  │              │  │              │  │              │ │ │
 │  │  │  Process:    │  │  Process:    │  │  Process:    │ │ │
 │  │  │  main        │  │  main        │  │  :ai_engine  │ │ │
@@ -178,7 +178,7 @@ Android System (PID: 1)
 │       ├─ ViewModels
 │       └─ EngineClient (binds to engine)
 │
-├─ com.mtkresearch.breezeapp.dot (UID: 10102, PID: 1235)
+├─ com.mtkresearch.breezeapp.client (UID: 10102, PID: 1235)
 │   └─ Main process
 │       ├─ Voice UI
 │       └─ EngineClient (binds to engine)
@@ -570,7 +570,7 @@ fun cleanupOldCaches() {
 │  │  • Version: 1.0.0                                   │   │
 │  │  • Size: ~120MB (APK + models)                     │   │
 │  │  • Dependencies: None                               │   │
-│  │  • Required by: BreezeApp, BreezeApp Dot           │   │
+│  │  • Required by: BreezeApp, companion apps           │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                      ▲                                      │
 │                      │ Dependency                           │
@@ -578,9 +578,9 @@ fun cleanupOldCaches() {
 │  │                                      │                  │
 │  ▼                                      ▼                  │
 │  Package 2:                   Package 3:                   │
-│  com.mtkresearch.breezeapp    com.mtkresearch.breezeapp.dot│
+│  com.mtkresearch.breezeapp    com.mtkresearch.breezeapp.client│
 │  ┌────────────────────────┐  ┌────────────────────────┐    │
-│  │  BreezeApp (Main UI)   │  │  BreezeApp Dot (Voice) │    │
+│  │  BreezeApp (Main UI)   │  │  companion apps (Voice) │    │
 │  │  • Category: Productivity│  │  • Category: Tools     │    │
 │  │  • Version: 1.0.0      │  │  • Version: 1.0.0      │    │
 │  │  • Size: ~50MB         │  │  • Size: ~30MB         │    │

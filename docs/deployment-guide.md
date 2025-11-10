@@ -173,7 +173,7 @@ export UPLOAD_KEY_PASSWORD="your_key_password"
 
 ### Subsequent Apps in Ecosystem
 
-For **BreezeApp** (main client) and **BreezeApp Dot**:
+For **BreezeApp** (main client) and **companion apps**:
 
 1. Use the **same Google Play developer account**
 2. Enable Play App Signing (Google will use the same app signing key)
@@ -202,7 +202,7 @@ keytool -printcert -file app2-signing-cert.der | grep SHA256
 |-----------|-------------------|-------------|
 | BreezeApp-engine | App Signing Key A | ✅ Required |
 | BreezeApp (main) | App Signing Key A | ✅ Must match engine |
-| BreezeApp Dot | App Signing Key A | ✅ Must match engine |
+| companion apps | App Signing Key A | ✅ Must match engine |
 | Third-party apps | App Signing Key A OR authorized separately | ⚠️ Coordinate with team |
 
 ### Why Certificate Consistency Matters
@@ -233,7 +233,7 @@ Before releasing any app in the ecosystem:
 #!/bin/bash
 # verify-signatures.sh - Check all apps have matching signatures
 
-APPS=("engine.apk" "breezeapp.apk" "breezeapp-dot.apk")
+APPS=("engine.apk" "breezeapp.apk" "companion-app.apk")
 FINGERPRINTS=()
 
 for app in "${APPS[@]}"; do

@@ -344,7 +344,7 @@ Before removing deprecated methods in a MAJOR version:
 
 - [ ] Deprecation period ≥ 6 months completed
 - [ ] Migration guide published and tested
-- [ ] All first-party apps (BreezeApp, BreezeApp Dot) migrated
+- [ ] All first-party apps (BreezeApp or other client apps) migrated
 - [ ] Release notes clearly state breaking changes
 - [ ] Play Store description updated with compatibility info
 - [ ] Deprecated methods logged usage metrics (track adoption)

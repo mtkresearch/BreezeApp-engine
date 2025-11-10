@@ -135,7 +135,7 @@ AIDL API v2（向後相容）
 - 隱私優先：所有處理都在您的裝置上進行
 - 安裝後不需要網際網路
 
-📱 安裝 BreezeApp 或 BreezeApp Dot 以開始使用！
+📱 安裝 BreezeApp 或 companion apps 以開始使用！
 
 🔒 安全：簽章級別權限保護
 ⚡ 快速：針對行動裝置最佳化

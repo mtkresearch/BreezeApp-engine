@@ -63,7 +63,7 @@ BreezeApp-engine is an **Android service APK** that provides AI inference capabi
 │                    Ecosystem Layer                           │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
 │  │  BreezeApp   │  │ BreezeApp    │  │  3rd Party   │      │
-│  │  (Main App)  │  │    Dot       │  │  Apps        │      │
+│  │  (Main App)  │  │   Client     │  │  Apps        │      │
 │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
 └─────────┼──────────────────┼──────────────────┼──────────────┘
           │                  │                  │
@@ -498,8 +498,8 @@ Production Environment:
 │  └──────────────────┬─────────────────────────┘     │
 │                     │ Bind via AIDL                  │
 │  ┌────────────────────────────────────────────┐     │
-│  │  com.mtkresearch.breezeapp.dot            │     │
-│  │  (BreezeApp Dot)                          │     │
+│  │  com.mtkresearch.breezeapp.client            │     │
+│  │  (companion apps)                          │     │
 │  │  • Package: installed                     │     │
 │  │  • Signature: CERT_XYZ (same)             │     │
 │  └──────────────────┬─────────────────────────┘     │
@@ -532,7 +532,7 @@ Android System Process (system_server)
   ├─ com.mtkresearch.breezeapp (UID: 10101)
   │    └─ Main process
   │
-  ├─ com.mtkresearch.breezeapp.dot (UID: 10102)
+  ├─ com.mtkresearch.breezeapp.client (UID: 10102)
   │    └─ Main process
   │
   └─ com.mtkresearch.breezeapp.engine (UID: 10103)

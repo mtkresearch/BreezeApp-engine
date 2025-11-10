@@ -26,7 +26,7 @@ BreezeApp-engine uses Android's signature-level protection mechanism to restrict
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Client App (BreezeApp-dot)                                  │
+│ Client App (companion-app)                                  │
 │ - Signed with Certificate A                                 │
 │ - Declares: <uses-permission BIND_AI_SERVICE />            │
 └────────────────────┬────────────────────────────────────────┘
@@ -112,7 +112,7 @@ For signature-level permissions to work, **all apps in the ecosystem must be sig
 
 1. **BreezeApp-engine** - Signed with App Signing Key A
 2. **BreezeApp (main client)** - Signed with App Signing Key A
-3. **BreezeApp Dot** - Signed with App Signing Key A
+3. **companion apps** - Signed with App Signing Key A
 4. **Third-party integrations** - Must obtain App Signing Key A or coordinate separate keys
 
 #### Obtaining the Shared Certificate
@@ -317,7 +317,7 @@ BreezeApp-engine maintains a conceptual whitelist of authorized applications thr
 | Application | Package Name | Authorization Method |
 |------------|--------------|---------------------|
 | BreezeApp (main) | `com.mtkresearch.breezeapp` | Same signing certificate |
-| BreezeApp Dot | `com.mtkresearch.breezeapp.dot` | Same signing certificate |
+| companion apps | `com.mtkresearch.breezeapp.client` | Same signing certificate |
 | Third-party apps | Various | Coordinated certificates or API keys |
 
 ### Runtime Signature Verification
@@ -447,7 +447,7 @@ object SignatureValidator {
 │                                                          │
 │  ┌────────────┐      ┌────────────┐      ┌──────────┐  │
 │  │ BreezeApp  │      │ BreezeApp  │      │ Engine   │  │
-│  │   (main)   │◄────►│    Dot     │◄────►│ Service  │  │
+│  │   (main)   │◄────►│   Client   │◄────►│ Service  │  │
 │  └────────────┘      └────────────┘      └──────────┘  │
 │                                                          │
 └──────────────────────────────────────────────────────────┘

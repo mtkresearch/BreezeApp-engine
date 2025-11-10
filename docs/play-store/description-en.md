@@ -81,10 +81,10 @@ Full-featured AI assistant with chat, voice, and vision capabilities.
 
 **[Install BreezeApp](#)** *(Link to Play Store)*
 
-### BreezeApp Dot (Voice-First)
+### Companion App (Voice-First)
 Streamlined voice-first interface optimized for hands-free interaction.
 
-**[Install BreezeApp Dot](#)** *(Link to Play Store)*
+**[Install Companion App](#)** *(Link to Play Store)*
 
 ### For Developers
 Building your own app? See our integration documentation below.
@@ -194,7 +194,7 @@ A: Any Android 14+ device with 4GB+ RAM. MediaTek chipsets get NPU acceleration 
 A: Approximately 1-3GB depending on which AI models you use.
 
 **Q: Can I uninstall it?**
-A: Yes, but companion apps (BreezeApp, BreezeApp Dot) will stop working without the engine.
+A: Yes, but companion apps (BreezeApp or other client apps) will stop working without the engine.
 
 **Q: Is it free?**
 A: Yes, completely free with no ads or in-app purchases.
