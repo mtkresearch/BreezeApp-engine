@@ -37,32 +37,44 @@ API reference and integration guides:
 - Error codes and handling
 - Usage examples and patterns
 
-## Additional Documentation
+### 🌏 [i18n/](./i18n/)
+Internationalization and localization:
+- Traditional Chinese (zh-TW) translations
+- Localized documentation
 
-- **[INDEX.md](./INDEX.md)** - Complete documentation index with all files
+## Core Documentation
+
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - High-level architecture patterns and design principles
+- **[BUILD_GUIDE.md](./BUILD_GUIDE.md)** - Build instructions and release procedures
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Guidelines for contributors
+- **[MODEL_DOWNLOAD_UI_TUTORIAL.md](./MODEL_DOWNLOAD_UI_TUTORIAL.md)** - Model download UI guide
+- **[RUNNER_DEVELOPMENT.md](./RUNNER_DEVELOPMENT.md)** - AI runner development guide
+- **[SECURITY_GUIDE.md](./SECURITY_GUIDE.md)** - Security best practices
 - **[deployment-guide.md](./deployment-guide.md)** - Play Store deployment procedures
 - **[integration-guide.md](./integration-guide.md)** - Developer integration instructions
-- **[compatibility-matrix.md](./compatibility-matrix.md)** - Version compatibility rules
-- **[upgrade-guide.md](./upgrade-guide.md)** - Upgrade and migration procedures
-- **[user-guide.md](./user-guide.md)** - End-user installation guide
 
 ## Quick Links
 
 ### For Users
-- [What is BreezeApp Engine?](./user-guide.md#overview)
-- [How to Install](./user-guide.md#installation)
-- [Companion Apps](./user-guide.md#companion-apps)
+- [Model Download Tutorial](./MODEL_DOWNLOAD_UI_TUTORIAL.md)
+- [Installation Guide](./deployment-guide.md#installation)
 
 ### For Developers
 - [Integration Quick Start](./integration-guide.md#quick-start)
-- [AIDL API Reference](./api/aidl-reference.md)
-- [Signature Requirements](./security/security-model.md#signature-requirements)
-- [Troubleshooting](./integration-guide.md#troubleshooting)
+- [Runner Development](./RUNNER_DEVELOPMENT.md)
+- [Build Instructions](./BUILD_GUIDE.md)
+- [API Reference](./api/)
 
 ### For Architects
-- [Architecture Overview](./architecture/overview.md)
+- [Architecture Overview](./ARCHITECTURE.md)
+- [System Architecture](./architecture/system-architecture.md)
+- [Data Flow Diagrams](./architecture/data-flow.md)
 - [Security Model](./security/security-model.md)
-- [Version Management](./compatibility-matrix.md)
+
+### For Release Managers
+- [Build Guide](./BUILD_GUIDE.md)
+- [Deployment Guide](./deployment-guide.md)
+- [Play Store Content](./play-store/)
 
 ## Contributing
 
@@ -70,6 +82,6 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on updating documentatio
 
 ## Version
 
-This documentation corresponds to BreezeApp-engine deployment strategy feature 001.
+This documentation corresponds to BreezeApp-engine v1.0.0+
 
-**Last Updated**: 2025-11-03
+**Last Updated**: 2025-11-10
