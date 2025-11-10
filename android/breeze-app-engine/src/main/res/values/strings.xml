@@ -1,6 +1,10 @@
 <resources>
-    <string name="app_name">BreezeApp</string>
-    
+    <string name="app_name">BreezeApp Engine</string>
+
+    <!-- Permission Strings -->
+    <string name="permission_bind_engine_label">Bind to AI Engine Service</string>
+    <string name="permission_bind_engine_desc">Allows binding to the BreezeApp AI Engine service for AI inference capabilities</string>
+
     <!-- Common UI Strings -->
     <string name="loading">載入中…</string>
     <string name="cancel">取消</string>
