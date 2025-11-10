@@ -36,7 +36,7 @@ object EngineConstants {
     // Service constants
     object Service {
         const val FOREGROUND_NOTIFICATION_ID = 1001
-        const val PERMISSION = "com.mtkresearch.breezeapp.permission.BIND_AI_ROUTER_SERVICE"
+        const val PERMISSION = "com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE"
         const val API_VERSION = 1
     }
     

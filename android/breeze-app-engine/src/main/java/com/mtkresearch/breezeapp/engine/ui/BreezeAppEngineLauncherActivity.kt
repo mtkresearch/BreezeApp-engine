@@ -335,10 +335,10 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         val btnEngineSettings = findViewById<android.widget.Button>(R.id.btnEngineSettings)
         val fabClose = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.fabClose)
         
-        // Set button text colors to primary orange
+        // Set button text colors for outlined buttons only
         btnViewNotifications?.setTextColor(ContextCompat.getColor(this, R.color.primary))
         btnServiceInfo?.setTextColor(ContextCompat.getColor(this, R.color.primary))
-        btnEngineSettings?.setTextColor(ContextCompat.getColor(this, R.color.primary))
+        // btnEngineSettings uses white text on primary background (set in XML)
         
         // Setup click listeners
         btnViewNotifications?.setOnClickListener {

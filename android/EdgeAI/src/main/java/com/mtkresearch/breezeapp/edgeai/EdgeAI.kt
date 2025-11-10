@@ -147,8 +147,10 @@ object EdgeAI {
      */
     suspend fun initializeAndWait(context: Context, timeoutMs: Long = 10000) {
         val appContext = context.applicationContext
+        Log.d(TAG, "initializeAndWait() called - isInitialized=$isInitialized, isBound=$isBound")
         return suspendCancellableCoroutine { continuation ->
             if (isInitialized && isBound) {
+                Log.d(TAG, "Already initialized and bound, skipping")
                 continuation.resume(Unit)
                 return@suspendCancellableCoroutine
             }
@@ -169,7 +171,9 @@ object EdgeAI {
                 setPackage(AI_ROUTER_SERVICE_PACKAGE)
             }
 
+            Log.d(TAG, "Attempting to bind to service: action=$AI_ROUTER_SERVICE_ACTION, package=$AI_ROUTER_SERVICE_PACKAGE")
             val bindResult = appContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+            Log.d(TAG, "bindService() result: $bindResult")
             if (!bindResult) {
                 initializationCompletion = null
                 continuation.resumeWithException(ServiceConnectionException("Failed to bind to BreezeApp Engine Service"))
