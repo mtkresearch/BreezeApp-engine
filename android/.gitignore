@@ -21,3 +21,7 @@ keystore.properties
 *.keystore
 *.aab
 *.apk
+
+# Script backup files
+*.backup
+build.gradle.kts.backup

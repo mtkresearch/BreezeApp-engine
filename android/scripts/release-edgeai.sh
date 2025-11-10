@@ -13,12 +13,24 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-BUILD_GRADLE="EdgeAI/build.gradle.kts"
-BACKUP_FILE="EdgeAI/build.gradle.kts.backup"
 MANUAL_VERSION=""
 VERSION_TYPE="patch"  # Default to patch if not specified
 GIT_REMOTE="origin"
 GIT_BRANCH="main"
+
+# Detect script location and set absolute paths
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ "$SCRIPT_DIR" == */scripts ]]; then
+    # Running from android/scripts/
+    ANDROID_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+else
+    # Running from android/
+    ANDROID_DIR="$SCRIPT_DIR"
+fi
+
+# Use absolute paths (works regardless of current directory)
+BUILD_GRADLE="$ANDROID_DIR/EdgeAI/build.gradle.kts"
+BACKUP_FILE="$ANDROID_DIR/EdgeAI/build.gradle.kts.backup"
 
 # Function to print colored output
 print_info() {
@@ -117,7 +129,9 @@ main() {
     # Check if build.gradle.kts exists
     if [ ! -f "$BUILD_GRADLE" ]; then
         print_error "build.gradle.kts not found at $BUILD_GRADLE"
-        print_info "Make sure you're running this script from the android/ directory"
+        print_info "This script can be run from:"
+        print_info "  - android/ directory: ./scripts/release-edgeai.sh"
+        print_info "  - android/scripts/ directory: ./release-edgeai.sh"
         exit 1
     fi
 

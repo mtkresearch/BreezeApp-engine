@@ -22,15 +22,15 @@ VERSION_TYPE="patch"  # Default to patch if not specified
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [[ "$SCRIPT_DIR" == */scripts ]]; then
     # Running from android/scripts/
-    BUILD_GRADLE="../breeze-app-engine/build.gradle.kts"
-    BACKUP_FILE="../breeze-app-engine/build.gradle.kts.backup"
-    ANDROID_DIR=".."
+    ANDROID_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"  # Absolute path to android/
 else
     # Running from android/
-    BUILD_GRADLE="breeze-app-engine/build.gradle.kts"
-    BACKUP_FILE="breeze-app-engine/build.gradle.kts.backup"
-    ANDROID_DIR="."
+    ANDROID_DIR="$(cd "$SCRIPT_DIR" && pwd)"     # Absolute path to android/
 fi
+
+# Use absolute paths for gradle files (works from any directory)
+BUILD_GRADLE="$ANDROID_DIR/breeze-app-engine/build.gradle.kts"
+BACKUP_FILE="$ANDROID_DIR/breeze-app-engine/build.gradle.kts.backup"
 
 # Function to print colored output
 print_info() {
