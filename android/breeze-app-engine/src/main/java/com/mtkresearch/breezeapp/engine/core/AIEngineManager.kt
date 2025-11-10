@@ -448,9 +448,7 @@ class AIEngineManager(
             // --- End New Model Download Logic ---
 
             // Skip RAM check for cloud-based runners (they don't load models into RAM)
-            val isCloudRunner = runnerName.contains("OpenRouter", ignoreCase = true) ||
-                               runnerName.contains("cloud", ignoreCase = true)
-
+            // Note: isCloudRunner is already declared above for model validation
             if (isCloudRunner) {
                 logger.d(TAG, "Skipping RAM check for cloud runner: $runnerName")
             } else {
