@@ -58,6 +58,8 @@ class EngineSettingsActivity : AppCompatActivity() {
     
     // UI Components
     private lateinit var tabLayout: TabLayout
+    private lateinit var cardApiKey: com.google.android.material.card.MaterialCardView
+    private lateinit var editApiKey: EditText
     private lateinit var cardPriceFilter: com.google.android.material.card.MaterialCardView
     private lateinit var seekBarPrice: SeekBar
     private lateinit var tvPriceLabel: TextView
@@ -140,6 +142,8 @@ class EngineSettingsActivity : AppCompatActivity() {
     
     private fun initViews() {
         tabLayout = findViewById(R.id.tabLayout)
+        cardApiKey = findViewById(R.id.cardApiKey)
+        editApiKey = findViewById(R.id.editApiKey)
         cardPriceFilter = findViewById(R.id.cardPriceFilter)
         seekBarPrice = findViewById(R.id.seekBarPrice)
         tvPriceLabel = findViewById(R.id.tvPriceLabel)
@@ -159,7 +163,8 @@ class EngineSettingsActivity : AppCompatActivity() {
         // Initialize Save button as disabled (no changes yet)
         btnSave.isEnabled = false
 
-        // Setup price filter
+        // Setup API key field and price filter
+        setupApiKeyField()
         setupPriceFilter()
     }
     
@@ -380,8 +385,11 @@ class EngineSettingsActivity : AppCompatActivity() {
         currentValues: Map<String, Any>
     ): List<android.view.View> {
         val views = mutableListOf<android.view.View>()
-        
-        schemas.forEach { schema ->
+
+        // Filter out api_key since it has its own dedicated card
+        val filteredSchemas = schemas.filter { it.name != "api_key" }
+
+        filteredSchemas.forEach { schema ->
             val container = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(0, 8, 0, 8)
@@ -851,6 +859,34 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
 
     /**
+     * Setup API key field with change tracking
+     */
+    private fun setupApiKeyField() {
+        var isInitializing = true
+
+        editApiKey.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (isInitializing) {
+                    isInitializing = false
+                    return
+                }
+
+                val apiKey = s.toString()
+                val selectedRunner = getSelectedRunnerName() ?: return
+
+                // Get original API key for comparison
+                val originalApiKey = currentSettings.getRunnerParameters(selectedRunner)["api_key"] as? String ?: ""
+
+                // Track API key change
+                currentRunnerParameters["api_key"] = apiKey
+                onParameterChanged("api_key", apiKey, originalApiKey)
+            }
+        })
+    }
+
+    /**
      * Setup price filter UI and listeners
      */
     private fun setupPriceFilter() {
@@ -940,6 +976,9 @@ class EngineSettingsActivity : AppCompatActivity() {
                 updateModelCount()
                 btnRefreshModels.isEnabled = true
                 Log.d(TAG, "Successfully loaded ${models.size} models from OpenRouter")
+
+                // Regenerate parameter views to update model dropdown
+                updateRunnerInfo()
             }.onFailure { error ->
                 tvModelCount.text = "Failed to load models"
                 btnRefreshModels.isEnabled = true
@@ -971,18 +1010,28 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Show/hide price filter based on runner selection
+     * Show/hide API key and price filter based on runner selection
      */
     private fun updatePriceFilterVisibility() {
-        cardPriceFilter.visibility = if (isOpenRouterRunner()) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
+        val isOpenRouter = isOpenRouterRunner()
 
-        // Fetch models when OpenRouter runner is selected
-        if (isOpenRouterRunner() && allModels.isEmpty()) {
-            fetchModelsFromApi()
+        // Show/hide both cards for OpenRouter
+        cardApiKey.visibility = if (isOpenRouter) View.VISIBLE else View.GONE
+        cardPriceFilter.visibility = if (isOpenRouter) View.VISIBLE else View.GONE
+
+        if (isOpenRouter) {
+            // Load API key from settings into the dedicated field
+            val selectedRunner = getSelectedRunnerName()
+            if (selectedRunner != null) {
+                val apiKey = currentSettings.getRunnerParameters(selectedRunner)["api_key"] as? String ?: ""
+                editApiKey.setText(apiKey)
+                currentRunnerParameters["api_key"] = apiKey
+            }
+
+            // Fetch models when OpenRouter runner is selected
+            if (allModels.isEmpty()) {
+                fetchModelsFromApi()
+            }
         }
     }
 }
