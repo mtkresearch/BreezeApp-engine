@@ -13,8 +13,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-BUILD_GRADLE="breeze-app-engine/build.gradle.kts"
-BACKUP_FILE="breeze-app-engine/build.gradle.kts.backup"
+BUILD_GRADLE="../breeze-app-engine/build.gradle.kts"
+BACKUP_FILE="../breeze-app-engine/build.gradle.kts.backup"
 MANUAL_VERSION=""
 MANUAL_CODE=""
 BUILD_TYPE="both"  # Default: both APK and AAB
@@ -122,7 +122,7 @@ main() {
     # Check if build.gradle.kts exists
     if [ ! -f "$BUILD_GRADLE" ]; then
         print_error "build.gradle.kts not found at $BUILD_GRADLE"
-        print_info "Make sure you're running this script from the android/ directory"
+        print_info "Make sure you're running this script from the android/scripts/ directory"
         exit 1
     fi
 
@@ -182,6 +182,7 @@ main() {
 
     # Clean build
     print_info "Cleaning previous builds..."
+    cd ..  # Go to android/ directory for gradle
     ./gradlew clean
 
     # Create release directory

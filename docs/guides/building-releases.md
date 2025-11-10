@@ -47,8 +47,8 @@
 Use the automated release build script with version management:
 
 ```bash
-# From android/ directory
-cd android
+# From android/scripts/ directory
+cd android/scripts
 
 # Patch version bump (1.0.0 → 1.0.1)
 ./release-build.sh patch
@@ -77,6 +77,8 @@ cd android
 - ✅ Shows next steps (commit, tag, push)
 
 **See `android/scripts/README.md` for detailed documentation.**
+
+**Note**: All release scripts are located in `android/scripts/` directory.
 
 ---
 

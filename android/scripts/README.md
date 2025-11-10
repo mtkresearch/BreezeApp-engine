@@ -72,7 +72,7 @@ dependencies {
 
 ### 3. `release-build.sh`
 
-**Location**: `android/release-build.sh`
+**Location**: `android/scripts/release-build.sh`
 
 **Purpose**: Automate version bumping and AAB/APK building for releases.
 
