@@ -24,11 +24,11 @@ import kotlinx.coroutines.flow.flow
  *
  * Model files must be extracted to internal storage before loading.
  */
- @AIRunner(
-    vendor = VendorType.SHERPA,
-    priority = RunnerPriority.NORMAL,
-    capabilities = [CapabilityType.ASR]
-)
+//  @AIRunner(
+//     vendor = VendorType.SHERPA,
+//     priority = RunnerPriority.NORMAL,
+//     capabilities = [CapabilityType.ASR]
+// )
 class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStreamingRunner {
     companion object {
         private const val TAG = "SherpaASRRunner"
