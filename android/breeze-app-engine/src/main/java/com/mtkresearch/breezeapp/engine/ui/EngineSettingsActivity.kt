@@ -490,15 +490,22 @@ class EngineSettingsActivity : AppCompatActivity() {
                     // Check if this is a SelectionType parameter
                     if (schema.type is ParameterType.SelectionType) {
                         handleSelectionType(schema, currentValues, container)
-                    } else {
-                        // Default to text input for unknown types
+                    } else if (schema.type is ParameterType.StringType) {
+                        // Explicit handling for StringType (includes API keys, etc.)
                         val initialValue = currentValues[schema.name] ?: schema.defaultValue
-                        var isInitializing = true
 
                         val editText = android.widget.EditText(this).apply {
-                            hint = "Enter ${schema.type}"
-                            setText(initialValue?.toString() ?: "")
+                            // Set input type for sensitive fields (passwords, API keys)
+                            if (schema.isSensitive) {
+                                inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                                           android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                            } else {
+                                inputType = android.text.InputType.TYPE_CLASS_TEXT
+                            }
+                            hint = schema.displayName
 
+                            // Add text watcher BEFORE setText to properly track initialization
+                            var isInitializing = true
                             addTextChangedListener(object : android.text.TextWatcher {
                                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -513,6 +520,35 @@ class EngineSettingsActivity : AppCompatActivity() {
                                     onParameterChanged(schema.name, value, initialValue)
                                 }
                             })
+
+                            // Set initial value AFTER adding listener
+                            setText(initialValue?.toString() ?: "")
+                        }
+                        container.addView(editText)
+                    } else {
+                        // Fallback for unknown types
+                        val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                        val editText = android.widget.EditText(this).apply {
+                            hint = "Enter ${schema.type}"
+
+                            var isInitializing = true
+                            addTextChangedListener(object : android.text.TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                                override fun afterTextChanged(s: android.text.Editable?) {
+                                    if (isInitializing) {
+                                        isInitializing = false
+                                        return
+                                    }
+
+                                    val value = s.toString()
+                                    currentRunnerParameters[schema.name] = value
+                                    onParameterChanged(schema.name, value, initialValue)
+                                }
+                            })
+
+                            setText(initialValue?.toString() ?: "")
                         }
                         container.addView(editText)
                     }
