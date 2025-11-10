@@ -447,20 +447,27 @@ class AIEngineManager(
             }
             // --- End New Model Download Logic ---
 
-            // Get model info for RAM calculation
-            val modelInfo = if (modelId.isNotEmpty()) {
-                modelRegistryService.getModelDefinition(modelId)
+            // Skip RAM check for cloud-based runners (they don't load models into RAM)
+            val isCloudRunner = runnerName.contains("OpenRouter", ignoreCase = true) ||
+                               runnerName.contains("cloud", ignoreCase = true)
+
+            if (isCloudRunner) {
+                logger.d(TAG, "Skipping RAM check for cloud runner: $runnerName")
             } else {
-                // Find all models for the runner and return the one with the highest RAM requirement.
-                modelRegistryService.getCompatibleModels(runnerName).maxByOrNull { it.ramGB }
-            }
-            
-            val requiredRamGB = modelInfo?.ramGB ?: 2 // Default to 2GB if model info is not found
+                // Get model info for RAM calculation
+                val modelInfo = if (modelId.isNotEmpty()) {
+                    modelRegistryService.getModelDefinition(modelId)
+                } else {
+                    // Find all models for the runner and return the one with the highest RAM requirement.
+                    modelRegistryService.getCompatibleModels(runnerName).maxByOrNull { it.ramGB }
+                }
 
-            var availableRamGB = systemResourceMonitor.getAvailableRamGB()
-            logger.d(TAG, "Runner ${runner.getRunnerInfo().name} requires ~${requiredRamGB}GB RAM. Available: ${"%.2f".format(availableRamGB)}GB.")
+                val requiredRamGB = modelInfo?.ramGB ?: 2 // Default to 2GB if model info is not found
 
-            if (availableRamGB < requiredRamGB * 1.2f) {
+                var availableRamGB = systemResourceMonitor.getAvailableRamGB()
+                logger.d(TAG, "Runner ${runner.getRunnerInfo().name} requires ~${requiredRamGB}GB RAM. Available: ${"%.2f".format(availableRamGB)}GB.")
+
+                if (availableRamGB < requiredRamGB * 1.2f) {
                 logger.w(TAG, "Insufficient RAM. Attempting to unload other loaded runners.")
 
                 val runnersToUnload = activeRunners.entries.toList()
@@ -482,10 +489,11 @@ class AIEngineManager(
                 availableRamGB = systemResourceMonitor.getAvailableRamGB()
                 logger.d(TAG, "RAM available after unloading: ${"%.2f".format(availableRamGB)}GB.")
 
-                if (availableRamGB < requiredRamGB) {
-                    val errorMessage = "OOM Risk: Not enough RAM for runner ${runner.getRunnerInfo().name}. Required: ${requiredRamGB}GB, Available: ${"%.2f".format(availableRamGB)}GB."
-                    logger.e(TAG, errorMessage)
-                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.INSUFFICIENT_RESOURCES, errorMessage)))
+                    if (availableRamGB < requiredRamGB) {
+                        val errorMessage = "OOM Risk: Not enough RAM for runner ${runner.getRunnerInfo().name}. Required: ${requiredRamGB}GB, Available: ${"%.2f".format(availableRamGB)}GB."
+                        logger.e(TAG, errorMessage)
+                        return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.INSUFFICIENT_RESOURCES, errorMessage)))
+                    }
                 }
             }
 
