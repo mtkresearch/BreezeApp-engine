@@ -61,9 +61,22 @@ cd android
 
 # Manual version
 ./release-build.sh -v 1.5.0
+
+# Build only AAB (for Play Store)
+./release-build.sh -b aab patch
+
+# Build only APK
+./release-build.sh -b apk patch
 ```
 
-**See `android/RELEASE_BUILD.md` for detailed documentation.**
+**Features**:
+- ✅ Auto-increments `versionCode`
+- ✅ Updates `versionName` (semantic versioning)
+- ✅ Builds AAB and/or APK
+- ✅ Interactive confirmation
+- ✅ Shows next steps (commit, tag, push)
+
+**See `android/scripts/README.md` for detailed documentation.**
 
 ---
 
