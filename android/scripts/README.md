@@ -1,12 +1,39 @@
-# Release Build Scripts
+# BreezeApp-engine Scripts
 
-Automated scripts for building and releasing BreezeApp-engine.
+Automated scripts for building, releasing, and configuring BreezeApp-engine.
 
 ---
 
 ## 📜 Available Scripts
 
-### `release-build.sh`
+### 1. `setup-keystore.sh`
+
+**Location**: `android/scripts/setup-keystore.sh`
+
+**Purpose**: Interactive setup for release signing keystore configuration.
+
+**Usage**:
+```bash
+cd android/scripts
+./setup-keystore.sh
+```
+
+**What it does**:
+- ✅ Guides you through keystore configuration
+- ✅ Verifies keystore file and credentials
+- ✅ Lists available key aliases
+- ✅ Creates `keystore.properties` file
+- ✅ Extracts certificate SHA-256 fingerprint
+- ✅ Optionally creates new keystore if needed
+
+**Important Notes**:
+- **Use the SAME keystore** as BreezeApp for signature-level permissions to work
+- The keystore.properties file is in .gitignore (never committed)
+- Back up your keystore file - losing it means you can't update your app!
+
+---
+
+### 2. `release-build.sh`
 
 **Location**: `android/release-build.sh`
 
