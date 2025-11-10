@@ -675,6 +675,9 @@ class EngineSettingsActivity : AppCompatActivity() {
                 // Save via RunnerManager
                 runnerManager?.saveSettings(updatedSettings)
 
+                // Update currentSettings so Refresh button works with new values
+                currentSettings = updatedSettings
+
                 // Clear dirty state and navigate
                 unsavedChangesState.clearAll()
                 hideSaveProgress()
@@ -707,6 +710,9 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                 // Save via RunnerManager
                 runnerManager?.saveSettings(updatedSettings)
+
+                // Update currentSettings so Refresh button works with new values
+                currentSettings = updatedSettings
 
                 // Clear dirty state but DON'T navigate
                 unsavedChangesState.clearAll()
