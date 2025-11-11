@@ -270,16 +270,10 @@ class OpenRouterLLMRunner(
             ParameterSchema(
                 name = InferenceRequest.PARAM_MODEL,
                 displayName = "Model",
-                description = "OpenRouter model to use for text generation",
+                description = "OpenRouter model to use for text generation (free tier only by default, use Refresh to load more)",
                 type = ParameterType.SelectionType(
                     options = listOf(
-                        SelectionOption("openai/gpt-3.5-turbo", "GPT-3.5 Turbo", "Fast and efficient for most tasks"),
-                        SelectionOption("openai/gpt-4", "GPT-4", "Most capable model, higher cost"),
-                        SelectionOption("openai/gpt-4-turbo-preview", "GPT-4 Turbo", "Latest GPT-4 with improved performance"),
-                        SelectionOption("anthropic/claude-3-sonnet", "Claude 3 Sonnet", "Balanced performance and reasoning"),
-                        SelectionOption("anthropic/claude-3-opus", "Claude 3 Opus", "Most capable Claude model"),
-                        SelectionOption("meta-llama/llama-2-70b-chat", "Llama 2 70B", "Open source alternative"),
-                        SelectionOption("openai/gpt-oss-20b:free", "GPT-OSS 20B (Free)", "Free tier model")
+                        SelectionOption("openai/gpt-oss-20b:free", "GPT-OSS 20B (Free)", "Free tier model - default fallback")
                     )
                 ),
                 defaultValue = DEFAULT_MODEL,

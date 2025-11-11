@@ -6,4 +6,11 @@
     <string name="permission_bind_engine_label">Bind to AI Engine Service</string>
     <string name="permission_bind_engine_desc">Allows binding to the BreezeApp AI Engine service for AI inference capabilities</string>
 
+    <!-- Unsaved Changes Dialog -->
+    <string name="unsaved_changes_title">Unsaved Changes</string>
+    <string name="unsaved_changes_message">You have unsaved changes in: %1$s. What would you like to do?</string>
+    <string name="save">Save</string>
+    <string name="discard">Discard</string>
+    <string name="cancel">Cancel</string>
+
 </resources>

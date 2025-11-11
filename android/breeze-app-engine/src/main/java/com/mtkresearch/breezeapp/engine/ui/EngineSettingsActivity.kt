@@ -4,7 +4,9 @@ import android.os.Bundle
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.view.WindowManager
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -14,9 +16,16 @@ import com.mtkresearch.breezeapp.engine.R
 import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.ReloadResult
+import com.mtkresearch.breezeapp.engine.model.ui.UnsavedChangesState
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
+import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
+import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelInfo
+import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelParametersFetcher
+import com.mtkresearch.breezeapp.engine.runner.openrouter.models.OpenRouterModelFetcher
+import com.mtkresearch.breezeapp.engine.ui.dialogs.showUnsavedChangesDialog
 import kotlinx.coroutines.launch
 
 /**
@@ -32,13 +41,31 @@ import kotlinx.coroutines.launch
  * - Real-time validation
  */
 class EngineSettingsActivity : AppCompatActivity() {
-    
+
     companion object {
         private const val TAG = "EngineSettingsActivity"
+    }
+
+    /**
+     * Enum representing the current state of the save operation.
+     * Used for UI feedback and navigation blocking during async saves.
+     */
+    private enum class SaveOperationState {
+        IDLE,           // No save in progress
+        IN_PROGRESS,    // Save operation executing
+        SUCCESS,        // Save completed successfully
+        FAILED          // Save operation failed
     }
     
     // UI Components
     private lateinit var tabLayout: TabLayout
+    private lateinit var cardApiKey: com.google.android.material.card.MaterialCardView
+    private lateinit var editApiKey: EditText
+    private lateinit var cardPriceFilter: com.google.android.material.card.MaterialCardView
+    private lateinit var seekBarPrice: SeekBar
+    private lateinit var tvPriceLabel: TextView
+    private lateinit var tvModelCount: TextView
+    private lateinit var btnRefreshModels: Button
     private lateinit var tvCapabilityLabel: TextView
     private lateinit var spinnerRunners: Spinner
     private lateinit var tvRunnerDescription: TextView
@@ -48,21 +75,55 @@ class EngineSettingsActivity : AppCompatActivity() {
     private lateinit var tvParametersHint: TextView
     private lateinit var containerParameters: LinearLayout
     private lateinit var btnSave: Button
-    
+    private lateinit var progressOverlay: FrameLayout
+
     // State
     private var currentCapability: CapabilityType = CapabilityType.LLM
     private var currentSettings: EngineSettings = EngineSettings.default()
     private var currentRunnerParameters: MutableMap<String, Any> = mutableMapOf()
     private var availableRunners: Map<CapabilityType, List<RunnerInfo>> = emptyMap()
     private var runnerParameters: Map<String, List<ParameterSchema>> = emptyMap()
-    
+
+    // Unsaved changes tracking
+    private val unsavedChangesState = UnsavedChangesState()
+    private var navigationConfirmed = false
+    private var isLoadingRunners = false  // Flag to prevent tracking programmatic spinner changes
+
     // Direct RunnerManager access
     private var runnerManager: RunnerManager? = null
+
+    // Model fetching (for OpenRouter LLM)
+    private var allModels: List<ModelInfo> = emptyList()
+    private var filteredModels: List<ModelInfo> = emptyList()
+    private var modelSupportedParameters: Set<String>? = null  // Parameters supported by selected model
+    private val modelFetcher by lazy {
+        OpenRouterModelFetcher(
+            prefs = getSharedPreferences("engine_settings_models", MODE_PRIVATE)
+        )
+    }
+    private val parametersFetcher by lazy {
+        ModelParametersFetcher()
+    }
     
+    private val onBackPressedCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            Log.d(TAG, "Back button pressed! Has unsaved changes: ${unsavedChangesState.hasAnyUnsavedChanges()}")
+
+            if (unsavedChangesState.hasAnyUnsavedChanges()) {
+                Log.d(TAG, "Showing unsaved changes dialog")
+                showUnsavedChangesDialogAndNavigate()
+            } else {
+                Log.d(TAG, "No unsaved changes, allowing back navigation")
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_engine_settings)
-        
+
         setupToolbar()
         initViews()
         setupTabs()
@@ -70,6 +131,9 @@ class EngineSettingsActivity : AppCompatActivity() {
         loadSettings()
         setupEventListeners()
         setupObservers()
+
+        // Setup unsaved changes detection
+        onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
     }
     
     private fun setupToolbar() {
@@ -84,6 +148,13 @@ class EngineSettingsActivity : AppCompatActivity() {
     
     private fun initViews() {
         tabLayout = findViewById(R.id.tabLayout)
+        cardApiKey = findViewById(R.id.cardApiKey)
+        editApiKey = findViewById(R.id.editApiKey)
+        cardPriceFilter = findViewById(R.id.cardPriceFilter)
+        seekBarPrice = findViewById(R.id.seekBarPrice)
+        tvPriceLabel = findViewById(R.id.tvPriceLabel)
+        tvModelCount = findViewById(R.id.tvModelCount)
+        btnRefreshModels = findViewById(R.id.btnRefreshModels)
         tvCapabilityLabel = findViewById(R.id.tvCapabilityLabel)
         spinnerRunners = findViewById(R.id.spinnerRunners)
         tvRunnerDescription = findViewById(R.id.tvRunnerDescription)
@@ -93,6 +164,14 @@ class EngineSettingsActivity : AppCompatActivity() {
         tvParametersHint = findViewById(R.id.tvParametersHint)
         containerParameters = findViewById(R.id.containerParameters)
         btnSave = findViewById(R.id.btnSave)
+        progressOverlay = findViewById(R.id.progressOverlay)
+
+        // Initialize Save button as disabled (no changes yet)
+        btnSave.isEnabled = false
+
+        // Setup API key field and price filter
+        setupApiKeyField()
+        setupPriceFilter()
     }
     
     private fun setupTabs() {
@@ -225,14 +304,16 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
     
     private fun loadRunnersForCapability() {
+        isLoadingRunners = true  // Mark as programmatic change
+
         val runners = availableRunners[currentCapability] ?: emptyList()
         val runnerNames = runners.map { it.name }
-        
+
         // Create adapter for spinner
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, runnerNames)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerRunners.adapter = adapter
-        
+
         // Set currently selected runner
         val selectedRunner = currentSettings.selectedRunners[currentCapability]
         if (selectedRunner != null) {
@@ -241,9 +322,11 @@ class EngineSettingsActivity : AppCompatActivity() {
                 spinnerRunners.setSelection(selectedIndex)
             }
         }
-        
+
         // Update runner description and status
         updateRunnerInfo()
+
+        isLoadingRunners = false  // Allow user changes to be tracked
     }
     
     private fun updateCapabilityUI() {
@@ -304,7 +387,15 @@ class EngineSettingsActivity : AppCompatActivity() {
     
     private fun clearParameterViews() {
         containerParameters.removeAllViews()
+
+        // Preserve API key when clearing parameters (it's in a separate card, not regenerated)
+        val preservedApiKey = currentRunnerParameters["api_key"]
         currentRunnerParameters.clear()
+
+        // Restore API key if it existed
+        if (preservedApiKey != null) {
+            currentRunnerParameters["api_key"] = preservedApiKey
+        }
     }
     
     private fun createSimpleParameterViews(
@@ -312,8 +403,21 @@ class EngineSettingsActivity : AppCompatActivity() {
         currentValues: Map<String, Any>
     ): List<android.view.View> {
         val views = mutableListOf<android.view.View>()
-        
-        schemas.forEach { schema ->
+
+        // Filter out api_key since it has its own dedicated card
+        var filteredSchemas = schemas.filter { it.name != "api_key" }
+
+        // For OpenRouter models: Filter to only show parameters the model supports
+        if (isOpenRouterRunner() && modelSupportedParameters != null) {
+            val supportedSet = modelSupportedParameters!!
+            filteredSchemas = filteredSchemas.filter { schema ->
+                // Always show model parameter, filter others based on support
+                schema.name == "model" || supportedSet.contains(schema.name)
+            }
+            Log.d(TAG, "Filtered parameters for model: showing ${filteredSchemas.map { it.name }}")
+        }
+
+        filteredSchemas.forEach { schema ->
             val container = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(0, 8, 0, 8)
@@ -330,19 +434,39 @@ class EngineSettingsActivity : AppCompatActivity() {
             // Parameter input based on type
             when (schema.type.toString().lowercase(java.util.Locale.ROOT)) {
                 "float", "double", "number" -> {
+                    // Get the actual value being displayed (prioritize saved value, fallback to default)
+                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                    // Initialize currentRunnerParameters with initial value (so it's saved even if user doesn't change it)
+                    if (initialValue != null) {
+                        currentRunnerParameters[schema.name] = initialValue
+                    }
+
+                    var isInitializing = true
+
                     val editText = android.widget.EditText(this).apply {
                         hint = "Enter ${schema.type}"
                         inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-                        setText(currentValues[schema.name]?.toString() ?: schema.defaultValue?.toString() ?: "")
-                        
+
+                        // Set initial value
+                        setText(initialValue?.toString() ?: "")
+
+                        // Add listener AFTER setText
                         addTextChangedListener(object : android.text.TextWatcher {
                             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                             override fun afterTextChanged(s: android.text.Editable?) {
+                                // Skip the first call triggered by setText()
+                                if (isInitializing) {
+                                    isInitializing = false
+                                    return
+                                }
+
                                 try {
                                     val value = s.toString().toDoubleOrNull()
                                     if (value != null) {
                                         currentRunnerParameters[schema.name] = value
+                                        onParameterChanged(schema.name, value, initialValue)
                                     }
                                 } catch (e: Exception) {
                                     Log.w(TAG, "Invalid number input for ${schema.name}")
@@ -353,19 +477,34 @@ class EngineSettingsActivity : AppCompatActivity() {
                     container.addView(editText)
                 }
                 "int", "integer" -> {
+                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                    // Initialize currentRunnerParameters with initial value
+                    if (initialValue != null) {
+                        currentRunnerParameters[schema.name] = initialValue
+                    }
+
+                    var isInitializing = true
+
                     val editText = android.widget.EditText(this).apply {
                         hint = "Enter integer"
                         inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                        setText(currentValues[schema.name]?.toString() ?: schema.defaultValue?.toString() ?: "")
-                        
+                        setText(initialValue?.toString() ?: "")
+
                         addTextChangedListener(object : android.text.TextWatcher {
                             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                             override fun afterTextChanged(s: android.text.Editable?) {
+                                if (isInitializing) {
+                                    isInitializing = false
+                                    return
+                                }
+
                                 try {
                                     val value = s.toString().toIntOrNull()
                                     if (value != null) {
                                         currentRunnerParameters[schema.name] = value
+                                        onParameterChanged(schema.name, value, initialValue)
                                     }
                                 } catch (e: Exception) {
                                     Log.w(TAG, "Invalid integer input for ${schema.name}")
@@ -376,30 +515,102 @@ class EngineSettingsActivity : AppCompatActivity() {
                     container.addView(editText)
                 }
                 "boolean" -> {
+                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                    // Initialize currentRunnerParameters with initial value
+                    if (initialValue != null) {
+                        currentRunnerParameters[schema.name] = initialValue
+                    }
+
+                    var isInitializing = true
+
                     val switch = android.widget.Switch(this).apply {
                         text = "Enable ${schema.name}"
-                        isChecked = currentValues[schema.name] as? Boolean ?: schema.defaultValue as? Boolean ?: false
-                        
+                        isChecked = initialValue as? Boolean ?: false
+
                         setOnCheckedChangeListener { _, isChecked ->
+                            if (isInitializing) {
+                                isInitializing = false
+                                return@setOnCheckedChangeListener
+                            }
+
                             currentRunnerParameters[schema.name] = isChecked
+                            onParameterChanged(schema.name, isChecked, initialValue)
                         }
                     }
                     container.addView(switch)
                 }
                 else -> {
-                    val editText = android.widget.EditText(this).apply {
-                        hint = "Enter ${schema.type}"
-                        setText(currentValues[schema.name]?.toString() ?: schema.defaultValue?.toString() ?: "")
-                        
-                        addTextChangedListener(object : android.text.TextWatcher {
-                            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                            override fun afterTextChanged(s: android.text.Editable?) {
-                                currentRunnerParameters[schema.name] = s.toString()
+                    // Check if this is a SelectionType parameter
+                    if (schema.type is ParameterType.SelectionType) {
+                        handleSelectionType(schema, currentValues, container)
+                    } else if (schema.type is ParameterType.StringType) {
+                        // Explicit handling for StringType (includes API keys, etc.)
+                        val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                        // Initialize currentRunnerParameters with initial value
+                        if (initialValue != null) {
+                            currentRunnerParameters[schema.name] = initialValue
+                        }
+
+                        val editText = android.widget.EditText(this).apply {
+                            // Set input type for sensitive fields (passwords, API keys)
+                            if (schema.isSensitive) {
+                                inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                                           android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                            } else {
+                                inputType = android.text.InputType.TYPE_CLASS_TEXT
                             }
-                        })
+                            hint = schema.displayName
+
+                            // Add text watcher BEFORE setText to properly track initialization
+                            var isInitializing = true
+                            addTextChangedListener(object : android.text.TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                                override fun afterTextChanged(s: android.text.Editable?) {
+                                    if (isInitializing) {
+                                        isInitializing = false
+                                        return
+                                    }
+
+                                    val value = s.toString()
+                                    currentRunnerParameters[schema.name] = value
+                                    onParameterChanged(schema.name, value, initialValue)
+                                }
+                            })
+
+                            // Set initial value AFTER adding listener
+                            setText(initialValue?.toString() ?: "")
+                        }
+                        container.addView(editText)
+                    } else {
+                        // Fallback for unknown types
+                        val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                        val editText = android.widget.EditText(this).apply {
+                            hint = "Enter ${schema.type}"
+
+                            var isInitializing = true
+                            addTextChangedListener(object : android.text.TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                                override fun afterTextChanged(s: android.text.Editable?) {
+                                    if (isInitializing) {
+                                        isInitializing = false
+                                        return
+                                    }
+
+                                    val value = s.toString()
+                                    currentRunnerParameters[schema.name] = value
+                                    onParameterChanged(schema.name, value, initialValue)
+                                }
+                            })
+
+                            setText(initialValue?.toString() ?: "")
+                        }
+                        container.addView(editText)
                     }
-                    container.addView(editText)
                 }
             }
             
@@ -412,16 +623,49 @@ class EngineSettingsActivity : AppCompatActivity() {
     private fun setupEventListeners() {
         spinnerRunners.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                // Skip tracking if this is a programmatic change (during tab switching or initial load)
+                if (isLoadingRunners) {
+                    updateRunnerInfo()
+                    updatePriceFilterVisibility()
+                    return
+                }
+
+                // Runner selection changed by user - mark as dirty
+                val newRunner = spinnerRunners.selectedItem?.toString()
+                val originalRunner = currentSettings.selectedRunners[currentCapability]
+
+                Log.d(TAG, "Runner selection: current='$newRunner', saved='$originalRunner'")
+
+                // Track runner selection change only if different from saved value
+                if (newRunner != null && newRunner != originalRunner) {
+                    // Mark as dirty using a special runner name for runner selection tracking
+                    unsavedChangesState.trackChange(
+                        currentCapability,
+                        "RUNNER_SELECTION",
+                        "selected_runner",
+                        originalRunner,
+                        newRunner
+                    )
+
+                    // Enable Save button and back button intercept
+                    btnSave.isEnabled = true
+                    onBackPressedCallback.isEnabled = true
+
+                    Log.d(TAG, "Runner selection change tracked, Save button enabled")
+                }
+
                 updateRunnerInfo()
+                updatePriceFilterVisibility()
             }
-            
+
             override fun onNothingSelected(parent: AdapterView<*>?) {
                 clearParameterViews()
             }
         }
-        
+
         btnSave.setOnClickListener {
-            saveSettings()
+            // Save without navigating away (stay in settings)
+            saveSettingsWithoutNavigate()
         }
     }
     
@@ -475,6 +719,453 @@ class EngineSettingsActivity : AppCompatActivity() {
                 true
             }
             else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    override fun finish() {
+        if (unsavedChangesState.hasAnyUnsavedChanges() && !navigationConfirmed) {
+            showUnsavedChangesDialogAndNavigate()
+        } else {
+            super.finish()
+        }
+    }
+
+    private fun showUnsavedChangesDialogAndNavigate() {
+        val dirtyRunners = unsavedChangesState.getDirtyRunners()
+        showUnsavedChangesDialog(
+            dirtyRunners = dirtyRunners,
+            onSave = {
+                saveSettingsAndNavigate()
+            },
+            onDiscard = {
+                unsavedChangesState.clearAll()
+                navigationConfirmed = true
+                finish()
+            }
+        )
+    }
+
+    private fun saveSettingsAndNavigate() {
+        showSaveProgress()
+
+        lifecycleScope.launch {
+            try {
+                // Get currently selected runner name
+                val selectedRunner = getSelectedRunnerName() ?: run {
+                    hideSaveProgress()
+                    return@launch
+                }
+
+                // Build updated settings with runner selection AND parameters
+                var updatedSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunner)
+                updatedSettings = updatedSettings.withRunnerParameters(
+                    selectedRunner,
+                    currentRunnerParameters
+                )
+
+                // Save via RunnerManager
+                runnerManager?.saveSettings(updatedSettings)
+
+                // Update currentSettings so Refresh button works with new values
+                currentSettings = updatedSettings
+
+                // Clear dirty state and navigate
+                unsavedChangesState.clearAll()
+                hideSaveProgress()
+                navigationConfirmed = true
+                finish()
+            } catch (e: Exception) {
+                hideSaveProgress()
+                Log.e(TAG, "Failed to save settings", e)
+                Toast.makeText(this@EngineSettingsActivity, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun saveSettingsWithoutNavigate() {
+        showSaveProgress()
+
+        lifecycleScope.launch {
+            try {
+                // Get currently selected runner name
+                val selectedRunner = getSelectedRunnerName() ?: run {
+                    hideSaveProgress()
+                    return@launch
+                }
+
+                // Check if model parameter changed (requires runner reload)
+                val oldModel = currentSettings.getRunnerParameters(selectedRunner)["model"] as? String
+                val newModel = currentRunnerParameters["model"] as? String
+                val modelChanged = oldModel != null && newModel != null && oldModel != newModel
+
+                // Build updated settings with runner selection AND parameters
+                var updatedSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunner)
+                updatedSettings = updatedSettings.withRunnerParameters(
+                    selectedRunner,
+                    currentRunnerParameters
+                )
+
+                // Save via RunnerManager
+                runnerManager?.saveSettings(updatedSettings)
+
+                // Update currentSettings so Refresh button works with new values
+                currentSettings = updatedSettings
+
+                // Clear dirty state but DON'T navigate
+                unsavedChangesState.clearAll()
+                hideSaveProgress()
+
+                // Disable save button since no changes now
+                btnSave.isEnabled = false
+                onBackPressedCallback.isEnabled = false
+
+                // Show appropriate message based on what changed
+                val message = if (modelChanged) {
+                    "Settings saved! Please start a new conversation to use the new model."
+                } else {
+                    "Settings saved successfully"
+                }
+                Toast.makeText(this@EngineSettingsActivity, message, Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                hideSaveProgress()
+                Log.e(TAG, "Failed to save settings", e)
+                Toast.makeText(this@EngineSettingsActivity, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun showSaveProgress() {
+        progressOverlay.visibility = View.VISIBLE
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        )
+    }
+
+    private fun hideSaveProgress() {
+        progressOverlay.visibility = View.GONE
+        window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+    }
+
+    private fun onParameterChanged(parameterName: String, currentValue: Any?, originalValue: Any?) {
+        val selectedRunner = getSelectedRunnerName() ?: return
+
+        Log.d(TAG, "onParameterChanged: param=$parameterName, original=$originalValue, current=$currentValue, runner=$selectedRunner")
+
+        // Normalize values for comparison (convert numeric types properly)
+        val normalizedOriginal = when (originalValue) {
+            is Number -> originalValue.toDouble()
+            else -> originalValue
+        }
+        val normalizedCurrent = when (currentValue) {
+            is Number -> currentValue.toDouble()
+            else -> currentValue
+        }
+
+        // Track the change in unsaved changes state
+        unsavedChangesState.trackChange(
+            capability = currentCapability,
+            runnerName = selectedRunner,
+            parameterName = parameterName,
+            originalValue = normalizedOriginal,
+            currentValue = normalizedCurrent
+        )
+
+        // Update UI state based on dirty status
+        val hasDirtyChanges = unsavedChangesState.hasAnyUnsavedChanges()
+        Log.d(TAG, "Dirty state: $hasDirtyChanges (original=$normalizedOriginal, current=$normalizedCurrent)")
+
+        onBackPressedCallback.isEnabled = hasDirtyChanges
+        btnSave.isEnabled = hasDirtyChanges
+
+        Log.d(TAG, "Save button enabled: ${btnSave.isEnabled}, Back callback enabled: ${onBackPressedCallback.isEnabled}")
+    }
+
+    private fun getSelectedRunnerName(): String? {
+        val selectedRunner = availableRunners[currentCapability]?.getOrNull(spinnerRunners.selectedItemPosition)
+        return selectedRunner?.name
+    }
+
+    /**
+     * Handle SelectionType parameter - create dropdown
+     */
+    private fun handleSelectionType(
+        schema: ParameterSchema,
+        currentValues: Map<String, Any>,
+        container: LinearLayout
+    ) {
+        val selectionType = schema.type as ParameterType.SelectionType
+        val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+        // Determine options: use fetched models for OpenRouter model parameter, otherwise use schema options
+        val options = if (isOpenRouterRunner() && schema.name == "model" && filteredModels.isNotEmpty()) {
+            // Use dynamically fetched models
+            filteredModels.map { model ->
+                SelectionOption(
+                    key = model.id,
+                    displayName = model.getShortDisplayName(),
+                    description = model.description
+                )
+            }
+        } else {
+            // Use schema-defined options
+            selectionType.options
+        }
+
+        // Initialize currentRunnerParameters with the initial value (so it's saved even if user doesn't change it)
+        val initialKey = initialValue?.toString()
+        if (initialKey != null) {
+            currentRunnerParameters[schema.name] = initialKey
+        }
+
+        // Create spinner (dropdown)
+        val spinner = Spinner(this).apply {
+            val displayNames = options.map { it.displayName }
+            val adapter = ArrayAdapter(
+                this@EngineSettingsActivity,
+                android.R.layout.simple_spinner_item,
+                displayNames
+            ).apply {
+                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            this.adapter = adapter
+
+            // Set initial selection
+            val initialIndex = options.indexOfFirst { it.key == initialKey }
+            if (initialIndex >= 0) {
+                setSelection(initialIndex)
+            }
+
+            // Listen for selection changes
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                var isInitializing = true
+
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    if (isInitializing) {
+                        isInitializing = false
+                        return
+                    }
+
+                    val selectedOption = options[position]
+                    currentRunnerParameters[schema.name] = selectedOption.key
+                    onParameterChanged(schema.name, selectedOption.key, initialKey)
+
+                    // If this is a model selection change in OpenRouter, fetch supported parameters
+                    if (schema.name == "model" && isOpenRouterRunner()) {
+                        fetchModelSupportedParameters(selectedOption.key)
+                    }
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+
+        container.addView(spinner)
+    }
+
+    /**
+     * Fetch and apply supported parameters for a specific model
+     */
+    private fun fetchModelSupportedParameters(modelId: String) {
+        val apiKey = getCurrentApiKey()
+        if (apiKey.isNullOrBlank()) {
+            Log.w(TAG, "Cannot fetch model parameters: no API key")
+            return
+        }
+
+        Log.d(TAG, "Fetching supported parameters for model: $modelId")
+
+        lifecycleScope.launch {
+            val result = parametersFetcher.fetchSupportedParameters(modelId, apiKey)
+
+            result.onSuccess { parameters ->
+                modelSupportedParameters = parameters.toSet()
+                Log.d(TAG, "Model $modelId supports ${parameters.size} parameters: $parameters")
+
+                // Regenerate parameter views to show only supported ones
+                updateRunnerInfo()
+            }.onFailure { error ->
+                Log.w(TAG, "Failed to fetch model parameters (showing all): ${error.message}")
+                // Keep showing all parameters on error
+                modelSupportedParameters = null
+            }
+        }
+    }
+
+    /**
+     * Setup API key field with change tracking
+     */
+    private fun setupApiKeyField() {
+        var isInitializing = true
+
+        editApiKey.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (isInitializing) {
+                    isInitializing = false
+                    return
+                }
+
+                val apiKey = s.toString()
+                val selectedRunner = getSelectedRunnerName() ?: return
+
+                // Get original API key for comparison
+                val originalApiKey = currentSettings.getRunnerParameters(selectedRunner)["api_key"] as? String ?: ""
+
+                // Track API key change
+                currentRunnerParameters["api_key"] = apiKey
+                onParameterChanged("api_key", apiKey, originalApiKey)
+            }
+        })
+    }
+
+    /**
+     * Setup price filter UI and listeners
+     */
+    private fun setupPriceFilter() {
+        // SeekBar listener for price filtering
+        seekBarPrice.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val maxPrice = progressToPrice(progress)
+                updatePriceLabel(maxPrice)
+
+                // Filter models and update UI
+                if (allModels.isNotEmpty()) {
+                    filteredModels = modelFetcher.filterByPrice(allModels, maxPrice)
+                    updateModelCount()
+                }
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        // Refresh button listener
+        btnRefreshModels.setOnClickListener {
+            fetchModelsFromApi(forceRefresh = true)
+        }
+    }
+
+    /**
+     * Convert seekbar progress to price value
+     * Progress 0-100 mapped to price ranges
+     */
+    private fun progressToPrice(progress: Int): Double {
+        return when {
+            progress == 0 -> 0.0           // Free only
+            progress < 25 -> 0.000001      // Near-free ($0.000001)
+            progress < 50 -> 0.0001        // Very cheap ($0.0001)
+            progress < 75 -> 0.001         // Cheap ($0.001)
+            else -> 0.01                   // Standard ($0.01)
+        }
+    }
+
+    /**
+     * Update price label text
+     */
+    private fun updatePriceLabel(maxPrice: Double) {
+        tvPriceLabel.text = when {
+            maxPrice == 0.0 -> "Free models only"
+            maxPrice < 0.00001 -> "Up to ~Free"
+            else -> "Up to $${"%.6f".format(maxPrice)} per 1K tokens"
+        }
+    }
+
+    /**
+     * Update model count text
+     */
+    private fun updateModelCount() {
+        tvModelCount.text = "${filteredModels.size} models available"
+    }
+
+    /**
+     * Fetch models from OpenRouter API
+     */
+    private fun fetchModelsFromApi(forceRefresh: Boolean = false) {
+        // Only fetch for OpenRouterLLMRunner
+        if (!isOpenRouterRunner()) {
+            return
+        }
+
+        // Get API key from current settings
+        val apiKey = getCurrentApiKey()
+        if (apiKey.isNullOrBlank()) {
+            tvModelCount.text = "API key required"
+            Log.w(TAG, "Cannot fetch models: API key not set")
+            return
+        }
+
+        // Show loading state
+        tvModelCount.text = "Loading models..."
+        btnRefreshModels.isEnabled = false
+
+        lifecycleScope.launch {
+            val result = modelFetcher.fetchModels(apiKey, forceRefresh)
+
+            result.onSuccess { models ->
+                allModels = models
+                val maxPrice = progressToPrice(seekBarPrice.progress)
+                filteredModels = modelFetcher.filterByPrice(models, maxPrice)
+                updateModelCount()
+                btnRefreshModels.isEnabled = true
+                Log.d(TAG, "Successfully loaded ${models.size} models from OpenRouter")
+
+                // Regenerate parameter views to update model dropdown
+                updateRunnerInfo()
+            }.onFailure { error ->
+                tvModelCount.text = "Failed to load models"
+                btnRefreshModels.isEnabled = true
+                Log.e(TAG, "Failed to fetch models", error)
+                Toast.makeText(
+                    this@EngineSettingsActivity,
+                    "Failed to fetch models: ${error.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    /**
+     * Check if current runner is OpenRouterLLMRunner
+     */
+    private fun isOpenRouterRunner(): Boolean {
+        val selectedRunner = getSelectedRunnerName()
+        return selectedRunner?.contains("OpenRouter", ignoreCase = true) == true
+    }
+
+    /**
+     * Get API key from current runner parameters
+     */
+    private fun getCurrentApiKey(): String? {
+        val selectedRunner = getSelectedRunnerName() ?: return null
+        val runnerParams = currentSettings.getRunnerParameters(selectedRunner)
+        return runnerParams["api_key"] as? String
+    }
+
+    /**
+     * Show/hide API key and price filter based on runner selection
+     */
+    private fun updatePriceFilterVisibility() {
+        val isOpenRouter = isOpenRouterRunner()
+
+        // Show/hide both cards for OpenRouter
+        cardApiKey.visibility = if (isOpenRouter) View.VISIBLE else View.GONE
+        cardPriceFilter.visibility = if (isOpenRouter) View.VISIBLE else View.GONE
+
+        if (isOpenRouter) {
+            // Load API key from settings into the dedicated field
+            val selectedRunner = getSelectedRunnerName()
+            if (selectedRunner != null) {
+                val apiKey = currentSettings.getRunnerParameters(selectedRunner)["api_key"] as? String ?: ""
+                editApiKey.setText(apiKey)
+                currentRunnerParameters["api_key"] = apiKey
+            }
+
+            // Fetch models when OpenRouter runner is selected
+            if (allModels.isEmpty()) {
+                fetchModelsFromApi()
+            }
         }
     }
 }

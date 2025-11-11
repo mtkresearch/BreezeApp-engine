@@ -137,6 +137,137 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- API Key Section (for OpenRouter) - Isolated -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardApiKey"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Authentication"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="8dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="API Key"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginBottom="4dp" />
+
+                    <EditText
+                        android:id="@+id/editApiKey"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="48dp"
+                        android:hint="Enter your OpenRouter API key"
+                        android:inputType="textPassword"
+                        android:textSize="14sp"
+                        android:padding="12dp"
+                        android:background="@android:drawable/editbox_background" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Get your API key from openrouter.ai/keys"
+                        android:textSize="11sp"
+                        android:textColor="@color/text_tertiary"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Model Price Filter Section (for OpenRouter) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardPriceFilter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Model Price Filter"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:id="@+id/tvPriceLabel"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Free models only"
+                        android:textSize="14sp"
+                        android:textColor="@color/primary"
+                        android:layout_marginBottom="8dp" />
+
+                    <SeekBar
+                        android:id="@+id/seekBarPrice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:max="100"
+                        android:progress="0"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tvModelCount"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Loading models..."
+                            android:textSize="12sp"
+                            android:textColor="@color/text_tertiary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnRefreshModels"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="Refresh"
+                            android:textSize="12sp"
+                            android:textAllCaps="false"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:minWidth="80dp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Dynamic Parameters Section - Cleaner Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardParameters"
@@ -199,5 +330,24 @@
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
+
+    <!-- Progress Overlay for Save Operation -->
+    <FrameLayout
+        android:id="@+id/progressOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            style="?android:attr/progressBarStyleLarge"
+            android:indeterminateTint="@android:color/white" />
+
+    </FrameLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
