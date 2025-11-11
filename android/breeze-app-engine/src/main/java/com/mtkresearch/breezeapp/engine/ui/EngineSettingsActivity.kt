@@ -17,6 +17,7 @@ import com.mtkresearch.breezeapp.engine.model.CapabilityType
 import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.ReloadResult
 import com.mtkresearch.breezeapp.engine.model.ui.UnsavedChangesState
+import com.mtkresearch.breezeapp.engine.model.ui.ParameterValidationState
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
@@ -84,8 +85,9 @@ class EngineSettingsActivity : AppCompatActivity() {
     private var availableRunners: Map<CapabilityType, List<RunnerInfo>> = emptyMap()
     private var runnerParameters: Map<String, List<ParameterSchema>> = emptyMap()
 
-    // Unsaved changes tracking
+    // Unsaved changes tracking and validation
     private val unsavedChangesState = UnsavedChangesState()
+    private val validationState = ParameterValidationState()
     private var navigationConfirmed = false
     private var isLoadingRunners = false  // Flag to prevent tracking programmatic spinner changes
 
@@ -691,6 +693,26 @@ class EngineSettingsActivity : AppCompatActivity() {
                 // Get currently selected runner
                 val selectedRunnerName = spinnerRunners.selectedItem?.toString()
                 if (selectedRunnerName != null) {
+                    // Pre-save validation: Validate all parameters comprehensively
+                    val schemas = runnerParameters[selectedRunnerName] ?: emptyList()
+                    val isValid = validationState.validateRunner(
+                        capability = currentCapability,
+                        runnerName = selectedRunnerName,
+                        parameters = currentRunnerParameters,
+                        schemas = schemas
+                    )
+
+                    if (!isValid) {
+                        val errorCount = validationState.getErrorCount(currentCapability, selectedRunnerName)
+                        Toast.makeText(
+                            this@EngineSettingsActivity,
+                            "Cannot save: $errorCount parameter(s) have invalid values",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@launch
+                    }
+
+
                     // Update settings with selected runner
                     currentSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunnerName)
                     
@@ -871,12 +893,27 @@ class EngineSettingsActivity : AppCompatActivity() {
             currentValue = normalizedCurrent
         )
 
-        // Update UI state based on dirty status
+        // Validate parameter value
+        val selectedRunnerSchemas = runnerParameters[selectedRunner] ?: emptyList()
+        val schema = selectedRunnerSchemas.find { it.name == parameterName }
+        if (schema != null) {
+            validationState.validateParameter(
+                capability = currentCapability,
+                runnerName = selectedRunner,
+                parameterName = parameterName,
+                value = currentValue,
+                schema = schema
+            )
+        }
+
+        // Update UI state based on dirty status AND validation
         val hasDirtyChanges = unsavedChangesState.hasAnyUnsavedChanges()
-        Log.d(TAG, "Dirty state: $hasDirtyChanges (original=$normalizedOriginal, current=$normalizedCurrent)")
+        val isValid = validationState.isRunnerValid(currentCapability, selectedRunner)
+        Log.d(TAG, "Dirty state: $hasDirtyChanges, Valid: $isValid (original=$normalizedOriginal, current=$normalizedCurrent)")
 
         onBackPressedCallback.isEnabled = hasDirtyChanges
-        btnSave.isEnabled = hasDirtyChanges
+        // Enable Save button only if there are changes AND all parameters are valid
+        btnSave.isEnabled = hasDirtyChanges && isValid
 
         Log.d(TAG, "Save button enabled: ${btnSave.isEnabled}, Back callback enabled: ${onBackPressedCallback.isEnabled}")
     }
