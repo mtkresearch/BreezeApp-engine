@@ -214,26 +214,11 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Model Filter &amp; Search"
+                        android:text="Model Price Filter"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
-                        android:layout_marginBottom="8dp" />
-
-                    <!-- Model Search Field -->
-                    <EditText
-                        android:id="@+id/etModelSearch"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="Search models by name..."
-                        android:inputType="text"
-                        android:maxLines="1"
-                        android:textSize="14sp"
-                        android:padding="12dp"
-                        android:background="@android:drawable/edit_text"
-                        android:layout_marginBottom="12dp"
-                        android:drawableStart="@android:drawable/ic_menu_search"
-                        android:drawablePadding="8dp" />
+                        android:layout_marginBottom="4dp" />
 
                     <TextView
                         android:id="@+id/tvPriceLabel"
