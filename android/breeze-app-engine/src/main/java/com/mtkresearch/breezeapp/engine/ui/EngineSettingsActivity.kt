@@ -840,6 +840,40 @@ class EngineSettingsActivity : AppCompatActivity() {
                     return@launch
                 }
 
+                // CRITICAL: Pre-save validation to prevent saving invalid values
+                val schemas = runnerParameters[selectedRunner] ?: emptyList()
+                Log.d(TAG, "saveSettingsAndNavigate: Pre-save validation with ${schemas.size} schemas")
+
+                val isValid = validationState.validateRunner(
+                    capability = currentCapability,
+                    runnerName = selectedRunner,
+                    parameters = currentRunnerParameters,
+                    schemas = schemas
+                )
+
+                val errorCount = validationState.getErrorCount(currentCapability, selectedRunner)
+                Log.d(TAG, "saveSettingsAndNavigate: Validation result: Valid=$isValid, Errors=$errorCount")
+
+                if (!isValid) {
+                    // Log each validation error
+                    schemas.forEach { schema ->
+                        val error = validationState.getError(currentCapability, selectedRunner, schema.name)
+                        if (error != null) {
+                            Log.e(TAG, "saveSettingsAndNavigate: Validation error for ${schema.name}: $error")
+                        }
+                    }
+
+                    hideSaveProgress()
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@EngineSettingsActivity,
+                            "Cannot save: $errorCount parameter(s) have invalid values. Please fix them first.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    return@launch
+                }
+
                 // Build updated settings with runner selection AND parameters
                 var updatedSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunner)
                 updatedSettings = updatedSettings.withRunnerParameters(
@@ -874,6 +908,40 @@ class EngineSettingsActivity : AppCompatActivity() {
                 // Get currently selected runner name
                 val selectedRunner = getSelectedRunnerName() ?: run {
                     hideSaveProgress()
+                    return@launch
+                }
+
+                // CRITICAL: Pre-save validation to prevent saving invalid values
+                val schemas = runnerParameters[selectedRunner] ?: emptyList()
+                Log.d(TAG, "saveSettingsWithoutNavigate: Pre-save validation with ${schemas.size} schemas")
+
+                val isValid = validationState.validateRunner(
+                    capability = currentCapability,
+                    runnerName = selectedRunner,
+                    parameters = currentRunnerParameters,
+                    schemas = schemas
+                )
+
+                val errorCount = validationState.getErrorCount(currentCapability, selectedRunner)
+                Log.d(TAG, "saveSettingsWithoutNavigate: Validation result: Valid=$isValid, Errors=$errorCount")
+
+                if (!isValid) {
+                    // Log each validation error
+                    schemas.forEach { schema ->
+                        val error = validationState.getError(currentCapability, selectedRunner, schema.name)
+                        if (error != null) {
+                            Log.e(TAG, "saveSettingsWithoutNavigate: Validation error for ${schema.name}: $error")
+                        }
+                    }
+
+                    hideSaveProgress()
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@EngineSettingsActivity,
+                            "Cannot save: $errorCount parameter(s) have invalid values. Please fix them first.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                     return@launch
                 }
 
