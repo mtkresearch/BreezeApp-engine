@@ -201,22 +201,41 @@ sealed class ParameterType {
                 is Double -> value
                 is Float -> value.toDouble()
                 is Number -> value.toDouble()
-                is String -> value.toDoubleOrNull() ?: return ValidationResult.invalid("Invalid number format")
+                is String -> {
+                    // Stricter validation for string inputs to reject incomplete numbers during typing
+                    val trimmed = value.trim()
+
+                    // Reject incomplete number formats that Android's toDoubleOrNull accepts but shouldn't:
+                    // - Lone minus sign: "-"
+                    // - Minus with trailing dot: "-.", "0.", etc
+                    // - Just a dot: "."
+                    if (trimmed.isEmpty() ||
+                        trimmed == "-" ||
+                        trimmed == "." ||
+                        trimmed.endsWith(".") && !trimmed.contains(Regex("\\d+\\.\\d+")) ||
+                        trimmed.startsWith(".") ||
+                        trimmed == "-." ||
+                        trimmed.matches(Regex("-?0*\\.?$"))) {  // "-0", "-0.", "0.", etc without digits after decimal
+                        return ValidationResult.invalid("Incomplete number")
+                    }
+
+                    value.toDoubleOrNull() ?: return ValidationResult.invalid("Invalid number format")
+                }
                 else -> return ValidationResult.invalid("Expected numeric value")
             }
-            
+
             minValue?.let { min ->
                 if (doubleValue < min) {
                     return ValidationResult.invalid("Minimum value is $min")
                 }
             }
-            
+
             maxValue?.let { max ->
                 if (doubleValue > max) {
                     return ValidationResult.invalid("Maximum value is $max")
                 }
             }
-            
+
             return ValidationResult.valid()
         }
     }
