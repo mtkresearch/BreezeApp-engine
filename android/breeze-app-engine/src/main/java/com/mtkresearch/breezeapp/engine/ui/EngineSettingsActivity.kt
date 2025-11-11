@@ -68,6 +68,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     private lateinit var tvPriceLabel: TextView
     private lateinit var tvModelCount: TextView
     private lateinit var btnRefreshModels: Button
+    private lateinit var etModelSearch: EditText
     private lateinit var tvCapabilityLabel: TextView
     private lateinit var spinnerRunners: Spinner
     private lateinit var tvRunnerDescription: TextView
@@ -165,6 +166,7 @@ class EngineSettingsActivity : AppCompatActivity() {
         tvPriceLabel = findViewById(R.id.tvPriceLabel)
         tvModelCount = findViewById(R.id.tvModelCount)
         btnRefreshModels = findViewById(R.id.btnRefreshModels)
+        etModelSearch = findViewById(R.id.etModelSearch)
         tvCapabilityLabel = findViewById(R.id.tvCapabilityLabel)
         spinnerRunners = findViewById(R.id.spinnerRunners)
         tvRunnerDescription = findViewById(R.id.tvRunnerDescription)
@@ -1467,11 +1469,8 @@ class EngineSettingsActivity : AppCompatActivity() {
                 val maxPrice = progressToPrice(progress)
                 updatePriceLabel(maxPrice)
 
-                // Filter models and update UI
-                if (allModels.isNotEmpty()) {
-                    filteredModels = modelFetcher.filterByPrice(allModels, maxPrice)
-                    updateModelCount()
-                }
+                // Apply both price and search filters
+                applyModelFilters()
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -1482,6 +1481,43 @@ class EngineSettingsActivity : AppCompatActivity() {
         btnRefreshModels.setOnClickListener {
             fetchModelsFromApi(forceRefresh = true)
         }
+
+        // Model search listener - filter in real-time as user types
+        etModelSearch.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                applyModelFilters()
+            }
+        })
+    }
+
+    /**
+     * Apply combined price and search filters to model list
+     * Robustest approach: Central filtering method used by both price and search
+     */
+    private fun applyModelFilters() {
+        if (allModels.isEmpty()) return
+
+        // Step 1: Apply price filter
+        val maxPrice = progressToPrice(seekBarPrice.progress)
+        var filtered = modelFetcher.filterByPrice(allModels, maxPrice)
+
+        // Step 2: Apply search filter (case-insensitive partial match)
+        val searchQuery = etModelSearch.text.toString().trim()
+        if (searchQuery.isNotEmpty()) {
+            filtered = filtered.filter { model ->
+                model.id.contains(searchQuery, ignoreCase = true) ||
+                model.name.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
+        // Update filtered list and UI
+        filteredModels = filtered
+        updateModelCount()
+
+        // If a model spinner exists in the UI, it will be updated when user navigates
+        // No need to force spinner update here as it may interfere with user interaction
     }
 
     /**
@@ -1513,7 +1549,17 @@ class EngineSettingsActivity : AppCompatActivity() {
      * Update model count text
      */
     private fun updateModelCount() {
-        tvModelCount.text = "${filteredModels.size} models available"
+        val searchQuery = etModelSearch.text.toString().trim()
+        val isFiltering = filteredModels.size < allModels.size
+
+        tvModelCount.text = if (isFiltering) {
+            // Show "Showing X of Y models" when filtered
+            "Showing ${filteredModels.size} of ${allModels.size} models" +
+                    if (searchQuery.isNotEmpty()) " (search: \"$searchQuery\")" else ""
+        } else {
+            // Show simple count when no filters active
+            "${filteredModels.size} models available"
+        }
     }
 
     /**
