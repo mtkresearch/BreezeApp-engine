@@ -70,6 +70,17 @@ data class UnsavedChangesState(
     }
 
     /**
+     * Check if a specific runner within a capability has unsaved changes
+     *
+     * @param capability The capability type
+     * @param runnerName The runner identifier
+     * @return true if any parameter for this runner differs from its original value
+     */
+    fun hasChangesForRunner(capability: CapabilityType, runnerName: String): Boolean {
+        return isDirty(capability, runnerName)
+    }
+
+    /**
      * Check if any runner across all capabilities has unsaved changes
      *
      * @return true if at least one parameter in any runner is dirty

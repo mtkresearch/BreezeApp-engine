@@ -448,8 +448,15 @@ class EngineSettingsActivity : AppCompatActivity() {
         val errorCount = validationState.getErrorCount(currentCapability, runnerName)
         val hasDirtyChanges = unsavedChangesState.hasAnyUnsavedChanges()
 
-        Log.d(TAG, "Initial validation complete: Valid=$isValid, Errors=$errorCount, Dirty=$hasDirtyChanges")
-        val shouldEnable = hasDirtyChanges && isValid
+        // Check if runner selection changed (not just parameter changes)
+        val runnerSelectionChanged = unsavedChangesState.hasChangesForRunner(currentCapability, "RUNNER_SELECTION")
+
+        Log.d(TAG, "Initial validation complete: Valid=$isValid, Errors=$errorCount, Dirty=$hasDirtyChanges, RunnerChanged=$runnerSelectionChanged")
+
+        // Enable button if:
+        // 1. Runner selection changed (always allow saving runner change), OR
+        // 2. Parameters changed AND all are valid
+        val shouldEnable = runnerSelectionChanged || (hasDirtyChanges && isValid)
         updateSaveButtonState(shouldEnable)
     }
     
@@ -1188,11 +1195,18 @@ class EngineSettingsActivity : AppCompatActivity() {
         val hasDirtyChanges = unsavedChangesState.hasAnyUnsavedChanges()
         val isValid = validationState.isRunnerValid(currentCapability, selectedRunner)
         val errorCount = validationState.getErrorCount(currentCapability, selectedRunner)
-        Log.d(TAG, "Dirty state: $hasDirtyChanges, Valid: $isValid, Errors: $errorCount (original=$normalizedOriginal, current=$normalizedCurrent)")
+
+        // Check if runner selection changed (not just parameter changes)
+        val runnerSelectionChanged = unsavedChangesState.hasChangesForRunner(currentCapability, "RUNNER_SELECTION")
+
+        Log.d(TAG, "Dirty state: $hasDirtyChanges, Valid: $isValid, Errors: $errorCount, RunnerChanged: $runnerSelectionChanged (original=$normalizedOriginal, current=$normalizedCurrent)")
 
         onBackPressedCallback.isEnabled = hasDirtyChanges
-        // Enable Save button only if there are changes AND all parameters are valid
-        val shouldEnable = hasDirtyChanges && isValid
+
+        // Enable Save button if:
+        // 1. Runner selection changed (always allow saving runner change), OR
+        // 2. Parameters changed AND all are valid
+        val shouldEnable = runnerSelectionChanged || (hasDirtyChanges && isValid)
         updateSaveButtonState(shouldEnable)
 
         Log.d(TAG, "Save button enabled: ${btnSave.isEnabled}, Back callback enabled: ${onBackPressedCallback.isEnabled}")
