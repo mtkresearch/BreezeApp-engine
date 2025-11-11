@@ -86,6 +86,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     // Unsaved changes tracking
     private val unsavedChangesState = UnsavedChangesState()
     private var navigationConfirmed = false
+    private var isLoadingRunners = false  // Flag to prevent tracking programmatic spinner changes
 
     // Direct RunnerManager access
     private var runnerManager: RunnerManager? = null
@@ -298,14 +299,16 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
     
     private fun loadRunnersForCapability() {
+        isLoadingRunners = true  // Mark as programmatic change
+
         val runners = availableRunners[currentCapability] ?: emptyList()
         val runnerNames = runners.map { it.name }
-        
+
         // Create adapter for spinner
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, runnerNames)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerRunners.adapter = adapter
-        
+
         // Set currently selected runner
         val selectedRunner = currentSettings.selectedRunners[currentCapability]
         if (selectedRunner != null) {
@@ -314,9 +317,11 @@ class EngineSettingsActivity : AppCompatActivity() {
                 spinnerRunners.setSelection(selectedIndex)
             }
         }
-        
+
         // Update runner description and status
         updateRunnerInfo()
+
+        isLoadingRunners = false  // Allow user changes to be tracked
     }
     
     private fun updateCapabilityUI() {
@@ -603,6 +608,37 @@ class EngineSettingsActivity : AppCompatActivity() {
     private fun setupEventListeners() {
         spinnerRunners.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                // Skip tracking if this is a programmatic change (during tab switching or initial load)
+                if (isLoadingRunners) {
+                    updateRunnerInfo()
+                    updatePriceFilterVisibility()
+                    return
+                }
+
+                // Runner selection changed by user - mark as dirty
+                val newRunner = spinnerRunners.selectedItem?.toString()
+                val originalRunner = currentSettings.selectedRunners[currentCapability]
+
+                Log.d(TAG, "Runner selection: current='$newRunner', saved='$originalRunner'")
+
+                // Track runner selection change only if different from saved value
+                if (newRunner != null && newRunner != originalRunner) {
+                    // Mark as dirty using a special runner name for runner selection tracking
+                    unsavedChangesState.trackChange(
+                        currentCapability,
+                        "RUNNER_SELECTION",
+                        "selected_runner",
+                        originalRunner,
+                        newRunner
+                    )
+
+                    // Enable Save button and back button intercept
+                    btnSave.isEnabled = true
+                    onBackPressedCallback.isEnabled = true
+
+                    Log.d(TAG, "Runner selection change tracked, Save button enabled")
+                }
+
                 updateRunnerInfo()
                 updatePriceFilterVisibility()
             }
