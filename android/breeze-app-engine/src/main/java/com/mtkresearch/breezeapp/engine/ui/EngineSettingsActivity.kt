@@ -705,8 +705,9 @@ class EngineSettingsActivity : AppCompatActivity() {
                     return@launch
                 }
 
-                // Build updated settings with current parameters
-                val updatedSettings = currentSettings.withRunnerParameters(
+                // Build updated settings with runner selection AND parameters
+                var updatedSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunner)
+                updatedSettings = updatedSettings.withRunnerParameters(
                     selectedRunner,
                     currentRunnerParameters
                 )
@@ -741,8 +742,14 @@ class EngineSettingsActivity : AppCompatActivity() {
                     return@launch
                 }
 
-                // Build updated settings with current parameters
-                val updatedSettings = currentSettings.withRunnerParameters(
+                // Check if model parameter changed (requires runner reload)
+                val oldModel = currentSettings.getRunnerParameters(selectedRunner)["model"] as? String
+                val newModel = currentRunnerParameters["model"] as? String
+                val modelChanged = oldModel != null && newModel != null && oldModel != newModel
+
+                // Build updated settings with runner selection AND parameters
+                var updatedSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunner)
+                updatedSettings = updatedSettings.withRunnerParameters(
                     selectedRunner,
                     currentRunnerParameters
                 )
@@ -761,7 +768,13 @@ class EngineSettingsActivity : AppCompatActivity() {
                 btnSave.isEnabled = false
                 onBackPressedCallback.isEnabled = false
 
-                Toast.makeText(this@EngineSettingsActivity, "Settings saved successfully", Toast.LENGTH_SHORT).show()
+                // Show appropriate message based on what changed
+                val message = if (modelChanged) {
+                    "Settings saved! Please start a new conversation to use the new model."
+                } else {
+                    "Settings saved successfully"
+                }
+                Toast.makeText(this@EngineSettingsActivity, message, Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 hideSaveProgress()
                 Log.e(TAG, "Failed to save settings", e)
