@@ -21,6 +21,7 @@ import com.mtkresearch.breezeapp.engine.model.ui.ParameterValidationState
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
 import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelInfo
@@ -386,8 +387,16 @@ class EngineSettingsActivity : AppCompatActivity() {
         clearParameterViews()
 
         // Get current parameter values for this runner
-        val currentValues = currentSettings.getRunnerParameters(runnerName)
-        Log.d(TAG, "Current parameter values: ${currentValues.keys}")
+        // IMPORTANT: Prioritize working memory (currentRunnerParameters) over saved settings
+        // This prevents losing user changes when UI regenerates (e.g., model selection changes)
+        val savedValues = currentSettings.getRunnerParameters(runnerName)
+        Log.d(TAG, "loadRunnerParameters: savedValues=$savedValues")
+        Log.d(TAG, "loadRunnerParameters: currentRunnerParameters=$currentRunnerParameters")
+        val currentValues = savedValues.toMutableMap().apply {
+            // Override saved values with any working values from currentRunnerParameters
+            putAll(currentRunnerParameters)
+        }.toMap()
+        Log.d(TAG, "loadRunnerParameters: merged currentValues=$currentValues")
 
         // Create parameter views - this populates parameterFieldMap
         val parameterViews = createSimpleParameterViews(schemas, currentValues)
@@ -414,6 +423,14 @@ class EngineSettingsActivity : AppCompatActivity() {
         // Validate each parameter that has a value
         schemas.forEach { schema ->
             val value = currentRunnerParameters[schema.name]
+
+            // Skip validation for "model" parameter when using OpenRouter with dynamic models
+            // The schema only has one hardcoded model, but API provides many models dynamically
+            if (schema.name == "model" && isOpenRouterRunner() && filteredModels.isNotEmpty()) {
+                Log.d(TAG, "Skipping validation for dynamically fetched model: $value")
+                return@forEach
+            }
+
             val result = validationState.validateParameter(
                 capability = currentCapability,
                 runnerName = runnerName,
@@ -442,13 +459,20 @@ class EngineSettingsActivity : AppCompatActivity() {
         // Clear field references
         parameterFieldMap.clear()
 
-        // Preserve API key when clearing parameters (it's in a separate card, not regenerated)
+        // Preserve certain parameters when clearing (they're in separate cards or need to persist across regeneration)
         val preservedApiKey = currentRunnerParameters["api_key"]
+        val preservedModel = currentRunnerParameters["model"]  // Preserve model selection during UI regeneration
+
+        Log.d(TAG, "clearParameterViews: preserving api_key=$preservedApiKey, model=$preservedModel")
+
         currentRunnerParameters.clear()
 
-        // Restore API key if it existed
+        // Restore preserved parameters if they existed
         if (preservedApiKey != null) {
             currentRunnerParameters["api_key"] = preservedApiKey
+        }
+        if (preservedModel != null) {
+            currentRunnerParameters["model"] = preservedModel
         }
     }
     
@@ -486,8 +510,9 @@ class EngineSettingsActivity : AppCompatActivity() {
             container.addView(label)
             
             // Parameter input based on type
-            when (schema.type.toString().lowercase(java.util.Locale.ROOT)) {
-                "float", "double", "number" -> {
+            when (schema.type) {
+                is ParameterType.FloatType -> {
+                    Log.d(TAG, "Creating FloatType field for ${schema.name}")
                     // Get the actual value being displayed (prioritize saved value, fallback to default)
                     val initialValue = currentValues[schema.name] ?: schema.defaultValue
 
@@ -545,8 +570,10 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                     // Store references for validation display
                     parameterFieldMap[schema.name] = ParameterFieldViews(editText, errorTextView)
+                    Log.d(TAG, "Stored FloatType field in map: ${schema.name}")
                 }
-                "int", "integer" -> {
+                is ParameterType.IntType -> {
+                    Log.d(TAG, "Creating IntType field for ${schema.name}")
                     val initialValue = currentValues[schema.name] ?: schema.defaultValue
 
                     // Initialize currentRunnerParameters with initial value
@@ -600,7 +627,8 @@ class EngineSettingsActivity : AppCompatActivity() {
                     // Store references for validation display
                     parameterFieldMap[schema.name] = ParameterFieldViews(editText, errorTextView)
                 }
-                "boolean" -> {
+                is ParameterType.BooleanType -> {
+                    Log.d(TAG, "Creating BooleanType field for ${schema.name}")
                     val initialValue = currentValues[schema.name] ?: schema.defaultValue
 
                     // Initialize currentRunnerParameters with initial value
@@ -625,78 +653,127 @@ class EngineSettingsActivity : AppCompatActivity() {
                         }
                     }
                     container.addView(switch)
+
+                    // Add error TextView for consistency (though booleans rarely have validation errors)
+                    val errorTextView = TextView(this).apply {
+                        textSize = 12f
+                        setTextColor(android.graphics.Color.RED)
+                        visibility = View.GONE
+                        setPadding(8, 4, 8, 4)
+                    }
+                    container.addView(errorTextView)
+                    parameterFieldMap[schema.name] = ParameterFieldViews(switch, errorTextView)
+                }
+                is ParameterType.SelectionType -> {
+                    handleSelectionType(schema, currentValues, container)
+                }
+                is ParameterType.StringType -> {
+                    Log.d(TAG, "Creating StringType field for ${schema.name}")
+                    // Explicit handling for StringType (includes API keys, etc.)
+                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                    // Initialize currentRunnerParameters with initial value
+                    if (initialValue != null) {
+                        currentRunnerParameters[schema.name] = initialValue
+                    }
+
+                    val editText = android.widget.EditText(this).apply {
+                        // Set input type for sensitive fields (passwords, API keys)
+                        if (schema.isSensitive) {
+                            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                                       android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        } else {
+                            inputType = android.text.InputType.TYPE_CLASS_TEXT
+                        }
+                        hint = schema.displayName
+
+                        // Add text watcher BEFORE setText to properly track initialization
+                        var isInitializing = true
+                        addTextChangedListener(object : android.text.TextWatcher {
+                            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                            override fun afterTextChanged(s: android.text.Editable?) {
+                                if (isInitializing) {
+                                    isInitializing = false
+                                    return
+                                }
+
+                                val value = s.toString()
+                                currentRunnerParameters[schema.name] = value
+                                onParameterChanged(schema.name, value, initialValue)
+                            }
+                        })
+
+                        // Set initial value AFTER adding listener
+                        setText(initialValue?.toString() ?: "")
+                    }
+                    container.addView(editText)
+
+                    // Add error TextView (initially hidden)
+                    val errorTextView = TextView(this).apply {
+                        textSize = 12f
+                        setTextColor(android.graphics.Color.RED)
+                        visibility = View.GONE
+                        setPadding(8, 4, 8, 4)
+                    }
+                    container.addView(errorTextView)
+
+                    // Store references for validation display
+                    parameterFieldMap[schema.name] = ParameterFieldViews(editText, errorTextView)
+                    Log.d(TAG, "Stored StringType field in map: ${schema.name}")
+                }
+                is ParameterType.FilePathType -> {
+                    Log.d(TAG, "Creating FilePathType field for ${schema.name}")
+                    val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                    if (initialValue != null) {
+                        currentRunnerParameters[schema.name] = initialValue
+                    }
+
+                    var isInitializing = true
+
+                    val editText = android.widget.EditText(this).apply {
+                        hint = "Enter file path"
+                        inputType = android.text.InputType.TYPE_CLASS_TEXT
+
+                        addTextChangedListener(object : android.text.TextWatcher {
+                            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                            override fun afterTextChanged(s: android.text.Editable?) {
+                                if (isInitializing) {
+                                    isInitializing = false
+                                    return
+                                }
+
+                                val value = s.toString()
+                                currentRunnerParameters[schema.name] = value
+                                onParameterChanged(schema.name, value, initialValue)
+                            }
+                        })
+
+                        setText(initialValue?.toString() ?: "")
+                    }
+                    container.addView(editText)
+
+                    // Add error TextView
+                    val errorTextView = TextView(this).apply {
+                        textSize = 12f
+                        setTextColor(android.graphics.Color.RED)
+                        visibility = View.GONE
+                        setPadding(8, 4, 8, 4)
+                    }
+                    container.addView(errorTextView)
+                    parameterFieldMap[schema.name] = ParameterFieldViews(editText, errorTextView)
+                    Log.d(TAG, "Stored FilePathType field in map: ${schema.name}")
                 }
                 else -> {
-                    // Check if this is a SelectionType parameter
-                    if (schema.type is ParameterType.SelectionType) {
-                        handleSelectionType(schema, currentValues, container)
-                    } else if (schema.type is ParameterType.StringType) {
-                        // Explicit handling for StringType (includes API keys, etc.)
-                        val initialValue = currentValues[schema.name] ?: schema.defaultValue
-
-                        // Initialize currentRunnerParameters with initial value
-                        if (initialValue != null) {
-                            currentRunnerParameters[schema.name] = initialValue
-                        }
-
-                        val editText = android.widget.EditText(this).apply {
-                            // Set input type for sensitive fields (passwords, API keys)
-                            if (schema.isSensitive) {
-                                inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                                           android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-                            } else {
-                                inputType = android.text.InputType.TYPE_CLASS_TEXT
-                            }
-                            hint = schema.displayName
-
-                            // Add text watcher BEFORE setText to properly track initialization
-                            var isInitializing = true
-                            addTextChangedListener(object : android.text.TextWatcher {
-                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                                override fun afterTextChanged(s: android.text.Editable?) {
-                                    if (isInitializing) {
-                                        isInitializing = false
-                                        return
-                                    }
-
-                                    val value = s.toString()
-                                    currentRunnerParameters[schema.name] = value
-                                    onParameterChanged(schema.name, value, initialValue)
-                                }
-                            })
-
-                            // Set initial value AFTER adding listener
-                            setText(initialValue?.toString() ?: "")
-                        }
-                        container.addView(editText)
-                    } else {
-                        // Fallback for unknown types
-                        val initialValue = currentValues[schema.name] ?: schema.defaultValue
-
-                        val editText = android.widget.EditText(this).apply {
-                            hint = "Enter ${schema.type}"
-
-                            var isInitializing = true
-                            addTextChangedListener(object : android.text.TextWatcher {
-                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                                override fun afterTextChanged(s: android.text.Editable?) {
-                                    if (isInitializing) {
-                                        isInitializing = false
-                                        return
-                                    }
-
-                                    val value = s.toString()
-                                    currentRunnerParameters[schema.name] = value
-                                    onParameterChanged(schema.name, value, initialValue)
-                                }
-                            })
-
-                            setText(initialValue?.toString() ?: "")
-                        }
-                        container.addView(editText)
+                    // Fallback for truly unknown types (shouldn't happen)
+                    Log.w(TAG, "Unknown parameter type for ${schema.name}: ${schema.type}")
+                    val label = TextView(this).apply {
+                        text = "Unsupported parameter type: ${schema.type}"
+                        setTextColor(android.graphics.Color.RED)
                     }
+                    container.addView(label)
                 }
             }
             
@@ -881,8 +958,16 @@ class EngineSettingsActivity : AppCompatActivity() {
                 }
 
                 // CRITICAL: Pre-save validation to prevent saving invalid values
-                val schemas = runnerParameters[selectedRunner] ?: emptyList()
-                Log.d(TAG, "saveSettingsAndNavigate: Pre-save validation with ${schemas.size} schemas")
+                val allSchemas = runnerParameters[selectedRunner] ?: emptyList()
+
+                // Filter out "model" schema when using OpenRouter with dynamic models
+                // Dynamic models from API are valid by definition, static schema validation doesn't apply
+                val schemas = if (isOpenRouterRunner() && filteredModels.isNotEmpty()) {
+                    allSchemas.filter { it.name != "model" }
+                } else {
+                    allSchemas
+                }
+                Log.d(TAG, "saveSettingsAndNavigate: Pre-save validation with ${schemas.size} schemas (filtered ${allSchemas.size - schemas.size})")
 
                 val isValid = validationState.validateRunner(
                     capability = currentCapability,
@@ -952,8 +1037,16 @@ class EngineSettingsActivity : AppCompatActivity() {
                 }
 
                 // CRITICAL: Pre-save validation to prevent saving invalid values
-                val schemas = runnerParameters[selectedRunner] ?: emptyList()
-                Log.d(TAG, "saveSettingsWithoutNavigate: Pre-save validation with ${schemas.size} schemas")
+                val allSchemas = runnerParameters[selectedRunner] ?: emptyList()
+
+                // Filter out "model" schema when using OpenRouter with dynamic models
+                // Dynamic models from API are valid by definition, static schema validation doesn't apply
+                val schemas = if (isOpenRouterRunner() && filteredModels.isNotEmpty()) {
+                    allSchemas.filter { it.name != "model" }
+                } else {
+                    allSchemas
+                }
+                Log.d(TAG, "saveSettingsWithoutNavigate: Pre-save validation with ${schemas.size} schemas (filtered ${allSchemas.size - schemas.size})")
 
                 val isValid = validationState.validateRunner(
                     capability = currentCapability,
@@ -1069,17 +1162,24 @@ class EngineSettingsActivity : AppCompatActivity() {
 
         val schema = selectedRunnerSchemas.find { it.name == parameterName }
         if (schema != null) {
-            val validationResult = validationState.validateParameter(
-                capability = currentCapability,
-                runnerName = selectedRunner,
-                parameterName = parameterName,
-                value = currentValue,
-                schema = schema
-            )
-            Log.d(TAG, "Validation for $parameterName: isValid=${validationResult.isValid}, error=${validationResult.errorMessage}")
+            // Skip validation for "model" parameter when using OpenRouter with dynamic models
+            if (parameterName == "model" && isOpenRouterRunner() && filteredModels.isNotEmpty()) {
+                Log.d(TAG, "Skipping validation for dynamically fetched model: $currentValue")
+                // Still need to update UI to clear any previous errors
+                updateParameterValidationUI(parameterName, ValidationResult.valid())
+            } else {
+                val validationResult = validationState.validateParameter(
+                    capability = currentCapability,
+                    runnerName = selectedRunner,
+                    parameterName = parameterName,
+                    value = currentValue,
+                    schema = schema
+                )
+                Log.d(TAG, "Validation for $parameterName: isValid=${validationResult.isValid}, error=${validationResult.errorMessage}")
 
-            // Update UI to show validation state
-            updateParameterValidationUI(parameterName, validationResult)
+                // Update UI to show validation state
+                updateParameterValidationUI(parameterName, validationResult)
+            }
         } else {
             Log.w(TAG, "No schema found for parameter: $parameterName (available: ${selectedRunnerSchemas.map { it.name }})")
         }
@@ -1180,6 +1280,9 @@ class EngineSettingsActivity : AppCompatActivity() {
     ) {
         val selectionType = schema.type as ParameterType.SelectionType
         val initialValue = currentValues[schema.name] ?: schema.defaultValue
+        val initialKey = initialValue?.toString()
+
+        Log.d(TAG, "handleSelectionType for ${schema.name}: initialValue=$initialValue, initialKey=$initialKey")
 
         // Determine options: use fetched models for OpenRouter model parameter, otherwise use schema options
         val options = if (isOpenRouterRunner() && schema.name == "model" && filteredModels.isNotEmpty()) {
@@ -1196,8 +1299,10 @@ class EngineSettingsActivity : AppCompatActivity() {
             selectionType.options
         }
 
+        Log.d(TAG, "handleSelectionType for ${schema.name}: ${options.size} options available")
+        Log.d(TAG, "Options: ${options.map { "${it.displayName} (${it.key})" }}")
+
         // Initialize currentRunnerParameters with the initial value (so it's saved even if user doesn't change it)
-        val initialKey = initialValue?.toString()
         if (initialKey != null) {
             currentRunnerParameters[schema.name] = initialKey
         }
@@ -1214,23 +1319,19 @@ class EngineSettingsActivity : AppCompatActivity() {
             }
             this.adapter = adapter
 
-            // Set initial selection
-            val initialIndex = options.indexOfFirst { it.key == initialKey }
-            if (initialIndex >= 0) {
-                setSelection(initialIndex)
-            }
-
-            // Listen for selection changes
+            // IMPORTANT: Add listener BEFORE setting selection
+            // This ensures the initialization callback gets skipped, not the user's first click
+            var isInitializing = true
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                var isInitializing = true
-
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                     if (isInitializing) {
                         isInitializing = false
+                        Log.d(TAG, "Skipping initialization callback for ${schema.name}")
                         return
                     }
 
                     val selectedOption = options[position]
+                    Log.d(TAG, "User selected ${schema.name}: ${selectedOption.displayName} (key=${selectedOption.key})")
                     currentRunnerParameters[schema.name] = selectedOption.key
                     onParameterChanged(schema.name, selectedOption.key, initialKey)
 
@@ -1242,9 +1343,31 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
             }
+
+            // Set initial selection AFTER adding listener
+            // This will trigger onItemSelected with isInitializing=true
+            val initialIndex = options.indexOfFirst { it.key == initialKey }
+            Log.d(TAG, "Setting initial selection for ${schema.name}: key=$initialKey, index=$initialIndex")
+            if (initialIndex >= 0) {
+                setSelection(initialIndex)
+                Log.d(TAG, "Spinner selection set to index $initialIndex (${options[initialIndex].displayName})")
+            } else {
+                Log.w(TAG, "Could not find index for key=$initialKey in ${options.size} options")
+            }
         }
 
         container.addView(spinner)
+
+        // Add error TextView for consistency (though selections rarely have validation errors)
+        val errorTextView = TextView(this).apply {
+            textSize = 12f
+            setTextColor(android.graphics.Color.RED)
+            visibility = View.GONE
+            setPadding(8, 4, 8, 4)
+        }
+        container.addView(errorTextView)
+        parameterFieldMap[schema.name] = ParameterFieldViews(spinner, errorTextView)
+        Log.d(TAG, "Stored SelectionType field in map: ${schema.name}")
     }
 
     /**
