@@ -49,8 +49,9 @@ Kotlin 100% (Java compatibility level 11), Android Gradle Plugin 8.x: Follow sta
 
 ## Feature: Engine Settings UI Enhancement
 
-**Status**: ✅ **PRODUCTION READY** - All core features complete
-**Branch**: `001-engine-settings-ui-enhancement` (12 commits, +2,200 lines)
+**Status**: ✅ **PRODUCTION READY** - All core features + validation complete
+**Branch**: `main` (merged from `001-engine-settings-ui-enhancement`)
+**Total**: 16 commits, ~3,500 lines including tests
 **Spec**: `specs/001-engine-settings-ui-enhancement/`
 **Last Updated**: 2025-11-11
 
@@ -137,6 +138,49 @@ Select "openai/gpt-4-turbo"
   → Shows: temperature, top_p, top_k, frequency_penalty, ... (GPT-4's params)
 
 Parameters adapt automatically to each model!
+```
+
+### Phase 5: Inline Parameter Validation ✅
+
+**What it does**: Validates parameter values in real-time and prevents saving invalid configurations.
+
+**Features**:
+- Real-time validation on parameter value changes
+- Save button disabled when any parameter invalid
+- Pre-save comprehensive validation pass
+- Error count display in toast messages
+- Validation state tracked per runner/capability
+- Integration with existing unsaved changes logic
+
+**Key Implementation**:
+```kotlin
+// T045: Add validation state
+private val validationState = ParameterValidationState()
+
+// T048: Validate on parameter change
+fun onParameterChanged(param: String, value: Any?, original: Any?) {
+    // ... track unsaved changes ...
+
+    // Validate using schema
+    val schema = schemas.find { it.name == param }
+    if (schema != null) {
+        validationState.validateParameter(capability, runner, param, value, schema)
+    }
+
+    // T050: Update Save button (requires BOTH dirty AND valid)
+    btnSave.isEnabled = hasDirtyChanges && isValid
+}
+
+// T051: Pre-save validation
+fun saveSettings() {
+    val isValid = validationState.validateRunner(capability, runner, params, schemas)
+    if (!isValid) {
+        val errorCount = validationState.getErrorCount(capability, runner)
+        Toast.makeText("Cannot save: $errorCount parameter(s) invalid").show()
+        return  // Prevent save
+    }
+    // ... proceed with save ...
+}
 ```
 
 ---
@@ -282,6 +326,55 @@ Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 ---
 
 ## Testing
+
+### Automated Tests (New in 2025-11-11)
+
+**Phase 2: Foundational Unit Tests** (`src/test/java/.../model/ui/`):
+- `UnsavedChangesStateTest.kt` (16 tests)
+  - Per-capability independence
+  - Original parameter restoration
+  - Null value handling (null→value, value→null, null→null)
+  - Specific runner clearing
+  - Value reversion clearing dirty state
+  - Multiple parameters per runner
+  - Multi-capability dirty runner detection
+
+- `ParameterValidationStateTest.kt` (21 tests)
+  - validateRunner with multiple parameters
+  - isAllValid across multiple runners
+  - clearError for individual parameters
+  - Error persistence across updates
+  - Per-runner isolation
+  - Edge cases coverage
+
+**Phase 3: User Story 1 Tests**:
+- `UnsavedChangesDialogTest.kt` (9 Robolectric tests)
+  - Dialog title and message correctness
+  - Three buttons (Save/Discard/Cancel) present
+  - Each button triggers correct callback
+  - Dialog not cancelable on outside touch
+  - Multiple dirty runners listed correctly
+
+- `UnsavedChangesFlowTest.kt` (7 UI tests)
+  - Full flow: modify → back press → dialog appears
+  - Cancel dismisses dialog and stays in activity
+  - Discard exits without saving
+  - Save persists changes and exits
+  - No changes = immediate exit (no dialog)
+  - Save button disabled/enabled based on changes
+  - Direct save button click works
+
+**Running Tests**:
+```bash
+# All unit tests
+cd android && ./gradlew :breeze-app-engine:test
+
+# UI tests (requires device/emulator)
+cd android && ./gradlew :breeze-app-engine:connectedAndroidTest
+
+# Test reports
+android/breeze-app-engine/build/reports/tests/testDebugUnitTest/index.html
+```
 
 ### Manual Test Checklist
 
@@ -561,12 +654,25 @@ runnerManager?.saveSettings(updatedSettings)
 ## Summary
 
 The Engine Settings UI Enhancement delivers a production-ready configuration experience with:
-- ✅ Safe configuration changes (no data loss)
-- ✅ Dynamic model discovery (always up-to-date)
-- ✅ Intelligent parameter filtering (no confusion)
+- ✅ Safe configuration changes (no data loss via unsaved changes protection)
+- ✅ Dynamic model discovery (always up-to-date via OpenRouter API)
+- ✅ Intelligent parameter filtering (only show what model supports)
+- ✅ Parameter validation (prevents invalid configurations)
+- ✅ Comprehensive testing (53 automated tests)
 - ✅ Clear user feedback (knows what to expect)
 - ✅ Robust error handling (graceful degradation)
 
-**12 commits, +2,200 lines, 0 new dependencies, production-ready!**
+**Implementation Stats**:
+- 16 commits (13 feature + 3 test)
+- ~3,500 lines of code and tests
+- 53 automated tests (37 unit + 16 UI)
+- 0 new dependencies
+- Production-ready and merged to main!
+
+**Test Coverage**:
+- UnsavedChangesState: 16 tests covering all methods
+- ParameterValidationState: 21 tests covering validation logic
+- Unsaved Changes Dialog: 9 Robolectric tests
+- Complete User Flow: 7 UI tests (Espresso)
 
 <!-- MANUAL ADDITIONS END -->
