@@ -23,6 +23,7 @@ import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
 import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelInfo
+import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelParametersFetcher
 import com.mtkresearch.breezeapp.engine.runner.openrouter.models.OpenRouterModelFetcher
 import com.mtkresearch.breezeapp.engine.ui.dialogs.showUnsavedChangesDialog
 import kotlinx.coroutines.launch
@@ -94,10 +95,14 @@ class EngineSettingsActivity : AppCompatActivity() {
     // Model fetching (for OpenRouter LLM)
     private var allModels: List<ModelInfo> = emptyList()
     private var filteredModels: List<ModelInfo> = emptyList()
+    private var modelSupportedParameters: Set<String>? = null  // Parameters supported by selected model
     private val modelFetcher by lazy {
         OpenRouterModelFetcher(
             prefs = getSharedPreferences("engine_settings_models", MODE_PRIVATE)
         )
+    }
+    private val parametersFetcher by lazy {
+        ModelParametersFetcher()
     }
     
     private val onBackPressedCallback = object : OnBackPressedCallback(false) {
@@ -400,7 +405,17 @@ class EngineSettingsActivity : AppCompatActivity() {
         val views = mutableListOf<android.view.View>()
 
         // Filter out api_key since it has its own dedicated card
-        val filteredSchemas = schemas.filter { it.name != "api_key" }
+        var filteredSchemas = schemas.filter { it.name != "api_key" }
+
+        // For OpenRouter models: Filter to only show parameters the model supports
+        if (isOpenRouterRunner() && modelSupportedParameters != null) {
+            val supportedSet = modelSupportedParameters!!
+            filteredSchemas = filteredSchemas.filter { schema ->
+                // Always show model parameter, filter others based on support
+                schema.name == "model" || supportedSet.contains(schema.name)
+            }
+            Log.d(TAG, "Filtered parameters for model: showing ${filteredSchemas.map { it.name }}")
+        }
 
         filteredSchemas.forEach { schema ->
             val container = LinearLayout(this).apply {
@@ -934,6 +949,11 @@ class EngineSettingsActivity : AppCompatActivity() {
                     val selectedOption = options[position]
                     currentRunnerParameters[schema.name] = selectedOption.key
                     onParameterChanged(schema.name, selectedOption.key, initialKey)
+
+                    // If this is a model selection change in OpenRouter, fetch supported parameters
+                    if (schema.name == "model" && isOpenRouterRunner()) {
+                        fetchModelSupportedParameters(selectedOption.key)
+                    }
                 }
 
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -941,6 +961,35 @@ class EngineSettingsActivity : AppCompatActivity() {
         }
 
         container.addView(spinner)
+    }
+
+    /**
+     * Fetch and apply supported parameters for a specific model
+     */
+    private fun fetchModelSupportedParameters(modelId: String) {
+        val apiKey = getCurrentApiKey()
+        if (apiKey.isNullOrBlank()) {
+            Log.w(TAG, "Cannot fetch model parameters: no API key")
+            return
+        }
+
+        Log.d(TAG, "Fetching supported parameters for model: $modelId")
+
+        lifecycleScope.launch {
+            val result = parametersFetcher.fetchSupportedParameters(modelId, apiKey)
+
+            result.onSuccess { parameters ->
+                modelSupportedParameters = parameters.toSet()
+                Log.d(TAG, "Model $modelId supports ${parameters.size} parameters: $parameters")
+
+                // Regenerate parameter views to show only supported ones
+                updateRunnerInfo()
+            }.onFailure { error ->
+                Log.w(TAG, "Failed to fetch model parameters (showing all): ${error.message}")
+                // Keep showing all parameters on error
+                modelSupportedParameters = null
+            }
+        }
     }
 
     /**
