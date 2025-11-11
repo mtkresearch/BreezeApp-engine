@@ -28,22 +28,24 @@ class AIRunnerAnnotationTest {
     )
     class TestMediaTekRunner : BaseRunner {
         override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean = true
-        override fun run(input: InferenceRequest, stream: Boolean): InferenceResult = 
+        override fun run(input: InferenceRequest, stream: Boolean): InferenceResult =
             InferenceResult.success(mapOf("test" to "result"))
         override fun unload() {}
         override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.LLM)
         override fun isLoaded(): Boolean = true
+        override fun isSupported(): Boolean = true
         override fun getRunnerInfo(): RunnerInfo = RunnerInfo("test", "1.0.0", listOf(CapabilityType.LLM))
     }
 
     @AIRunner(capabilities = [CapabilityType.ASR, CapabilityType.TTS])
     class TestDefaultsRunner : BaseRunner {
         override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean = true
-        override fun run(input: InferenceRequest, stream: Boolean): InferenceResult = 
+        override fun run(input: InferenceRequest, stream: Boolean): InferenceResult =
             InferenceResult.success(mapOf("test" to "result"))
         override fun unload() {}
         override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.ASR, CapabilityType.TTS)
         override fun isLoaded(): Boolean = true
+        override fun isSupported(): Boolean = true
         override fun getRunnerInfo(): RunnerInfo = RunnerInfo("test", "1.0.0", listOf(CapabilityType.ASR))
     }
 

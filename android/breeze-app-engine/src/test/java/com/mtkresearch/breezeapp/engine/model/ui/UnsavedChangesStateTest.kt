@@ -85,9 +85,100 @@ class UnsavedChangesStateTest {
         assertTrue(dirtyRunners.contains(Pair(CapabilityType.ASR, "Sherpa")))
     }
 
-    // TODO: Add more comprehensive tests in polish phase:
-    // - Test per-runner independence
-    // - Test restoration with getOriginalParameters()
-    // - Test null value handling
-    // - Test clearing specific runners with clear()
+    @Test
+    fun `per-capability independence - changes to one capability dont affect another`() {
+        state.trackChange(CapabilityType.LLM, "RunnerA", "temperature", 0.7, 0.9)
+        state.trackChange(CapabilityType.ASR, "RunnerB", "model", "a", "a")
+
+        assertTrue(state.isDirty(CapabilityType.LLM, "RunnerA"))
+        assertFalse(state.isDirty(CapabilityType.ASR, "RunnerB"))
+    }
+
+    @Test
+    fun `getOriginalParameters returns unmodified initial values`() {
+        state.trackChange(CapabilityType.LLM, "TestRunner", "temperature", 0.7, 0.9)
+        state.trackChange(CapabilityType.LLM, "TestRunner", "max_tokens", 100, 200)
+
+        val original = state.getOriginalParameters(CapabilityType.LLM, "TestRunner")
+
+        assertEquals(2, original.size)
+        assertEquals(0.7, original["temperature"])
+        assertEquals(100, original["max_tokens"])
+    }
+
+    @Test
+    fun `null value handling - tracks null to value change`() {
+        state.trackChange(CapabilityType.LLM, "TestRunner", "api_key", null, "new_key")
+
+        assertTrue(state.hasAnyUnsavedChanges())
+        val modified = state.getModifiedParameters(CapabilityType.LLM, "TestRunner")
+        assertEquals("new_key", modified["api_key"])
+    }
+
+    @Test
+    fun `null value handling - tracks value to null change`() {
+        state.trackChange(CapabilityType.LLM, "TestRunner", "api_key", "old_key", null)
+
+        assertTrue(state.hasAnyUnsavedChanges())
+        val modified = state.getModifiedParameters(CapabilityType.LLM, "TestRunner")
+        assertNull(modified["api_key"])
+    }
+
+    @Test
+    fun `null value handling - both null is not dirty`() {
+        state.trackChange(CapabilityType.LLM, "TestRunner", "optional_param", null, null)
+
+        assertFalse(state.hasAnyUnsavedChanges())
+    }
+
+    @Test
+    fun `clear specific runner removes only that runners dirty state`() {
+        state.trackChange(CapabilityType.LLM, "RunnerA", "temperature", 0.7, 0.9)
+        state.trackChange(CapabilityType.ASR, "RunnerB", "model", "a", "b")
+
+        state.clear(CapabilityType.LLM, "RunnerA")
+
+        assertFalse(state.isDirty(CapabilityType.LLM, "RunnerA"))
+        assertTrue(state.isDirty(CapabilityType.ASR, "RunnerB"))
+        assertTrue(state.hasAnyUnsavedChanges())
+    }
+
+    @Test
+    fun `trackChange with same value after modification clears dirty state`() {
+        // Initial change makes it dirty
+        state.trackChange(CapabilityType.LLM, "TestRunner", "temperature", 0.7, 0.9)
+        assertTrue(state.isDirty(CapabilityType.LLM, "TestRunner"))
+
+        // Change back to original value should clear dirty
+        state.trackChange(CapabilityType.LLM, "TestRunner", "temperature", 0.7, 0.7)
+        assertFalse(state.isDirty(CapabilityType.LLM, "TestRunner"))
+    }
+
+    @Test
+    fun `multiple parameters in same runner all tracked correctly`() {
+        state.trackChange(CapabilityType.LLM, "TestRunner", "temperature", 0.7, 0.9)
+        state.trackChange(CapabilityType.LLM, "TestRunner", "max_tokens", 100, 200)
+        state.trackChange(CapabilityType.LLM, "TestRunner", "top_p", 0.9, 0.9) // Unchanged
+
+        val modified = state.getModifiedParameters(CapabilityType.LLM, "TestRunner")
+
+        assertEquals(2, modified.size)
+        assertEquals(0.9, modified["temperature"])
+        assertEquals(200, modified["max_tokens"])
+        assertFalse(modified.containsKey("top_p"))
+    }
+
+    @Test
+    fun `getDirtyRunners across multiple capabilities`() {
+        state.trackChange(CapabilityType.LLM, "OpenRouter", "temperature", 0.7, 0.9)
+        state.trackChange(CapabilityType.ASR, "Sherpa", "model", "a", "b")
+        state.trackChange(CapabilityType.TTS, "SherpaTTS", "speed", 1.0, 1.5)
+
+        val dirtyRunners = state.getDirtyRunners()
+
+        assertEquals(3, dirtyRunners.size)
+        assertTrue(dirtyRunners.contains(Pair(CapabilityType.LLM, "OpenRouter")))
+        assertTrue(dirtyRunners.contains(Pair(CapabilityType.ASR, "Sherpa")))
+        assertTrue(dirtyRunners.contains(Pair(CapabilityType.TTS, "SherpaTTS")))
+    }
 }
