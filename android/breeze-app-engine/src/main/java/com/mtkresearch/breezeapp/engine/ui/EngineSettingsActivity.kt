@@ -94,6 +94,13 @@ class EngineSettingsActivity : AppCompatActivity() {
     // Direct RunnerManager access
     private var runnerManager: RunnerManager? = null
 
+    // Parameter field references for validation display
+    private data class ParameterFieldViews(
+        val inputView: View,
+        val errorTextView: TextView
+    )
+    private val parameterFieldMap = mutableMapOf<String, ParameterFieldViews>()
+
     // Model fetching (for OpenRouter LLM)
     private var allModels: List<ModelInfo> = emptyList()
     private var filteredModels: List<ModelInfo> = emptyList()
@@ -423,16 +430,14 @@ class EngineSettingsActivity : AppCompatActivity() {
 
         Log.d(TAG, "Initial validation complete: Valid=$isValid, Errors=$errorCount, Dirty=$hasDirtyChanges")
         val shouldEnable = hasDirtyChanges && isValid
-        btnSave.isEnabled = shouldEnable
-
-        // Verify button state after setting
-        btnSave.post {
-            Log.d(TAG, "INITIAL: Button state set to $shouldEnable, currently ${btnSave.isEnabled}")
-        }
+        updateSaveButtonState(shouldEnable)
     }
     
     private fun clearParameterViews() {
         containerParameters.removeAllViews()
+
+        // Clear field references
+        parameterFieldMap.clear()
 
         // Preserve API key when clearing parameters (it's in a separate card, not regenerated)
         val preservedApiKey = currentRunnerParameters["api_key"]
@@ -513,6 +518,10 @@ class EngineSettingsActivity : AppCompatActivity() {
                                     if (value != null) {
                                         currentRunnerParameters[schema.name] = value
                                         onParameterChanged(schema.name, value, initialValue)
+                                    } else {
+                                        // Store the string value for validation
+                                        currentRunnerParameters[schema.name] = s.toString()
+                                        onParameterChanged(schema.name, s.toString(), initialValue)
                                     }
                                 } catch (e: Exception) {
                                     Log.w(TAG, "Invalid number input for ${schema.name}")
@@ -521,6 +530,18 @@ class EngineSettingsActivity : AppCompatActivity() {
                         })
                     }
                     container.addView(editText)
+
+                    // Add error TextView (initially hidden)
+                    val errorTextView = TextView(this).apply {
+                        textSize = 12f
+                        setTextColor(android.graphics.Color.RED)
+                        visibility = View.GONE
+                        setPadding(8, 4, 8, 4)
+                    }
+                    container.addView(errorTextView)
+
+                    // Store references for validation display
+                    parameterFieldMap[schema.name] = ParameterFieldViews(editText, errorTextView)
                 }
                 "int", "integer" -> {
                     val initialValue = currentValues[schema.name] ?: schema.defaultValue
@@ -1037,6 +1058,9 @@ class EngineSettingsActivity : AppCompatActivity() {
                 schema = schema
             )
             Log.d(TAG, "Validation for $parameterName: isValid=${validationResult.isValid}, error=${validationResult.errorMessage}")
+
+            // Update UI to show validation state
+            updateParameterValidationUI(parameterName, validationResult)
         } else {
             Log.w(TAG, "No schema found for parameter: $parameterName (available: ${selectedRunnerSchemas.map { it.name }})")
         }
@@ -1050,21 +1074,55 @@ class EngineSettingsActivity : AppCompatActivity() {
         onBackPressedCallback.isEnabled = hasDirtyChanges
         // Enable Save button only if there are changes AND all parameters are valid
         val shouldEnable = hasDirtyChanges && isValid
-        btnSave.isEnabled = shouldEnable
-
-        // CRITICAL DEBUG: Force UI update and verify state
-        btnSave.post {
-            val actualState = btnSave.isEnabled
-            Log.d(TAG, "BUTTON STATE CHECK: Set to $shouldEnable, Actually is $actualState")
-            if (actualState != shouldEnable) {
-                Log.e(TAG, "BUTTON STATE MISMATCH! Something overrode our state change!")
-                // Force it again
-                btnSave.isEnabled = shouldEnable
-                btnSave.invalidate()
-            }
-        }
+        updateSaveButtonState(shouldEnable)
 
         Log.d(TAG, "Save button enabled: ${btnSave.isEnabled}, Back callback enabled: ${onBackPressedCallback.isEnabled}")
+    }
+
+    /**
+     * Update parameter field UI to show validation state
+     */
+    private fun updateParameterValidationUI(parameterName: String, validationResult: com.mtkresearch.breezeapp.engine.runner.core.ValidationResult) {
+        val fieldViews = parameterFieldMap[parameterName] ?: return
+
+        if (validationResult.isValid) {
+            // Valid - hide error, reset field appearance
+            fieldViews.errorTextView.visibility = View.GONE
+            if (fieldViews.inputView is EditText) {
+                fieldViews.inputView.setTextColor(android.graphics.Color.BLACK)
+                fieldViews.inputView.setBackgroundResource(android.R.drawable.edit_text)
+            }
+        } else {
+            // Invalid - show error in red, highlight field
+            fieldViews.errorTextView.text = validationResult.errorMessage
+            fieldViews.errorTextView.visibility = View.VISIBLE
+            if (fieldViews.inputView is EditText) {
+                fieldViews.inputView.setTextColor(android.graphics.Color.RED)
+                // Create red border
+                val drawable = android.graphics.drawable.GradientDrawable()
+                drawable.setStroke(3, android.graphics.Color.RED)
+                drawable.setCornerRadius(8f)
+                fieldViews.inputView.background = drawable
+            }
+        }
+    }
+
+    /**
+     * Update Save button visual state (not just enabled/disabled)
+     */
+    private fun updateSaveButtonState(shouldEnable: Boolean) {
+        btnSave.isEnabled = shouldEnable
+
+        // MaterialButton doesn't show disabled state clearly, so we force visual changes
+        if (shouldEnable) {
+            // Enabled: full opacity, normal color
+            btnSave.alpha = 1.0f
+            Log.d(TAG, "Save button set to ENABLED (visible)")
+        } else {
+            // Disabled: reduce opacity to show it's not clickable
+            btnSave.alpha = 0.5f
+            Log.d(TAG, "Save button set to DISABLED (faded)")
+        }
     }
 
     private fun getSelectedRunnerName(): String? {
