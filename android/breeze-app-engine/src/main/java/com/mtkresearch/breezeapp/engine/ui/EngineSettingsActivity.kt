@@ -382,15 +382,18 @@ class EngineSettingsActivity : AppCompatActivity() {
         tvParametersHint.visibility = View.GONE
         containerParameters.visibility = View.VISIBLE
 
+        // IMPORTANT: Clear existing views FIRST, before creating new ones
+        clearParameterViews()
+
         // Get current parameter values for this runner
         val currentValues = currentSettings.getRunnerParameters(runnerName)
         Log.d(TAG, "Current parameter values: ${currentValues.keys}")
 
-        // Create parameter views - simplified implementation without DynamicParameterView
+        // Create parameter views - this populates parameterFieldMap
         val parameterViews = createSimpleParameterViews(schemas, currentValues)
+        Log.d(TAG, "Created ${parameterViews.size} parameter views, field map size: ${parameterFieldMap.size}")
 
-        // Clear existing views and add new ones
-        clearParameterViews()
+        // Add new views to container
         parameterViews.forEach { view ->
             containerParameters.addView(view)
         }
