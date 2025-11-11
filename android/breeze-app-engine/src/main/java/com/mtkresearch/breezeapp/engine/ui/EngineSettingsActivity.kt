@@ -572,6 +572,10 @@ class EngineSettingsActivity : AppCompatActivity() {
                                     if (value != null) {
                                         currentRunnerParameters[schema.name] = value
                                         onParameterChanged(schema.name, value, initialValue)
+                                    } else {
+                                        // Store the string value for validation
+                                        currentRunnerParameters[schema.name] = s.toString()
+                                        onParameterChanged(schema.name, s.toString(), initialValue)
                                     }
                                 } catch (e: Exception) {
                                     Log.w(TAG, "Invalid integer input for ${schema.name}")
@@ -580,6 +584,18 @@ class EngineSettingsActivity : AppCompatActivity() {
                         })
                     }
                     container.addView(editText)
+
+                    // Add error TextView (initially hidden)
+                    val errorTextView = TextView(this).apply {
+                        textSize = 12f
+                        setTextColor(android.graphics.Color.RED)
+                        visibility = View.GONE
+                        setPadding(8, 4, 8, 4)
+                    }
+                    container.addView(errorTextView)
+
+                    // Store references for validation display
+                    parameterFieldMap[schema.name] = ParameterFieldViews(editText, errorTextView)
                 }
                 "boolean" -> {
                     val initialValue = currentValues[schema.name] ?: schema.defaultValue
@@ -1083,7 +1099,14 @@ class EngineSettingsActivity : AppCompatActivity() {
      * Update parameter field UI to show validation state
      */
     private fun updateParameterValidationUI(parameterName: String, validationResult: com.mtkresearch.breezeapp.engine.runner.core.ValidationResult) {
-        val fieldViews = parameterFieldMap[parameterName] ?: return
+        val fieldViews = parameterFieldMap[parameterName]
+
+        if (fieldViews == null) {
+            Log.w(TAG, "updateParameterValidationUI: No field views found for $parameterName")
+            return
+        }
+
+        Log.d(TAG, "updateParameterValidationUI: $parameterName isValid=${validationResult.isValid}, error=${validationResult.errorMessage}")
 
         if (validationResult.isValid) {
             // Valid - hide error, reset field appearance
@@ -1096,13 +1119,24 @@ class EngineSettingsActivity : AppCompatActivity() {
             // Invalid - show error in red, highlight field
             fieldViews.errorTextView.text = validationResult.errorMessage
             fieldViews.errorTextView.visibility = View.VISIBLE
+
             if (fieldViews.inputView is EditText) {
-                fieldViews.inputView.setTextColor(android.graphics.Color.RED)
-                // Create red border
-                val drawable = android.graphics.drawable.GradientDrawable()
-                drawable.setStroke(3, android.graphics.Color.RED)
-                drawable.setCornerRadius(8f)
-                fieldViews.inputView.background = drawable
+                val editText = fieldViews.inputView
+
+                // Make text red and bold
+                editText.setTextColor(android.graphics.Color.RED)
+                editText.setTypeface(null, android.graphics.Typeface.BOLD)
+
+                // Create aggressive red border background
+                val drawable = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(android.graphics.Color.parseColor("#FFEEEE")) // Light red background
+                    setStroke(5, android.graphics.Color.RED) // Thicker red border
+                    cornerRadius = 8f
+                }
+                editText.background = drawable
+                editText.setPadding(16, 16, 16, 16)
+
+                Log.d(TAG, "updateParameterValidationUI: Applied RED styling to $parameterName")
             }
         }
     }
@@ -1117,12 +1151,15 @@ class EngineSettingsActivity : AppCompatActivity() {
         if (shouldEnable) {
             // Enabled: full opacity, normal color
             btnSave.alpha = 1.0f
-            Log.d(TAG, "Save button set to ENABLED (visible)")
+            Log.d(TAG, "Save button set to ENABLED (alpha=1.0, fully visible)")
         } else {
-            // Disabled: reduce opacity to show it's not clickable
-            btnSave.alpha = 0.5f
-            Log.d(TAG, "Save button set to DISABLED (faded)")
+            // Disabled: reduce opacity significantly to show it's not clickable
+            btnSave.alpha = 0.3f
+            Log.d(TAG, "Save button set to DISABLED (alpha=0.3, heavily faded)")
         }
+
+        // Force UI refresh
+        btnSave.invalidate()
     }
 
     private fun getSelectedRunnerName(): String? {
