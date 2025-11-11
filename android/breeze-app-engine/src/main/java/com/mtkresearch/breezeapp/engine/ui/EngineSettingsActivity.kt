@@ -416,6 +416,12 @@ class EngineSettingsActivity : AppCompatActivity() {
                 "float", "double", "number" -> {
                     // Get the actual value being displayed (prioritize saved value, fallback to default)
                     val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                    // Initialize currentRunnerParameters with initial value (so it's saved even if user doesn't change it)
+                    if (initialValue != null) {
+                        currentRunnerParameters[schema.name] = initialValue
+                    }
+
                     var isInitializing = true
 
                     val editText = android.widget.EditText(this).apply {
@@ -452,6 +458,12 @@ class EngineSettingsActivity : AppCompatActivity() {
                 }
                 "int", "integer" -> {
                     val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                    // Initialize currentRunnerParameters with initial value
+                    if (initialValue != null) {
+                        currentRunnerParameters[schema.name] = initialValue
+                    }
+
                     var isInitializing = true
 
                     val editText = android.widget.EditText(this).apply {
@@ -484,6 +496,12 @@ class EngineSettingsActivity : AppCompatActivity() {
                 }
                 "boolean" -> {
                     val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                    // Initialize currentRunnerParameters with initial value
+                    if (initialValue != null) {
+                        currentRunnerParameters[schema.name] = initialValue
+                    }
+
                     var isInitializing = true
 
                     val switch = android.widget.Switch(this).apply {
@@ -509,6 +527,11 @@ class EngineSettingsActivity : AppCompatActivity() {
                     } else if (schema.type is ParameterType.StringType) {
                         // Explicit handling for StringType (includes API keys, etc.)
                         val initialValue = currentValues[schema.name] ?: schema.defaultValue
+
+                        // Initialize currentRunnerParameters with initial value
+                        if (initialValue != null) {
+                            currentRunnerParameters[schema.name] = initialValue
+                        }
 
                         val editText = android.widget.EditText(this).apply {
                             // Set input type for sensitive fields (passwords, API keys)
@@ -825,6 +848,12 @@ class EngineSettingsActivity : AppCompatActivity() {
             selectionType.options
         }
 
+        // Initialize currentRunnerParameters with the initial value (so it's saved even if user doesn't change it)
+        val initialKey = initialValue?.toString()
+        if (initialKey != null) {
+            currentRunnerParameters[schema.name] = initialKey
+        }
+
         // Create spinner (dropdown)
         val spinner = Spinner(this).apply {
             val displayNames = options.map { it.displayName }
@@ -838,7 +867,6 @@ class EngineSettingsActivity : AppCompatActivity() {
             this.adapter = adapter
 
             // Set initial selection
-            val initialKey = initialValue?.toString()
             val initialIndex = options.indexOfFirst { it.key == initialKey }
             if (initialIndex >= 0) {
                 setSelection(initialIndex)
