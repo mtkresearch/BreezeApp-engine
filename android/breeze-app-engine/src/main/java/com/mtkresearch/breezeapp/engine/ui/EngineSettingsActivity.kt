@@ -377,7 +377,15 @@ class EngineSettingsActivity : AppCompatActivity() {
     
     private fun clearParameterViews() {
         containerParameters.removeAllViews()
+
+        // Preserve API key when clearing parameters (it's in a separate card, not regenerated)
+        val preservedApiKey = currentRunnerParameters["api_key"]
         currentRunnerParameters.clear()
+
+        // Restore API key if it existed
+        if (preservedApiKey != null) {
+            currentRunnerParameters["api_key"] = preservedApiKey
+        }
     }
     
     private fun createSimpleParameterViews(

@@ -397,7 +397,8 @@ class AIEngineManager(
                 if (!requestModel.isNullOrBlank()) {
                     logger.w(TAG, "Model '$requestModel' from request is not a valid model ID. Falling back to settings/default.")
                 }
-                val resolvedModel = settings.getRunnerParameters(runnerName)["model_id"] as? String
+                // Use InferenceRequest.PARAM_MODEL ("model") not "model_id" - matches schema parameter name
+                val resolvedModel = settings.getRunnerParameters(runnerName)[InferenceRequest.PARAM_MODEL] as? String
                     ?: getDefaultModelForRunner(runnerName)
                 
                 // Update request params to reflect the resolved model for consistent logging
