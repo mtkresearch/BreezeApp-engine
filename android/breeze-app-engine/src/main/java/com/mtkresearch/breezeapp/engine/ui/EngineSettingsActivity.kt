@@ -422,7 +422,13 @@ class EngineSettingsActivity : AppCompatActivity() {
         val hasDirtyChanges = unsavedChangesState.hasAnyUnsavedChanges()
 
         Log.d(TAG, "Initial validation complete: Valid=$isValid, Errors=$errorCount, Dirty=$hasDirtyChanges")
-        btnSave.isEnabled = hasDirtyChanges && isValid
+        val shouldEnable = hasDirtyChanges && isValid
+        btnSave.isEnabled = shouldEnable
+
+        // Verify button state after setting
+        btnSave.post {
+            Log.d(TAG, "INITIAL: Button state set to $shouldEnable, currently ${btnSave.isEnabled}")
+        }
     }
     
     private fun clearParameterViews() {
@@ -975,7 +981,20 @@ class EngineSettingsActivity : AppCompatActivity() {
 
         onBackPressedCallback.isEnabled = hasDirtyChanges
         // Enable Save button only if there are changes AND all parameters are valid
-        btnSave.isEnabled = hasDirtyChanges && isValid
+        val shouldEnable = hasDirtyChanges && isValid
+        btnSave.isEnabled = shouldEnable
+
+        // CRITICAL DEBUG: Force UI update and verify state
+        btnSave.post {
+            val actualState = btnSave.isEnabled
+            Log.d(TAG, "BUTTON STATE CHECK: Set to $shouldEnable, Actually is $actualState")
+            if (actualState != shouldEnable) {
+                Log.e(TAG, "BUTTON STATE MISMATCH! Something overrode our state change!")
+                // Force it again
+                btnSave.isEnabled = shouldEnable
+                btnSave.invalidate()
+            }
+        }
 
         Log.d(TAG, "Save button enabled: ${btnSave.isEnabled}, Back callback enabled: ${onBackPressedCallback.isEnabled}")
     }
