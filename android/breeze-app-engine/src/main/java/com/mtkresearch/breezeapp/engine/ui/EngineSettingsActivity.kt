@@ -377,6 +377,9 @@ class EngineSettingsActivity : AppCompatActivity() {
             tvParametersHint.visibility = View.VISIBLE
             containerParameters.visibility = View.GONE
             clearParameterViews()
+
+            // Even with no parameters, update Save button if runner selection changed
+            updateSaveButtonForRunnerChange()
             return
         }
 
@@ -444,14 +447,27 @@ class EngineSettingsActivity : AppCompatActivity() {
         }
 
         // Update Save button state based on initial validation
-        val isValid = validationState.isRunnerValid(currentCapability, runnerName)
-        val errorCount = validationState.getErrorCount(currentCapability, runnerName)
+        updateSaveButtonForRunnerChange()
+    }
+
+    /**
+     * Update Save button state based on runner selection and parameter validation
+     *
+     * Enables button if:
+     * 1. Runner selection changed (always allow saving runner change), OR
+     * 2. Parameters changed AND all are valid
+     */
+    private fun updateSaveButtonForRunnerChange() {
+        val selectedRunner = getSelectedRunnerName() ?: return
+
+        val isValid = validationState.isRunnerValid(currentCapability, selectedRunner)
+        val errorCount = validationState.getErrorCount(currentCapability, selectedRunner)
         val hasDirtyChanges = unsavedChangesState.hasAnyUnsavedChanges()
 
         // Check if runner selection changed (not just parameter changes)
         val runnerSelectionChanged = unsavedChangesState.hasChangesForRunner(currentCapability, "RUNNER_SELECTION")
 
-        Log.d(TAG, "Initial validation complete: Valid=$isValid, Errors=$errorCount, Dirty=$hasDirtyChanges, RunnerChanged=$runnerSelectionChanged")
+        Log.d(TAG, "updateSaveButtonForRunnerChange: Valid=$isValid, Errors=$errorCount, Dirty=$hasDirtyChanges, RunnerChanged=$runnerSelectionChanged")
 
         // Enable button if:
         // 1. Runner selection changed (always allow saving runner change), OR
