@@ -687,11 +687,12 @@ class EngineSettingsActivity : AppCompatActivity() {
                         newRunner
                     )
 
-                    // Enable Save button and back button intercept
-                    btnSave.isEnabled = true
+                    // Enable back button intercept for unsaved changes
                     onBackPressedCallback.isEnabled = true
 
-                    Log.d(TAG, "Runner selection change tracked, Save button enabled")
+                    // DON'T enable Save button yet - let parameter validation decide
+                    // (parameters will be loaded and validated in updateRunnerInfo below)
+                    Log.d(TAG, "Runner selection change tracked, waiting for parameter validation")
                 }
 
                 updateRunnerInfo()
