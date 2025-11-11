@@ -363,28 +363,66 @@ class EngineSettingsActivity : AppCompatActivity() {
     
     private fun loadRunnerParameters(runnerName: String) {
         val schemas = runnerParameters[runnerName] ?: emptyList()
-        
+        Log.d(TAG, "loadRunnerParameters for $runnerName: ${schemas.size} schemas available")
+
         if (schemas.isEmpty()) {
             tvParametersHint.visibility = View.VISIBLE
             containerParameters.visibility = View.GONE
             clearParameterViews()
             return
         }
-        
+
         tvParametersHint.visibility = View.GONE
         containerParameters.visibility = View.VISIBLE
-        
+
         // Get current parameter values for this runner
         val currentValues = currentSettings.getRunnerParameters(runnerName)
-        
+        Log.d(TAG, "Current parameter values: ${currentValues.keys}")
+
         // Create parameter views - simplified implementation without DynamicParameterView
         val parameterViews = createSimpleParameterViews(schemas, currentValues)
-        
+
         // Clear existing views and add new ones
         clearParameterViews()
         parameterViews.forEach { view ->
             containerParameters.addView(view)
         }
+
+        // CRITICAL: Perform initial validation of all current parameters
+        validateAllCurrentParameters(runnerName, schemas)
+    }
+
+    /**
+     * Validate all current parameter values for a runner (called on initial load)
+     */
+    private fun validateAllCurrentParameters(runnerName: String, schemas: List<ParameterSchema>) {
+        Log.d(TAG, "Performing initial validation for $runnerName with ${currentRunnerParameters.size} parameters")
+
+        // Clear any previous validation errors for this runner
+        validationState.clearRunner(currentCapability, runnerName)
+
+        // Validate each parameter that has a value
+        schemas.forEach { schema ->
+            val value = currentRunnerParameters[schema.name]
+            val result = validationState.validateParameter(
+                capability = currentCapability,
+                runnerName = runnerName,
+                parameterName = schema.name,
+                value = value,
+                schema = schema
+            )
+            if (!result.isValid) {
+                Log.w(TAG, "Initial validation FAILED for ${schema.name}: ${result.errorMessage}")
+            }
+        }
+
+        // Update Save button state based on initial validation
+        val isValid = validationState.isRunnerValid(currentCapability, runnerName)
+        val errorCount = validationState.getErrorCount(currentCapability, runnerName)
+        val hasDirtyChanges = unsavedChangesState.hasAnyUnsavedChanges()
+
+        Log.d(TAG, "Initial validation complete: Valid=$isValid, Errors=$errorCount, Dirty=$hasDirtyChanges")
+        btnSave.isEnabled = hasDirtyChanges && isValid
     }
     
     private fun clearParameterViews() {
@@ -695,6 +733,9 @@ class EngineSettingsActivity : AppCompatActivity() {
                 if (selectedRunnerName != null) {
                     // Pre-save validation: Validate all parameters comprehensively
                     val schemas = runnerParameters[selectedRunnerName] ?: emptyList()
+                    Log.d(TAG, "Pre-save validation: ${schemas.size} schemas, ${currentRunnerParameters.size} parameters")
+                    Log.d(TAG, "Parameters to validate: ${currentRunnerParameters.keys}")
+
                     val isValid = validationState.validateRunner(
                         capability = currentCapability,
                         runnerName = selectedRunnerName,
@@ -702,15 +743,29 @@ class EngineSettingsActivity : AppCompatActivity() {
                         schemas = schemas
                     )
 
+                    val errorCount = validationState.getErrorCount(currentCapability, selectedRunnerName)
+                    Log.d(TAG, "Pre-save validation result: Valid=$isValid, Errors=$errorCount")
+
                     if (!isValid) {
-                        val errorCount = validationState.getErrorCount(currentCapability, selectedRunnerName)
-                        Toast.makeText(
-                            this@EngineSettingsActivity,
-                            "Cannot save: $errorCount parameter(s) have invalid values",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        // Log each validation error
+                        schemas.forEach { schema ->
+                            val error = validationState.getError(currentCapability, selectedRunnerName, schema.name)
+                            if (error != null) {
+                                Log.e(TAG, "Validation error for ${schema.name}: $error")
+                            }
+                        }
+
+                        runOnUiThread {
+                            Toast.makeText(
+                                this@EngineSettingsActivity,
+                                "Cannot save: $errorCount parameter(s) have invalid values. Check logs for details.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                         return@launch
                     }
+
+                    Log.d(TAG, "Pre-save validation passed, proceeding with save")
 
 
                     // Update settings with selected runner
@@ -895,21 +950,27 @@ class EngineSettingsActivity : AppCompatActivity() {
 
         // Validate parameter value
         val selectedRunnerSchemas = runnerParameters[selectedRunner] ?: emptyList()
+        Log.d(TAG, "Available schemas for $selectedRunner: ${selectedRunnerSchemas.size} schemas")
+
         val schema = selectedRunnerSchemas.find { it.name == parameterName }
         if (schema != null) {
-            validationState.validateParameter(
+            val validationResult = validationState.validateParameter(
                 capability = currentCapability,
                 runnerName = selectedRunner,
                 parameterName = parameterName,
                 value = currentValue,
                 schema = schema
             )
+            Log.d(TAG, "Validation for $parameterName: isValid=${validationResult.isValid}, error=${validationResult.errorMessage}")
+        } else {
+            Log.w(TAG, "No schema found for parameter: $parameterName (available: ${selectedRunnerSchemas.map { it.name }})")
         }
 
         // Update UI state based on dirty status AND validation
         val hasDirtyChanges = unsavedChangesState.hasAnyUnsavedChanges()
         val isValid = validationState.isRunnerValid(currentCapability, selectedRunner)
-        Log.d(TAG, "Dirty state: $hasDirtyChanges, Valid: $isValid (original=$normalizedOriginal, current=$normalizedCurrent)")
+        val errorCount = validationState.getErrorCount(currentCapability, selectedRunner)
+        Log.d(TAG, "Dirty state: $hasDirtyChanges, Valid: $isValid, Errors: $errorCount (original=$normalizedOriginal, current=$normalizedCurrent)")
 
         onBackPressedCallback.isEnabled = hasDirtyChanges
         // Enable Save button only if there are changes AND all parameters are valid
