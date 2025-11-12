@@ -60,6 +60,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
     
     // UI Components
+    private lateinit var engineStatusView: EngineStatusView
     private lateinit var tabLayout: TabLayout
     private lateinit var cardApiKey: com.google.android.material.card.MaterialCardView
     private lateinit var editApiKey: EditText
@@ -94,6 +95,9 @@ class EngineSettingsActivity : AppCompatActivity() {
 
     // Direct RunnerManager access
     private var runnerManager: RunnerManager? = null
+
+    // Phase 5 (T039): Engine connection status
+    private lateinit var engineConnectionHelper: com.mtkresearch.breezeapp.engine.connection.EngineConnectionHelper
 
     // Parameter field references for validation display
     private data class ParameterFieldViews(
@@ -157,6 +161,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
     
     private fun initViews() {
+        engineStatusView = findViewById(R.id.engineStatusView)
         tabLayout = findViewById(R.id.tabLayout)
         cardApiKey = findViewById(R.id.cardApiKey)
         editApiKey = findViewById(R.id.editApiKey)
@@ -182,6 +187,9 @@ class EngineSettingsActivity : AppCompatActivity() {
         // Setup API key field and price filter
         setupApiKeyField()
         setupPriceFilter()
+
+        // Phase 5 (T039): Setup engine connection status
+        setupEngineConnectionStatus()
     }
     
     private fun setupTabs() {
@@ -1485,6 +1493,35 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
 
     /**
+     * Phase 5 (T039): Setup engine connection status view.
+     * Initializes connection helper and wires it to the status view.
+     */
+    private fun setupEngineConnectionStatus() {
+        try {
+            // Initialize connection helper
+            engineConnectionHelper = com.mtkresearch.breezeapp.engine.connection.EngineConnectionHelper(this)
+
+            // Wire status view to observe connection state
+            engineStatusView.observeConnectionState(
+                engineConnectionHelper.connectionState,
+                lifecycle
+            )
+
+            // Setup reconnect button click listener
+            engineStatusView.setReconnectClickListener {
+                Log.d(TAG, "Manual reconnect requested")
+                engineConnectionHelper.reconnect()
+            }
+
+            Log.d(TAG, "Engine connection status view initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting up engine connection status", e)
+            // Don't crash if connection monitoring fails
+            // The settings screen should still be usable
+        }
+    }
+
+    /**
      * Convert seekbar progress to price value
      * Progress 0-100 mapped to price ranges
      */
@@ -1603,6 +1640,35 @@ class EngineSettingsActivity : AppCompatActivity() {
             if (allModels.isEmpty()) {
                 fetchModelsFromApi()
             }
+        }
+    }
+
+    // ========== Phase 5: Lifecycle Methods for Connection Monitoring ==========
+
+    override fun onResume() {
+        super.onResume()
+        // Start monitoring engine package lifecycle
+        if (::engineConnectionHelper.isInitialized) {
+            engineConnectionHelper.onResume()
+            Log.d(TAG, "Engine connection monitoring started")
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Stop monitoring when not visible
+        if (::engineConnectionHelper.isInitialized) {
+            engineConnectionHelper.onPause()
+            Log.d(TAG, "Engine connection monitoring stopped")
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Clean up connection helper
+        if (::engineConnectionHelper.isInitialized) {
+            engineConnectionHelper.onDestroy()
+            Log.d(TAG, "Engine connection helper destroyed")
         }
     }
 }

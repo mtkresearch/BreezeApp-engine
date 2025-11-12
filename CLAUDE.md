@@ -4,6 +4,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-03
 
 ## Active Technologies
 - SharedPreferences (via RunnerManager.saveSettings()) (001-engine-settings-ui-enhancement)
+- Kotlin (Android Gradle Plugin 8.x, Java 11 compatibility) + Android SDK (PackageManager, BroadcastReceiver), Material Design Components (Snackbar, AlertDialog), existing AIDL binding infrastructure (001-auto-engine-binding)
+- SharedPreferences for connection state persistence (optional), no database required (001-auto-engine-binding)
 
 - Kotlin 100% (Java compatibility level 11), Android Gradle Plugin 8.x (001-engine-deployment-strategy)
 
@@ -41,6 +43,7 @@ tests/
 Kotlin 100% (Java compatibility level 11), Android Gradle Plugin 8.x: Follow standard conventions
 
 ## Recent Changes
+- 001-auto-engine-binding: Added Kotlin (Android Gradle Plugin 8.x, Java 11 compatibility) + Android SDK (PackageManager, BroadcastReceiver), Material Design Components (Snackbar, AlertDialog), existing AIDL binding infrastructure
 - 001-engine-settings-ui-enhancement: Added Kotlin 100% (Java compatibility level 11)
 
 - 001-engine-deployment-strategy: Added Kotlin 100% (Java compatibility level 11), Android Gradle Plugin 8.x

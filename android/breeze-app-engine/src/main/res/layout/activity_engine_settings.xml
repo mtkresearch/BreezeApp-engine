@@ -34,6 +34,22 @@
             android:orientation="vertical"
             android:padding="12dp">
 
+            <!-- Phase 5: Engine Connection Status (T038) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <com.mtkresearch.breezeapp.engine.ui.EngineStatusView
+                    android:id="@+id/engineStatusView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Capability Tabs - Simplified -->
             <com.google.android.material.tabs.TabLayout
                 android:id="@+id/tabLayout"

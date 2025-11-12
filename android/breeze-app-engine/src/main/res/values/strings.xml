@@ -13,4 +13,32 @@
     <string name="discard">Discard</string>
     <string name="cancel">Cancel</string>
 
+    <!-- Engine Connection Strings -->
+    <string name="engine_required_title">Engine Required</string>
+    <string name="engine_required_message">BreezeApp requires the BreezeApp Engine to function. Please install it to continue.</string>
+    <string name="install_engine">Install Engine</string>
+    <string name="engine_removed_title">Engine Removed</string>
+    <string name="engine_removed_message">The BreezeApp Engine was removed. Please reinstall to continue using the app.</string>
+    <string name="engine_incomplete_title">Installation Incomplete</string>
+    <string name="engine_incomplete_message">The Engine installation appears incomplete or corrupted. Please reinstall.</string>
+    <string name="reconnecting_message">Reconnecting to Engine...</string>
+    <string name="connection_failed_title">Connection Failed</string>
+    <string name="connection_failed_message">Unable to connect to the Engine. Please try restarting the app or reinstalling the Engine.</string>
+
+    <!-- Connection Status Labels -->
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Not Connected</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_reconnecting">Reconnecting…</string>
+    <string name="status_error">Connection Failed</string>
+    <string name="engine_version">Engine Version: %1$s</string>
+
+    <!-- Direct Download (fallback for corporate devices) -->
+    <string name="direct_download_message">Play Store is not available. Download the Engine directly from our website.</string>
+    <string name="download_website">Download from Website</string>
+
+    <!-- Phase 6: Error Dialog Strings -->
+    <string name="connection_retry">Retry Connection</string>
+    <string name="reinstall">Reinstall</string>
+
 </resources>
