@@ -465,16 +465,16 @@ class EngineServiceBinder(
                 Log.d(TAG, "💬 [$capability] - Engine overrides: $engineOverrides parameters")
                 Log.d(TAG, "💬 [$capability] - Client overrides: $clientOverrideCount parameters")
                 Log.d(TAG, "💬 [$capability] Final parameters for $requestId: $finalParams")
-                
-                return finalParams.toMap()
+
+                return finalParams.toMutableMap()
             } else {
                 Log.w(TAG, "💬 [$capability] No selected runner found - using client parameters as fallback")
-                return clientOverrides
+                return clientOverrides.toMutableMap()
             }
             
         } catch (e: Exception) {
             Log.w(TAG, "💬 [$capability] Failed to build complete parameter hierarchy for $requestId", e)
-            return clientOverrides
+            return clientOverrides.toMutableMap()
         }
     }
     
