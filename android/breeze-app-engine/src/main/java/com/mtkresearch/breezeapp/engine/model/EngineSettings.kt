@@ -22,6 +22,33 @@ data class EngineSettings(
     fun getRunnerParameters(runnerName: String): Map<String, Any> {
         return runnerParameters[runnerName] ?: emptyMap()
     }
+
+    /**
+     * Get the selected model ID for a specific runner
+     * Returns null if no model is explicitly set (will use runner's default)
+     */
+    fun getSelectedModel(runnerName: String): String? {
+        return runnerParameters[runnerName]?.get("model") as? String
+    }
+
+    /**
+     * Set the model ID for a specific runner
+     * This creates a new EngineSettings with the model parameter added to the runner's parameters
+     *
+     * Example usage:
+     * ```
+     * val settings = currentSettings.withSelectedModel("SherpaOfflineASRRunner", "sherpa-onnx-whisper-medium")
+     * ```
+     */
+    fun withSelectedModel(runnerName: String, modelId: String): EngineSettings {
+        val currentParams = runnerParameters[runnerName]?.toMutableMap() ?: mutableMapOf()
+        currentParams["model"] = modelId
+
+        val newRunnerParameters = runnerParameters.toMutableMap().apply {
+            put(runnerName, currentParams)
+        }
+        return this.copy(runnerParameters = newRunnerParameters)
+    }
     
     /**
      * Create a new EngineSettings with updated runner selection

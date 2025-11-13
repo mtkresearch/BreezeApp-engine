@@ -9,6 +9,9 @@ import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
 import com.mtkresearch.breezeapp.engine.annotation.VendorType
 import com.mtkresearch.breezeapp.engine.util.EngineUtils
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
+import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
+import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
 import com.mtkresearch.breezeapp.engine.model.*
 import com.mtkresearch.breezeapp.engine.runner.sherpa.base.BaseSherpaRunner
 
@@ -108,6 +111,17 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
                         decoder = "$modelDir/base-decoder.onnx"
                     ),
                     tokens = "$modelDir/base-tokens.txt",
+                    modelType = "whisper"
+                )
+            }
+            2 -> {
+                val modelDir = "$modelsDir/sherpa-onnx-whisper-medium"
+                OfflineModelConfig(
+                    whisper = OfflineWhisperModelConfig(
+                        encoder = "$modelDir/medium-encoder.int8.onnx",
+                        decoder = "$modelDir/medium-decoder.int8.onnx"
+                    ),
+                    tokens = "$modelDir/medium-tokens.txt",
                     modelType = "whisper"
                 )
             }
@@ -227,6 +241,39 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
         description = "Sherpa ONNX offline ASR runner"
     )
 
+    override fun getParameterSchema(): List<ParameterSchema> {
+        return listOf(
+            ParameterSchema(
+                name = "model",
+                displayName = "ASR Model",
+                description = "Select the Whisper ASR model to use. Higher capacity models provide better accuracy but require more RAM.",
+                type = ParameterType.SelectionType(
+                    options = listOf(
+                        SelectionOption(
+                            key = "Breeze-ASR-25-onnx",
+                            displayName = "Breeze ASR 2.5 (4GB RAM)",
+                            description = "Best accuracy, requires 4GB RAM"
+                        ),
+                        SelectionOption(
+                            key = "sherpa-onnx-whisper-medium",
+                            displayName = "Whisper Medium (2GB RAM)",
+                            description = "Balanced accuracy and memory usage"
+                        ),
+                        SelectionOption(
+                            key = "sherpa-onnx-whisper-base",
+                            displayName = "Whisper Base (1GB RAM)",
+                            description = "Basic accuracy, minimal memory usage"
+                        )
+                    ),
+                    allowMultiple = false
+                ),
+                defaultValue = "Breeze-ASR-25-onnx",
+                isRequired = true,
+                category = "Model Selection"
+            )
+        )
+    }
+
     /**
      * Parse model type from ModelConfig - auto-detect based on model name or parameters
      * Automatically detects model type based on model ID/name
@@ -247,25 +294,27 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
             }
         }
         
-        // Check for specific model ID parameter
-        val modelIdParam = runnerParams["model_id"] as? String
-        if (modelIdParam != null) {
+        // Check for model parameter (standard key) or model_id parameter (legacy key)
+        val modelParam = (runnerParams["model"] as? String) ?: (runnerParams["model_id"] as? String)
+        if (modelParam != null) {
             val detectedType = when {
-                modelIdParam.contains("breeze-asr-25-onnx", ignoreCase = true) -> 0
-                modelIdParam.contains("sherpa-onnx-whisper-base", ignoreCase = true) -> 1
+                modelParam.contains("breeze-asr-25-onnx", ignoreCase = true) -> 0
+                modelParam.contains("sherpa-onnx-whisper-base", ignoreCase = true) -> 1
+                modelParam.contains("sherpa-onnx-whisper-medium", ignoreCase = true) -> 2
                 else -> -1
             }
             if (detectedType != -1) {
-                Log.d(TAG, "Detected offline model type $detectedType from model_id: $modelIdParam")
+                Log.d(TAG, "Detected offline model type $detectedType from model parameter: $modelParam")
                 return detectedType
             }
         }
-        
+
         // Auto-detect based on model name/ID
         val modelName = modelId.lowercase()
         val detectedType = when {
             modelName.contains("breeze-asr-25-onnx") -> 0
             modelName.contains("sherpa-onnx-whisper-base") -> 1
+            modelName.contains("sherpa-onnx-whisper-medium") -> 2
             else -> 0 // Default to whisper-base instead of Breeze-ASR-25
         }
         
@@ -277,14 +326,14 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
      * Check if offline model type is valid/supported
      */
     private fun isValidOfflineModelType(type: Int): Boolean {
-        return type in listOf(0, 1)
+        return type in listOf(0, 1, 2)
     }
 
     /**
      * Get supported offline model types
      */
     fun getSupportedOfflineModelTypes(): List<Int> {
-        return listOf(0, 1)
+        return listOf(0, 1, 2)
     }
 
     /**
@@ -294,6 +343,7 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
         return when (type) {
             0 -> "Breeze-ASR-25-onnx"
             1 -> "sherpa-onnx-whisper-base"
+            2 -> "sherpa-onnx-whisper-medium"
             else -> "Unknown offline model type"
         }
     }

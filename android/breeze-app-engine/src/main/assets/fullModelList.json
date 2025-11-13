@@ -109,6 +109,25 @@
       "entry_point": { "type": "whisper", "value": "sherpa-onnx-whisper-base" }
     },
     {
+      "id": "sherpa-onnx-whisper-medium",
+      "runner": "sherpa_offline_asr_runner_v1",
+      "backend": "cpu",
+      "ramGB": 2,
+      "capabilities": ["ASR"],
+      "files": [
+        { "fileName": "medium-encoder.int8.onnx", "type": "model", "urls": [
+          "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-medium/resolve/main/medium-encoder.int8.onnx"
+        ] },
+        { "fileName": "medium-decoder.int8.onnx", "type": "model", "urls": [
+          "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-medium/resolve/main/medium-decoder.int8.onnx"
+        ] },
+        { "fileName": "medium-tokens.txt", "type": "tokenizer", "urls": [
+          "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-medium/resolve/main/medium-tokens.txt"
+        ] }
+      ],
+      "entry_point": { "type": "whisper", "value": "sherpa-onnx-whisper-medium" }
+    },
+    {
       "id": "openai/gpt-oss-20b:free",
       "runner": "OpenRouterLLMRunner",
       "backend": "api",
