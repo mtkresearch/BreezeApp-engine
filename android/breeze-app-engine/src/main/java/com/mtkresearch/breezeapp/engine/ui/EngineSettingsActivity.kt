@@ -82,7 +82,9 @@ class EngineSettingsActivity : AppCompatActivity() {
     // State
     private var currentCapability: CapabilityType = CapabilityType.LLM
     private var currentSettings: EngineSettings = EngineSettings.default()
-    private var currentRunnerParameters: MutableMap<String, Any> = mutableMapOf()
+    // Per-runner isolated working parameters (prevents cross-contamination between runners)
+    private var currentRunnerParameters: MutableMap<String, MutableMap<String, Any>> = mutableMapOf()
+    private var currentEditingRunner: String? = null  // Track which runner we're currently editing
     private var availableRunners: Map<CapabilityType, List<RunnerInfo>> = emptyMap()
     private var runnerParameters: Map<String, List<ParameterSchema>> = emptyMap()
 
@@ -342,7 +344,16 @@ class EngineSettingsActivity : AppCompatActivity() {
     private fun updateCapabilityUI() {
         tvCapabilityLabel.text = "Select runner for ${currentCapability.name} capability:"
     }
-    
+
+    /**
+     * Get the working parameter map for the current runner being edited.
+     * Creates a new map if this runner hasn't been edited yet.
+     */
+    private fun getCurrentRunnerParams(): MutableMap<String, Any> {
+        val runner = currentEditingRunner ?: return mutableMapOf()
+        return currentRunnerParameters.getOrPut(runner) { mutableMapOf() }
+    }
+
     private fun updateRunnerInfo() {
         val selectedRunnerName = spinnerRunners.selectedItem?.toString()
         if (selectedRunnerName != null) {
@@ -370,6 +381,9 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
     
     private fun loadRunnerParameters(runnerName: String) {
+        // Set current editing runner (enables per-runner parameter isolation)
+        currentEditingRunner = runnerName
+
         val schemas = runnerParameters[runnerName] ?: emptyList()
         Log.d(TAG, "loadRunnerParameters for $runnerName: ${schemas.size} schemas available")
 
@@ -390,14 +404,15 @@ class EngineSettingsActivity : AppCompatActivity() {
         clearParameterViews()
 
         // Get current parameter values for this runner
-        // IMPORTANT: Prioritize working memory (currentRunnerParameters) over saved settings
+        // IMPORTANT: Prioritize working memory (per-runner) over saved settings
         // This prevents losing user changes when UI regenerates (e.g., model selection changes)
         val savedValues = currentSettings.getRunnerParameters(runnerName)
+        val workingValues = currentRunnerParameters[runnerName] ?: emptyMap()
         Log.d(TAG, "loadRunnerParameters: savedValues=$savedValues")
-        Log.d(TAG, "loadRunnerParameters: currentRunnerParameters=$currentRunnerParameters")
+        Log.d(TAG, "loadRunnerParameters: workingValues for $runnerName=$workingValues")
         val currentValues = savedValues.toMutableMap().apply {
-            // Override saved values with any working values from currentRunnerParameters
-            putAll(currentRunnerParameters)
+            // Override saved values with any working values for THIS runner only
+            putAll(workingValues)
         }.toMap()
         Log.d(TAG, "loadRunnerParameters: merged currentValues=$currentValues")
 
@@ -418,14 +433,15 @@ class EngineSettingsActivity : AppCompatActivity() {
      * Validate all current parameter values for a runner (called on initial load)
      */
     private fun validateAllCurrentParameters(runnerName: String, schemas: List<ParameterSchema>) {
-        Log.d(TAG, "Performing initial validation for $runnerName with ${currentRunnerParameters.size} parameters")
+        val runnerParams = getCurrentRunnerParams()
+        Log.d(TAG, "Performing initial validation for $runnerName with ${runnerParams.size} parameters")
 
         // Clear any previous validation errors for this runner
         validationState.clearRunner(currentCapability, runnerName)
 
         // Validate each parameter that has a value
         schemas.forEach { schema ->
-            val value = currentRunnerParameters[schema.name]
+            val value = runnerParams[schema.name]
 
             // Skip validation for "model" parameter when using OpenRouter with dynamic models
             // The schema only has one hardcoded model, but API provides many models dynamically
@@ -477,26 +493,12 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
     
     private fun clearParameterViews() {
+        // Clear UI views and field references only
+        // Note: Working parameters are preserved per-runner in currentRunnerParameters map
         containerParameters.removeAllViews()
-
-        // Clear field references
         parameterFieldMap.clear()
 
-        // Preserve certain parameters when clearing (they're in separate cards or need to persist across regeneration)
-        val preservedApiKey = currentRunnerParameters["api_key"]
-        val preservedModel = currentRunnerParameters["model"]  // Preserve model selection during UI regeneration
-
-        Log.d(TAG, "clearParameterViews: preserving api_key=$preservedApiKey, model=$preservedModel")
-
-        currentRunnerParameters.clear()
-
-        // Restore preserved parameters if they existed
-        if (preservedApiKey != null) {
-            currentRunnerParameters["api_key"] = preservedApiKey
-        }
-        if (preservedModel != null) {
-            currentRunnerParameters["model"] = preservedModel
-        }
+        Log.d(TAG, "clearParameterViews: UI cleared for runner $currentEditingRunner")
     }
     
     private fun createSimpleParameterViews(
@@ -541,7 +543,7 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                     // Initialize currentRunnerParameters with initial value (so it's saved even if user doesn't change it)
                     if (initialValue != null) {
-                        currentRunnerParameters[schema.name] = initialValue
+                        getCurrentRunnerParams()[schema.name] = initialValue
                     }
 
                     var isInitializing = true
@@ -567,11 +569,11 @@ class EngineSettingsActivity : AppCompatActivity() {
                                 try {
                                     val value = s.toString().toDoubleOrNull()
                                     if (value != null) {
-                                        currentRunnerParameters[schema.name] = value
+                                        getCurrentRunnerParams()[schema.name] = value
                                         onParameterChanged(schema.name, value, initialValue)
                                     } else {
                                         // Store the string value for validation
-                                        currentRunnerParameters[schema.name] = s.toString()
+                                        getCurrentRunnerParams()[schema.name] = s.toString()
                                         onParameterChanged(schema.name, s.toString(), initialValue)
                                     }
                                 } catch (e: Exception) {
@@ -601,7 +603,7 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                     // Initialize currentRunnerParameters with initial value
                     if (initialValue != null) {
-                        currentRunnerParameters[schema.name] = initialValue
+                        getCurrentRunnerParams()[schema.name] = initialValue
                     }
 
                     var isInitializing = true
@@ -623,11 +625,11 @@ class EngineSettingsActivity : AppCompatActivity() {
                                 try {
                                     val value = s.toString().toIntOrNull()
                                     if (value != null) {
-                                        currentRunnerParameters[schema.name] = value
+                                        getCurrentRunnerParams()[schema.name] = value
                                         onParameterChanged(schema.name, value, initialValue)
                                     } else {
                                         // Store the string value for validation
-                                        currentRunnerParameters[schema.name] = s.toString()
+                                        getCurrentRunnerParams()[schema.name] = s.toString()
                                         onParameterChanged(schema.name, s.toString(), initialValue)
                                     }
                                 } catch (e: Exception) {
@@ -656,7 +658,7 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                     // Initialize currentRunnerParameters with initial value
                     if (initialValue != null) {
-                        currentRunnerParameters[schema.name] = initialValue
+                        getCurrentRunnerParams()[schema.name] = initialValue
                     }
 
                     var isInitializing = true
@@ -671,7 +673,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                                 return@setOnCheckedChangeListener
                             }
 
-                            currentRunnerParameters[schema.name] = isChecked
+                            getCurrentRunnerParams()[schema.name] = isChecked
                             onParameterChanged(schema.name, isChecked, initialValue)
                         }
                     }
@@ -697,7 +699,7 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                     // Initialize currentRunnerParameters with initial value
                     if (initialValue != null) {
-                        currentRunnerParameters[schema.name] = initialValue
+                        getCurrentRunnerParams()[schema.name] = initialValue
                     }
 
                     val editText = android.widget.EditText(this).apply {
@@ -722,7 +724,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                                 }
 
                                 val value = s.toString()
-                                currentRunnerParameters[schema.name] = value
+                                getCurrentRunnerParams()[schema.name] = value
                                 onParameterChanged(schema.name, value, initialValue)
                             }
                         })
@@ -750,7 +752,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                     val initialValue = currentValues[schema.name] ?: schema.defaultValue
 
                     if (initialValue != null) {
-                        currentRunnerParameters[schema.name] = initialValue
+                        getCurrentRunnerParams()[schema.name] = initialValue
                     }
 
                     var isInitializing = true
@@ -769,7 +771,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                                 }
 
                                 val value = s.toString()
-                                currentRunnerParameters[schema.name] = value
+                                getCurrentRunnerParams()[schema.name] = value
                                 onParameterChanged(schema.name, value, initialValue)
                             }
                         })
@@ -880,13 +882,14 @@ class EngineSettingsActivity : AppCompatActivity() {
                 if (selectedRunnerName != null) {
                     // Pre-save validation: Validate all parameters comprehensively
                     val schemas = runnerParameters[selectedRunnerName] ?: emptyList()
-                    Log.d(TAG, "Pre-save validation: ${schemas.size} schemas, ${currentRunnerParameters.size} parameters")
-                    Log.d(TAG, "Parameters to validate: ${currentRunnerParameters.keys}")
+                    val runnerParams = getCurrentRunnerParams()
+                    Log.d(TAG, "Pre-save validation: ${schemas.size} schemas, ${runnerParams.size} parameters")
+                    Log.d(TAG, "Parameters to validate: ${runnerParams.keys}")
 
                     val isValid = validationState.validateRunner(
                         capability = currentCapability,
                         runnerName = selectedRunnerName,
-                        parameters = currentRunnerParameters,
+                        parameters = runnerParams,
                         schemas = schemas
                     )
 
@@ -917,17 +920,17 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                     // Update settings with selected runner
                     currentSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunnerName)
-                    
+
                     // Update settings with runner parameters
-                    if (currentRunnerParameters.isNotEmpty()) {
-                        currentSettings = currentSettings.withRunnerParameters(selectedRunnerName, currentRunnerParameters.toMap())
+                    if (runnerParams.isNotEmpty()) {
+                        currentSettings = currentSettings.withRunnerParameters(selectedRunnerName, runnerParams.toMap())
                     }
-                    
+
                     // Save settings using RunnerManager
                     runnerManager?.saveSettings(currentSettings)
-                    
-                    // Reset parameter values for next edit
-                    currentRunnerParameters.clear()
+
+                    // Clear this runner's working parameters after successful save
+                    currentRunnerParameters.remove(selectedRunnerName)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving settings", e)
@@ -995,7 +998,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                 val isValid = validationState.validateRunner(
                     capability = currentCapability,
                     runnerName = selectedRunner,
-                    parameters = currentRunnerParameters,
+                    parameters = getCurrentRunnerParams(),
                     schemas = schemas
                 )
 
@@ -1026,7 +1029,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                 var updatedSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunner)
                 updatedSettings = updatedSettings.withRunnerParameters(
                     selectedRunner,
-                    currentRunnerParameters
+                    getCurrentRunnerParams()
                 )
 
                 // Save via RunnerManager
@@ -1074,7 +1077,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                 val isValid = validationState.validateRunner(
                     capability = currentCapability,
                     runnerName = selectedRunner,
-                    parameters = currentRunnerParameters,
+                    parameters = getCurrentRunnerParams(),
                     schemas = schemas
                 )
 
@@ -1103,14 +1106,14 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                 // Check if model parameter changed (requires runner reload)
                 val oldModel = currentSettings.getRunnerParameters(selectedRunner)["model"] as? String
-                val newModel = currentRunnerParameters["model"] as? String
+                val newModel = getCurrentRunnerParams()["model"] as? String
                 val modelChanged = oldModel != null && newModel != null && oldModel != newModel
 
                 // Build updated settings with runner selection AND parameters
                 var updatedSettings = currentSettings.withRunnerSelection(currentCapability, selectedRunner)
                 updatedSettings = updatedSettings.withRunnerParameters(
                     selectedRunner,
-                    currentRunnerParameters
+                    getCurrentRunnerParams()
                 )
 
                 // Save via RunnerManager
@@ -1334,7 +1337,7 @@ class EngineSettingsActivity : AppCompatActivity() {
 
         // Initialize currentRunnerParameters with the initial value (so it's saved even if user doesn't change it)
         if (initialKey != null) {
-            currentRunnerParameters[schema.name] = initialKey
+            getCurrentRunnerParams()[schema.name] = initialKey
         }
 
         // Create spinner (dropdown)
@@ -1362,7 +1365,7 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                     val selectedOption = options[position]
                     Log.d(TAG, "User selected ${schema.name}: ${selectedOption.displayName} (key=${selectedOption.key})")
-                    currentRunnerParameters[schema.name] = selectedOption.key
+                    getCurrentRunnerParams()[schema.name] = selectedOption.key
                     onParameterChanged(schema.name, selectedOption.key, initialKey)
 
                     // If this is a model selection change in OpenRouter, fetch supported parameters
@@ -1451,7 +1454,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                 val originalApiKey = currentSettings.getRunnerParameters(selectedRunner)["api_key"] as? String ?: ""
 
                 // Track API key change
-                currentRunnerParameters["api_key"] = apiKey
+                getCurrentRunnerParams()["api_key"] = apiKey
                 onParameterChanged("api_key", apiKey, originalApiKey)
             }
         })
@@ -1596,7 +1599,7 @@ class EngineSettingsActivity : AppCompatActivity() {
             if (selectedRunner != null) {
                 val apiKey = currentSettings.getRunnerParameters(selectedRunner)["api_key"] as? String ?: ""
                 editApiKey.setText(apiKey)
-                currentRunnerParameters["api_key"] = apiKey
+                getCurrentRunnerParams()["api_key"] = apiKey
             }
 
             // Fetch models when OpenRouter runner is selected
