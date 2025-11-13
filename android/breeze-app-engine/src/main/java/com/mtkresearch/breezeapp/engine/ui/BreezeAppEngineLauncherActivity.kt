@@ -11,6 +11,8 @@ import androidx.core.content.ContextCompat
 import com.mtkresearch.breezeapp.engine.R
 import com.mtkresearch.breezeapp.engine.system.NotificationManager
 import com.mtkresearch.breezeapp.engine.system.PermissionManager
+import com.mtkresearch.breezeapp.engine.ui.dialogs.showErrorDialog
+import com.mtkresearch.breezeapp.engine.ui.dialogs.showCriticalErrorDialog
 import android.Manifest
 import android.content.pm.PackageManager
 
@@ -242,7 +244,10 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
             startActivity(intent)
         } catch (e: Exception) {
             android.util.Log.e("BreezeAppEngineLauncher", "Failed to launch Engine Settings", e)
-            Toast.makeText(this, "Failed to open Engine Settings: ${e.message}", Toast.LENGTH_LONG).show()
+            showErrorDialog(
+                title = "Launch Failed",
+                message = "Failed to open Engine Settings: ${e.message}\n\nPlease try again."
+            )
         }
     }
     
@@ -323,7 +328,10 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
             
         } catch (e: Exception) {
             android.util.Log.e("RouterEntryActivity", "Failed to start BreezeApp Engine Service", e)
-            Toast.makeText(this, "Failed to start BreezeApp Engine Service: ${e.message}", Toast.LENGTH_LONG).show()
+            showCriticalErrorDialog(
+                title = "Service Start Failed",
+                message = "Failed to start BreezeApp Engine Service: ${e.message}\n\nThe app cannot run without the engine service. Please restart the app."
+            )
         }
     }
     

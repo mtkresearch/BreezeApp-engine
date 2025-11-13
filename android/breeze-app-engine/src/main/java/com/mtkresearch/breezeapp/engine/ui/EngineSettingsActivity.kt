@@ -28,6 +28,9 @@ import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelInfo
 import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelParametersFetcher
 import com.mtkresearch.breezeapp.engine.runner.openrouter.models.OpenRouterModelFetcher
 import com.mtkresearch.breezeapp.engine.ui.dialogs.showUnsavedChangesDialog
+import com.mtkresearch.breezeapp.engine.ui.dialogs.showCriticalErrorDialog
+import com.mtkresearch.breezeapp.engine.ui.dialogs.showErrorDialog
+import com.mtkresearch.breezeapp.engine.ui.dialogs.ErrorDialog
 import kotlinx.coroutines.launch
 
 /**
@@ -237,8 +240,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                     runnerManager = BreezeAppEngineService.getRunnerManager()
                     if (runnerManager == null) {
-                        Toast.makeText(this, "Engine service failed to initialize", Toast.LENGTH_LONG).show()
-                        finish()
+                        showBindingErrorDialog()
                     } else {
                         loadSettings()
                         updateCapabilityUI()
@@ -252,8 +254,10 @@ class EngineSettingsActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing RunnerManager", e)
-            Toast.makeText(this, "Error initializing engine: ${e.message}", Toast.LENGTH_LONG).show()
-            finish()
+            showCriticalErrorDialog(
+                title = "Initialization Error",
+                message = "Failed to initialize AI engine: ${e.message}\n\nPlease restart the app and try again."
+            )
         }
     }
     
@@ -264,10 +268,13 @@ class EngineSettingsActivity : AppCompatActivity() {
             
             // Load available runners and their parameters from the service
             loadAvailableRunners()
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Error loading settings", e)
-            Toast.makeText(this, "Error loading settings: ${e.message}", Toast.LENGTH_LONG).show()
+            showErrorDialog(
+                title = "Settings Load Error",
+                message = "Failed to load engine settings: ${e.message}\n\nDefault settings will be used."
+            )
         }
     }
     
@@ -290,10 +297,13 @@ class EngineSettingsActivity : AppCompatActivity() {
             
             // Update UI
             loadRunnersForCapability()
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Error loading runners", e)
-            Toast.makeText(this, "Error loading runners: ${e.message}", Toast.LENGTH_LONG).show()
+            showErrorDialog(
+                title = "Runners Load Error",
+                message = "Failed to load AI runners: ${e.message}\n\nSome features may be unavailable."
+            )
         }
     }
     
@@ -934,7 +944,10 @@ class EngineSettingsActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving settings", e)
-                Toast.makeText(this@EngineSettingsActivity, "Error saving settings: ${e.message}", Toast.LENGTH_LONG).show()
+                showErrorDialog(
+                    title = "Save Error",
+                    message = "Failed to save settings: ${e.message}\n\nPlease try again."
+                )
             }
         }
     }
@@ -1046,7 +1059,10 @@ class EngineSettingsActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 hideSaveProgress()
                 Log.e(TAG, "Failed to save settings", e)
-                Toast.makeText(this@EngineSettingsActivity, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+                showErrorDialog(
+                    title = "Save Failed",
+                    message = "Failed to save settings: ${e.message}\n\nPlease try again."
+                )
             }
         }
     }
@@ -1140,7 +1156,10 @@ class EngineSettingsActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 hideSaveProgress()
                 Log.e(TAG, "Failed to save settings", e)
-                Toast.makeText(this@EngineSettingsActivity, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+                showErrorDialog(
+                    title = "Save Failed",
+                    message = "Failed to save settings: ${e.message}\n\nPlease try again."
+                )
             }
         }
     }
@@ -1557,11 +1576,10 @@ class EngineSettingsActivity : AppCompatActivity() {
                 tvModelCount.text = "Failed to load models"
                 btnRefreshModels.isEnabled = true
                 Log.e(TAG, "Failed to fetch models", error)
-                Toast.makeText(
-                    this@EngineSettingsActivity,
-                    "Failed to fetch models: ${error.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                showErrorDialog(
+                    title = "Model Fetch Failed",
+                    message = "Failed to fetch models from OpenRouter: ${error.message}\n\nPlease check your API key and try again."
+                )
             }
         }
     }
@@ -1607,5 +1625,29 @@ class EngineSettingsActivity : AppCompatActivity() {
                 fetchModelsFromApi()
             }
         }
+    }
+
+    /**
+     * Show EdgeAI binding error dialog with Retry button
+     * This is a special case where retry actually works (re-attempts service binding)
+     */
+    private fun showBindingErrorDialog() {
+        ErrorDialog.showWithAction(
+            context = this,
+            title = "Engine Binding Failed",
+            message = "Failed to connect to BreezeApp Engine Service.\n\n" +
+                    "This usually happens when the engine service is still starting up or hasn't been initialized.\n\n" +
+                    "You can retry the connection or close this screen and try again later.",
+            actionButtonText = "Retry",
+            onAction = {
+                Log.d(TAG, "User requested retry for engine binding")
+                // Retry initialization
+                initializeRunnerManager()
+            },
+            onClose = {
+                Log.d(TAG, "User cancelled binding retry, closing activity")
+                finish()
+            }
+        )
     }
 }
