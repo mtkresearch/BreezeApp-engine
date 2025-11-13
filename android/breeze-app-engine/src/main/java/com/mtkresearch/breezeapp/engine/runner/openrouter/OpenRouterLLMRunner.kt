@@ -213,6 +213,8 @@ class OpenRouterLLMRunner(
 
     override fun isLoaded(): Boolean = isLoaded.get()
 
+    override fun getLoadedModelId(): String = modelName
+
     override fun getRunnerInfo(): RunnerInfo = RunnerInfo(
         name = "OpenRouterLLMRunner",
         version = "1.0.0",

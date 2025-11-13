@@ -35,6 +35,7 @@ class LlamaStackRunner(
     private var llamaStackClient: LlamaStackClientClient? = null
     private var config: LlamaStackConfig? = null
     private val isLoaded = AtomicBoolean(false)
+    private var loadedModelId: String = ""  // Track loaded model for change detection
 
     override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading LlamaStack runner with model: $modelId")
@@ -67,13 +68,15 @@ class LlamaStackRunner(
             Log.i(TAG, "LlamaStack runner loaded successfully with official SDK")
             Log.d(TAG, "Configuration - Endpoint: ${config!!.endpoint}, Model: ${config!!.modelId}")
             Log.d(TAG, "Capabilities - Vision: ${config!!.isVisionCapable()}, RAG: ${config!!.isRAGCapable()}")
-            
+
             isLoaded.set(true)
+            loadedModelId = modelId
             true
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load LlamaStack runner", e)
             isLoaded.set(false)
+            loadedModelId = ""
             false
         }
     }
@@ -645,11 +648,14 @@ class LlamaStackRunner(
         llamaStackClient = null
         config = null
         isLoaded.set(false)
+        loadedModelId = ""
     }
 
     override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.LLM, CapabilityType.VLM)
 
     override fun isLoaded(): Boolean = isLoaded.get()
+
+    override fun getLoadedModelId(): String = loadedModelId
 
     override fun getRunnerInfo(): com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo {
         return com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo(

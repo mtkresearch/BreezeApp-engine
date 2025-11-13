@@ -113,14 +113,35 @@ interface BaseRunner {
     
     /**
      * Checks whether the AI model is currently loaded and ready for inference.
-     * 
+     *
      * This method should return true only if the model is fully loaded and
      * ready to process requests. It's used by the engine to determine if
      * load() needs to be called before processing requests.
-     * 
+     *
      * @return true if the model is loaded and ready, false otherwise
      */
     fun isLoaded(): Boolean
+
+    /**
+     * Returns the ID of the currently loaded model.
+     *
+     * This method allows the engine to detect when a different model needs to be loaded,
+     * enabling proper model change handling (unload old model, load new model).
+     *
+     * ## Model Change Detection Example
+     * ```kotlin
+     * val currentModel = runner.getLoadedModelId()
+     * val targetModel = settings.getRunnerParameters(runnerName)["model"]
+     * if (currentModel != targetModel) {
+     *     runner.unload()
+     *     runner.load(targetModel, settings)
+     * }
+     * ```
+     *
+     * @return The model ID of the currently loaded model, or empty string if no model is loaded
+     * @since Engine API v2.3
+     */
+    fun getLoadedModelId(): String = ""
     
     /**
      * Returns metadata information about this runner.

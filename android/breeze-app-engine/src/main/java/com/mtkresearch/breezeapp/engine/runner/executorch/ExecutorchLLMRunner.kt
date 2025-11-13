@@ -40,6 +40,7 @@ class ExecutorchLLMRunner(
     private var modelPath: String? = null
     private var tokenizerPath: String? = null
     private var currentTemperature: Float? = null
+    private var loadedModelId: String = ""  // Track loaded model for change detection
 
     companion object {
         private const val TAG = "ExecutorchLLMRunner"
@@ -84,15 +85,18 @@ class ExecutorchLLMRunner(
             if (loadResult != 0) {
                 Log.e(TAG, "Failed to load Executorch model. Error code: $loadResult")
                 isLoaded.set(false)
+                loadedModelId = ""
                 false
             } else {
                 Log.d(TAG, "Executorch model loaded successfully: $modelId with temperature: $temperature")
                 isLoaded.set(true)
+                loadedModelId = modelId
                 true
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load Executorch LLM Runner", e)
             isLoaded.set(false)
+            loadedModelId = ""
             false
         }
     }
@@ -208,14 +212,17 @@ class ExecutorchLLMRunner(
         llmModule?.resetNative()
         llmModule = null
         isLoaded.set(false)
+        loadedModelId = ""
         currentTemperature = null
         modelPath = null
         tokenizerPath = null
     }
-    
+
     override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.LLM)
 
     override fun isLoaded(): Boolean = isLoaded.get()
+
+    override fun getLoadedModelId(): String = loadedModelId
 
     override fun getRunnerInfo(): RunnerInfo {
         return RunnerInfo(

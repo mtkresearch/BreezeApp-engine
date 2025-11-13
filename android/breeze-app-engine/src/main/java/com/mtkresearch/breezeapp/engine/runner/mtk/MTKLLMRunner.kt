@@ -54,6 +54,7 @@ class MTKLLMRunner(
     private val isCleaningUp = AtomicBoolean(false)
     private var initializationResult: InitializationResult? = null
     private var resolvedModelPath: String? = null
+    private var loadedModelId: String = ""  // Track loaded model for change detection
 
     // Dependencies are now initialized later or are singletons
     private lateinit var config: MTKConfig
@@ -113,10 +114,12 @@ class MTKLLMRunner(
         val initResult = initializeMTKBackend()
         if (initResult.isSuccess()) {
             isLoaded.set(true)
+            loadedModelId = modelId
             Log.i(TAG, "MTKLLMRunner loaded successfully")
             return true
         } else {
             Log.e(TAG, "MTK backend initialization failed: ${initResult.getErrorMessage()}")
+            loadedModelId = ""
             return false
         }
     }
@@ -282,6 +285,7 @@ class MTKLLMRunner(
             nativeResetLlm()
             nativeReleaseLlm()
             isLoaded.set(false)
+            loadedModelId = ""
             initializationResult = null
             resolvedModelPath = null
             initAttemptCount.set(0)
@@ -290,6 +294,7 @@ class MTKLLMRunner(
             Log.e(TAG, "Error during MTKLLMRunner unload", e)
             // Force state reset even on error to prevent stuck states
             isLoaded.set(false)
+            loadedModelId = ""
         } finally {
             isCleaningUp.set(false)
         }
@@ -306,14 +311,16 @@ class MTKLLMRunner(
                 nativeResetLlm()
                 nativeReleaseLlm()
                 isLoaded.set(false)
+                loadedModelId = ""
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in finalize cleanup", e)
         }
     }
-    
+
     override fun getCapabilities(): List<CapabilityType> = listOf(CapabilityType.LLM)
     override fun isLoaded(): Boolean = isLoaded.get()
+    override fun getLoadedModelId(): String = loadedModelId
     override fun getRunnerInfo(): RunnerInfo = RunnerInfo(
         name = MTKLLMRunner::class.java.simpleName, // Use the class name for clarity
         version = RUNNER_VERSION,

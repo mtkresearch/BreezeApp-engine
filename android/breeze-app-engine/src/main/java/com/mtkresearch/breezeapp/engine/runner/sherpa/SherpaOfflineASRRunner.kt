@@ -270,6 +270,34 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
                 defaultValue = "Breeze-ASR-25-onnx",
                 isRequired = true,
                 category = "Model Selection"
+            ),
+            ParameterSchema(
+                name = "language",
+                displayName = "Language",
+                description = "Speech recognition language. Whisper models support multilingual recognition and automatic language detection.",
+                type = ParameterType.SelectionType(
+                    options = listOf(
+                        SelectionOption(
+                            key = "auto",
+                            displayName = "Auto Detect",
+                            description = "Automatically detect spoken language (Whisper models)"
+                        ),
+                        SelectionOption(
+                            key = "zh",
+                            displayName = "中文 (Chinese)",
+                            description = "Mandarin Chinese (simplified and traditional)"
+                        ),
+                        SelectionOption(
+                            key = "en",
+                            displayName = "English",
+                            description = "English language"
+                        )
+                    ),
+                    allowMultiple = false
+                ),
+                defaultValue = "auto",
+                isRequired = false,
+                category = "Recognition Settings"
             )
         )
     }

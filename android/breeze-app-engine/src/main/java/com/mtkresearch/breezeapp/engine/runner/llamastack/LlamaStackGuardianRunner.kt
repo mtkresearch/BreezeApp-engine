@@ -45,6 +45,7 @@ class LlamaStackGuardianRunner(
     private var llamaStackClient: LlamaStackClientClient? = null
     private var config: LlamaStackGuardianConfig? = null
     private val isLoaded = AtomicBoolean(false)
+    private var loadedModelId: String = ""  // Track loaded model for change detection
 
     override fun analyze(text: String, config: com.mtkresearch.breezeapp.engine.runner.guardian.GuardianConfig): GuardianAnalysisResult {
         if (!isLoaded.get() || llamaStackClient == null || this.config == null) {
@@ -164,11 +165,13 @@ class LlamaStackGuardianRunner(
             Log.i(TAG, "LlamaStack Guardian runner loaded successfully with checkpoint: ${config!!.guardianCheckpoint}")
             Log.d(TAG, "Guardian will check: ${if (config!!.shouldCheckInput()) "INPUT" else ""}${if (config!!.shouldCheckInput() && config!!.shouldCheckOutput()) " + " else ""}${if (config!!.shouldCheckOutput()) "OUTPUT" else ""}")
             isLoaded.set(true)
+            loadedModelId = modelId
             true
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load LlamaStack Guardian runner", e)
             isLoaded.set(false)
+            loadedModelId = ""
             false
         }
     }
@@ -178,9 +181,12 @@ class LlamaStackGuardianRunner(
         llamaStackClient = null
         config = null
         isLoaded.set(false)
+        loadedModelId = ""
     }
 
     override fun isLoaded(): Boolean = isLoaded.get()
+
+    override fun getLoadedModelId(): String = loadedModelId
 
     override fun getRunnerInfo(): com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo {
         return com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo(

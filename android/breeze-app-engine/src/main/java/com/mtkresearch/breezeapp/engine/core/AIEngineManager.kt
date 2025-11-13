@@ -364,71 +364,81 @@ class AIEngineManager(
             return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.HARDWARE_NOT_SUPPORTED, "Runner ${runner.getRunnerInfo().name} hardware requirements not met on this device")))
         }
 
-        // 4. Load runner if needed
-        if (!runner.isLoaded()) {
-            logger.d(TAG, "Runner ${runner.getRunnerInfo().name} not loaded, attempting to load...")
+        // 4. Load runner if needed (or reload if model changed)
+        // Determine which model to load. Priority: valid request param -> settings default -> runner default.
+        val settings = runnerManager.getCurrentSettings()
+        val runnerName = runner.getRunnerInfo().name
+        val requestModel = request.params[InferenceRequest.PARAM_MODEL] as? String
 
-            // Determine which model to load. Priority: valid request param -> settings default -> runner default.
-            val settings = runnerManager.getCurrentSettings()
-            val runnerName = runner.getRunnerInfo().name
-            val requestModel = request.params[InferenceRequest.PARAM_MODEL] as? String
-
-            // A model from the request is only used if it's a valid, known model ID.
-            // For cloud runners (like OpenRouter), skip model registry validation as they support dynamic models
-            val isCloudRunner = runnerName.contains("OpenRouter", ignoreCase = true) ||
-                               runnerName.contains("cloud", ignoreCase = true)
-            val isRequestModelValid = if (!requestModel.isNullOrBlank()) {
-                if (isCloudRunner) {
-                    // Cloud runners can use any model name without local registry validation
-                    true
-                } else {
-                    modelRegistryService.getModelDefinition(requestModel) != null
-                }
+        // Get the model that should be used (before loading)
+        val isCloudRunner = runnerName.contains("OpenRouter", ignoreCase = true) ||
+                           runnerName.contains("cloud", ignoreCase = true)
+        val isRequestModelValid = if (!requestModel.isNullOrBlank()) {
+            if (isCloudRunner) {
+                true
             } else {
+                modelRegistryService.getModelDefinition(requestModel) != null
+            }
+        } else {
+            false
+        }
+
+        val targetModelId = if (isRequestModelValid) {
+            requestModel!!
+        } else {
+            // Use InferenceRequest.PARAM_MODEL ("model") not "model_id"
+            settings.getRunnerParameters(runnerName)[InferenceRequest.PARAM_MODEL] as? String
+                ?: getDefaultModelForRunner(runnerName)
+        }
+
+        // Check if runner needs to be loaded or reloaded due to model change
+        val needsReload = if (!runner.isLoaded()) {
+            logger.d(TAG, "Runner ${runner.getRunnerInfo().name} not loaded, needs initial load")
+            true
+        } else {
+            // Runner is loaded - check if model has changed using clean interface method
+            val loadedModel = runner.getLoadedModelId()
+            val modelChanged = loadedModel.isNotEmpty() && targetModelId.isNotEmpty() && loadedModel != targetModelId
+            if (modelChanged) {
+                logger.d(TAG, "Model changed from '$loadedModel' to '$targetModelId' - unloading and reloading runner")
+                runner.unload()
+                // Add small delay to ensure cleanup completes
+                delay(100)
+                true
+            } else {
+                logger.d(TAG, "Runner ${runner.getRunnerInfo().name} already loaded with model '$loadedModel'")
                 false
             }
+        }
 
-            val modelId = if (isRequestModelValid) {
-                // Use the valid model from the request as an override.
-                logger.d(TAG, "Using valid model override from request: '$requestModel'")
-                requestModel!!
-            } else {
-                // If the request model was invalid or not provided, use settings or the runner's default.
-                if (!requestModel.isNullOrBlank()) {
-                    logger.w(TAG, "Model '$requestModel' from request is not a valid model ID. Falling back to settings/default.")
+        if (needsReload) {
+            logger.d(TAG, "Runner ${runner.getRunnerInfo().name} loading/reloading with model '$targetModelId'...")
+
+            // Update request params to reflect the resolved model for consistent logging
+            (request.params as? MutableMap<String, Any>)?.let { mutableParams ->
+                if (targetModelId.isNotEmpty()) {
+                    mutableParams[InferenceRequest.PARAM_MODEL] = targetModelId
+                    logger.d(TAG, "Updated request params with resolved model: '$targetModelId' (was: '$requestModel')")
+                } else {
+                    // Remove invalid model parameter to avoid confusion in logs
+                    mutableParams.remove(InferenceRequest.PARAM_MODEL)
+                    logger.w(TAG, "No valid model found, removed model parameter from request (was: '$requestModel')")
                 }
-                // Use InferenceRequest.PARAM_MODEL ("model") not "model_id" - matches schema parameter name
-                val resolvedModel = settings.getRunnerParameters(runnerName)[InferenceRequest.PARAM_MODEL] as? String
-                    ?: getDefaultModelForRunner(runnerName)
-                
-                // Update request params to reflect the resolved model for consistent logging
-                (request.params as? MutableMap<String, Any>)?.let { mutableParams ->
-                    if (resolvedModel.isNotEmpty()) {
-                        mutableParams[InferenceRequest.PARAM_MODEL] = resolvedModel
-                        logger.d(TAG, "Updated request params with resolved model: '$resolvedModel' (was: '$requestModel')")
-                    } else {
-                        // Remove invalid model parameter to avoid confusion in logs
-                        mutableParams.remove(InferenceRequest.PARAM_MODEL)
-                        logger.w(TAG, "No valid model found, removed model parameter from request (was: '$requestModel')")
-                    }
-                } ?: run {
-                    logger.e(TAG, "Cannot update request params - params is not mutable: ${request.params::class.java}")
-                }
-                
-                resolvedModel
+            } ?: run {
+                logger.e(TAG, "Cannot update request params - params is not mutable: ${request.params::class.java}")
             }
 
             // --- New Model Download Logic ---
             val modelManager = ModelManager.getInstance(context)
-            val modelState = modelManager.getModelState(modelId)
+            val modelState = modelManager.getModelState(targetModelId)
 
-            if (modelId.isNotEmpty() && modelState != null && modelState.status !in listOf(ModelManager.ModelState.Status.DOWNLOADED, ModelManager.ModelState.Status.READY)) {
-                logger.d(TAG, "Model '$modelId' is not downloaded. Triggering download...")
+            if (targetModelId.isNotEmpty() && modelState != null && modelState.status !in listOf(ModelManager.ModelState.Status.DOWNLOADED, ModelManager.ModelState.Status.READY)) {
+                logger.d(TAG, "Model '$targetModelId' is not downloaded. Triggering download...")
 
                 // Use a CompletableDeferred to wait for the download to finish.
                 val downloadCompleter = kotlinx.coroutines.CompletableDeferred<Boolean>()
 
-                modelManager.downloadModel(modelId, object : ModelManager.DownloadListener {
+                modelManager.downloadModel(targetModelId, object : ModelManager.DownloadListener {
                     override fun onCompleted(modelId: String) {
                         logger.d(TAG, "Model '$modelId' downloaded successfully.")
                         downloadCompleter.complete(true)
@@ -443,7 +453,7 @@ class AIEngineManager(
                 // Suspend until the download is complete or fails.
                 val downloadSuccess = downloadCompleter.await()
                 if (!downloadSuccess) {
-                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "Failed to download required model: $modelId")))
+                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "Failed to download required model: $targetModelId")))
                 }
             }
             // --- End New Model Download Logic ---
@@ -454,8 +464,8 @@ class AIEngineManager(
                 logger.d(TAG, "Skipping RAM check for cloud runner: $runnerName")
             } else {
                 // Get model info for RAM calculation
-                val modelInfo = if (modelId.isNotEmpty()) {
-                    modelRegistryService.getModelDefinition(modelId)
+                val modelInfo = if (targetModelId.isNotEmpty()) {
+                    modelRegistryService.getModelDefinition(targetModelId)
                 } else {
                     // Find all models for the runner and return the one with the highest RAM requirement.
                     modelRegistryService.getCompatibleModels(runnerName).maxByOrNull { it.ramGB }
@@ -497,11 +507,11 @@ class AIEngineManager(
             }
 
             // --- New Model-Aware Loading Logic ---
-            logger.d(TAG, "Attempting to load runner $runnerName with model $modelId")
+            logger.d(TAG, "Attempting to load runner $runnerName with model $targetModelId")
 
-            val loaded = runner.load(modelId, settings, request.params)
+            val loaded = runner.load(targetModelId, settings, request.params)
             if (!loaded) {
-                return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_LOAD_FAILED, "Failed to load model '$modelId' for runner: $runnerName")))
+                return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_LOAD_FAILED, "Failed to load model '$targetModelId' for runner: $runnerName")))
             }
         }
 

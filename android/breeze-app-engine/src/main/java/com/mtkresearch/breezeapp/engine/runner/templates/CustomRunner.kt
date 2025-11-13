@@ -45,7 +45,8 @@ class CustomRunner : BaseRunner, FlowStreamingRunner {
     }
     
     private val isLoaded = AtomicBoolean(false)
-    
+    private var loadedModelId: String = ""  // Track loaded model for change detection
+
     // TODO: Replace with your AI client instances
     // private var llmClient: YourLLMClient? = null
     // private var asrClient: YourASRClient? = null
@@ -66,13 +67,15 @@ class CustomRunner : BaseRunner, FlowStreamingRunner {
             //     val success = llmClient?.initialize() ?: false
             //     if (!success) return false
             // }
-            
+
             isLoaded.set(true)
+            loadedModelId = modelId
             Log.d(TAG, "Successfully loaded model: $modelId")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load model: $modelId", e)
             isLoaded.set(false)
+            loadedModelId = ""
             false
         }
     }
@@ -164,17 +167,20 @@ class CustomRunner : BaseRunner, FlowStreamingRunner {
     
     override fun unload() {
         Log.d(TAG, "Unloading runner")
-        
+
         // TODO: Cleanup your AI clients
         // llmClient?.cleanup()
         // llmClient = null
-        
+
         isLoaded.set(false)
+        loadedModelId = ""
     }
-    
+
     override fun getCapabilities(): List<CapabilityType> = SUPPORTED_CAPABILITIES
-    
+
     override fun isLoaded(): Boolean = isLoaded.get()
+
+    override fun getLoadedModelId(): String = loadedModelId
     
     override fun getRunnerInfo(): RunnerInfo = RunnerInfo(
         name = this::class.java.simpleName,

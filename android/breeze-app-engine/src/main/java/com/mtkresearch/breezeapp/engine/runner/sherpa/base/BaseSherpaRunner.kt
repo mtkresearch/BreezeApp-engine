@@ -82,10 +82,12 @@ abstract class BaseSherpaRunner(protected val context: Context) : BaseRunner {
     }
     
     override fun isLoaded(): Boolean = isLoaded.get()
-    
+
+    override fun getLoadedModelId(): String = modelName
+
     /**
      * Get the tag for logging
-     * 
+     *
      * @return The tag to use for logging messages
      */
     protected open fun getTag(): String = this::class.java.simpleName
