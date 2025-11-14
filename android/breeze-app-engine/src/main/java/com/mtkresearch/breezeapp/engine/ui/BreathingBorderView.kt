@@ -56,15 +56,20 @@ class BreathingBorderView(context: Context) : View(context) {
 
     // Multi-color animation for processing state
     private var isMultiColorMode = false
+    // Color wheel progression for natural color transitions (following the rainbow spectrum)
     private val processingColors = intArrayOf(
-        Color.CYAN,
-        Color.MAGENTA,
-        Color.YELLOW,
-        Color.GREEN,
-        Color.BLUE,
-        Color.RED,
-        Color.rgb(255, 165, 0), // Orange
-        Color.rgb(128, 0, 128)  // Purple
+        Color.RED,              // 0° - Red
+        Color.rgb(255, 127, 0), // 30° - Orange
+        Color.YELLOW,           // 60° - Yellow
+        Color.rgb(127, 255, 0), // 90° - Yellow-Green
+        Color.GREEN,            // 120° - Green
+        Color.rgb(0, 255, 127), // 150° - Spring Green
+        Color.CYAN,             // 180° - Cyan
+        Color.rgb(0, 127, 255), // 210° - Sky Blue
+        Color.BLUE,             // 240° - Blue
+        Color.rgb(127, 0, 255), // 270° - Violet
+        Color.MAGENTA,          // 300° - Magenta
+        Color.rgb(255, 0, 127)  // 330° - Rose
     )
     private var currentColorIndex = 0
     private var colorTransitionAnimator: ValueAnimator? = null
