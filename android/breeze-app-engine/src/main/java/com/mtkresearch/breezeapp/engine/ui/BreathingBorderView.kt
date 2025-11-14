@@ -45,7 +45,6 @@ class BreathingBorderView(context: Context) : View(context) {
 
     // State-aware colors
     private var currentColor = Color.CYAN
-    private var targetColor = Color.CYAN
 
     // Animation state
     private var isAnimating = false
@@ -73,6 +72,10 @@ class BreathingBorderView(context: Context) : View(context) {
     )
     private var currentColorIndex = 0
     private var colorTransitionAnimator: ValueAnimator? = null
+
+    // Cache the current color pair for this animation cycle to avoid race conditions
+    private var cycleStartColor: Int = Color.RED
+    private var cycleEndColor: Int = Color.rgb(255, 127, 0)
 
     init {
         Log.d(TAG, "BreathingBorderView initialized")
@@ -147,7 +150,6 @@ class BreathingBorderView(context: Context) : View(context) {
      */
     private fun startSingleColorAnimation(color: Int) {
         currentColor = color
-        targetColor = color
         updateGradients()
 
         // Start breathing alpha animation
@@ -159,8 +161,12 @@ class BreathingBorderView(context: Context) : View(context) {
      */
     private fun startMultiColorAnimation() {
         currentColorIndex = 0
-        currentColor = processingColors[0]
-        targetColor = processingColors[1]
+
+        // Initialize the color pair for the first cycle
+        cycleStartColor = processingColors[0]
+        cycleEndColor = processingColors[1]
+
+        currentColor = cycleStartColor
 
         // Update gradients with initial color
         updateGradients()
@@ -204,28 +210,31 @@ class BreathingBorderView(context: Context) : View(context) {
 
             addUpdateListener { animation ->
                 val progress = animation.animatedValue as Float
-                val nextIndex = (currentColorIndex + 1) % processingColors.size
 
-                // Interpolate between current and next color
-                val currentColorValue = processingColors[currentColorIndex]
-                val nextColorValue = processingColors[nextIndex]
-
-                val interpolatedColor = interpolateColor(currentColorValue, nextColorValue, progress)
+                // Interpolate between the CACHED color pair for this cycle
+                // This avoids race conditions from reading currentColorIndex mid-animation
+                val interpolatedColor = interpolateColor(cycleStartColor, cycleEndColor, progress)
                 currentColor = interpolatedColor
-                targetColor = nextColorValue
 
                 updateGradients()
                 invalidate()
             }
 
-            // Update color index only when animation repeats (NOT during update)
+            // Update color pair only when animation cycle completes and repeats
             addListener(object : android.animation.Animator.AnimatorListener {
                 override fun onAnimationStart(animation: android.animation.Animator) {}
                 override fun onAnimationEnd(animation: android.animation.Animator) {}
                 override fun onAnimationCancel(animation: android.animation.Animator) {}
                 override fun onAnimationRepeat(animation: android.animation.Animator) {
-                    // Move to next color in the wheel when animation cycle completes
+                    // Move to next color in the wheel
                     currentColorIndex = (currentColorIndex + 1) % processingColors.size
+
+                    // Cache the NEW color pair for the next cycle
+                    // This ensures consistent colors throughout the entire next cycle
+                    cycleStartColor = processingColors[currentColorIndex]
+                    cycleEndColor = processingColors[(currentColorIndex + 1) % processingColors.size]
+
+                    Log.d(TAG, "Color cycle: transitioning from color[$currentColorIndex] to color[${(currentColorIndex + 1) % processingColors.size}]")
                 }
             })
 
