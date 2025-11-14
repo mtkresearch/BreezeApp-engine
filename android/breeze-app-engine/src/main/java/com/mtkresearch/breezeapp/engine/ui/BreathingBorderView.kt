@@ -201,6 +201,7 @@ class BreathingBorderView(context: Context) : View(context) {
             duration = 2500L // 2.5 seconds per color transition for smoother effect
             repeatCount = ValueAnimator.INFINITE
             interpolator = AccelerateDecelerateInterpolator()  // Smooth acceleration and deceleration
+
             addUpdateListener { animation ->
                 val progress = animation.animatedValue as Float
                 val nextIndex = (currentColorIndex + 1) % processingColors.size
@@ -215,12 +216,19 @@ class BreathingBorderView(context: Context) : View(context) {
 
                 updateGradients()
                 invalidate()
-
-                // Move to next color when transition completes
-                if (progress >= 0.99f) {  // Slightly earlier to avoid flicker
-                    currentColorIndex = nextIndex
-                }
             }
+
+            // Update color index only when animation repeats (NOT during update)
+            addListener(object : android.animation.Animator.AnimatorListener {
+                override fun onAnimationStart(animation: android.animation.Animator) {}
+                override fun onAnimationEnd(animation: android.animation.Animator) {}
+                override fun onAnimationCancel(animation: android.animation.Animator) {}
+                override fun onAnimationRepeat(animation: android.animation.Animator) {
+                    // Move to next color in the wheel when animation cycle completes
+                    currentColorIndex = (currentColorIndex + 1) % processingColors.size
+                }
+            })
+
             start()
         }
     }
