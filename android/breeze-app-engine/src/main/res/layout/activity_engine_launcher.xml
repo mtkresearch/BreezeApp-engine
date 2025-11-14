@@ -48,7 +48,7 @@
                     android:layout_gravity="center"
                     android:src="@drawable/ic_brain"
                     android:tint="@color/on_primary"
-                    android:contentDescription="BreezeApp Engine Icon" />
+                    android:contentDescription="@string/breeze_app_engine_icon" />
 
             </androidx.cardview.widget.CardView>
 
@@ -58,7 +58,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="BreezeApp Engine"
+                android:text="@string/breeze_app_engine"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
@@ -73,7 +73,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="On-Device AI Processing"
+                android:text="@string/on_device_ai_processing"
                 android:textSize="14sp"
                 android:textColor="@color/text_secondary"
                 android:gravity="center"
@@ -107,7 +107,7 @@
                     android:id="@+id/statusText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Service Starting..."
+                    android:text="@string/service_starting"
                     android:textSize="13sp"
                     android:textColor="@color/success" />
 
@@ -142,7 +142,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Real-time AI Chat"
+                        android:text="@string/feature_realtime_ai_chat"
                         android:textSize="13sp"
                         android:textColor="@color/text_secondary" />
 
@@ -166,7 +166,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Speech Recognition &amp; TTS"
+                        android:text="@string/feature_speech_recognition_tts"
                         android:textSize="13sp"
                         android:textColor="@color/text_secondary" />
 
@@ -189,7 +189,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="100% On-Device Privacy"
+                        android:text="@string/feature_on_device_privacy"
                         android:textSize="13sp"
                         android:textColor="@color/text_secondary" />
 
@@ -214,7 +214,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_marginBottom="8dp"
-                    android:text="Configure AI Engine"
+                    android:text="@string/configure_ai_engine"
                     android:textSize="14sp"
                     android:textColor="@android:color/white"
                     android:textAllCaps="false"
@@ -239,7 +239,7 @@
                         android:layout_height="48dp"
                         android:layout_weight="1"
                         android:layout_marginEnd="4dp"
-                        android:text="View Status"
+                        android:text="@string/view_status"
                         android:textSize="13sp"
                         android:textAllCaps="false"
                         app:icon="@drawable/ic_notifications"
@@ -256,7 +256,7 @@
                         android:layout_height="48dp"
                         android:layout_weight="1"
                         android:layout_marginStart="4dp"
-                        android:text="Learn More"
+                        android:text="@string/learn_more"
                         android:textSize="13sp"
                         android:textAllCaps="false"
                         app:icon="@drawable/ic_info"

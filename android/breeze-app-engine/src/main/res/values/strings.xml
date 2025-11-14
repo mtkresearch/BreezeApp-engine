@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App Name -->
     <string name="app_name">BreezeApp Engine</string>
@@ -6,11 +7,124 @@
     <string name="permission_bind_engine_label">Bind to AI Engine Service</string>
     <string name="permission_bind_engine_desc">Allows binding to the BreezeApp AI Engine service for AI inference capabilities</string>
 
-    <!-- Unsaved Changes Dialog -->
+    <!-- ==================== Engine Settings Activity ==================== -->
+
+    <!-- Toolbar -->
+    <string name="ai_engine_settings">AI Engine Settings</string>
+
+    <!-- Runner Selection Section -->
+    <string name="runner_selection">Runner Selection</string>
+    <string name="select_runner_for_capability">Select runner for %1$s capability:</string>
+    <string name="runner_description_placeholder">Runner description will appear here</string>
+    <string name="runner_info_not_available">Runner information not available</string>
+    <string name="no_runners_available">No runners available for this capability</string>
+    <string name="supported">✓ Supported</string>
+    <string name="not_supported">✗ Not Supported</string>
+
+    <!-- Authentication Section -->
+    <string name="authentication">Authentication</string>
+    <string name="api_key">API Key</string>
+    <string name="enter_api_key_hint">Enter your OpenRouter API key</string>
+    <string name="get_api_key_help">Get your API key from openrouter.ai/keys</string>
+
+    <!-- Model Price Filter Section -->
+    <string name="model_price_filter">Model Price Filter</string>
+    <string name="free_models_only">Free models only</string>
+    <string name="price_up_to_free">Up to ~Free</string>
+    <string name="price_up_to_format">Up to $%1$s per 1K tokens</string>
+    <string name="loading_models">Loading models...</string>
+    <string name="api_key_required">API key required</string>
+    <string name="failed_to_load_models">Failed to load models</string>
+    <string name="refresh">Refresh</string>
+
+    <!-- Runner Parameters Section -->
+    <string name="runner_parameters">Runner Parameters</string>
+    <string name="select_runner_hint">Select a runner to configure its parameters</string>
+
+    <!-- Save Settings Button -->
+    <string name="save_settings">Save Settings</string>
+
+    <!-- Capability Tabs -->
+    <string name="capability_llm">LLM</string>
+    <string name="capability_asr">ASR</string>
+    <string name="capability_tts">TTS</string>
+    <string name="capability_vlm">VLM</string>
+    <string name="capability_guardian">Guardian</string>
+
+    <!-- Parameter Input Hints -->
+    <string name="enter_type_hint">Enter %1$s</string>
+    <string name="enter_integer_hint">Enter integer</string>
+    <string name="enter_file_path_hint">Enter file path</string>
+    <string name="enable_parameter">Enable %1$s</string>
+    <string name="unsupported_parameter_type">Unsupported parameter type: %1$s</string>
+
+    <!-- Toast Messages - Settings Activity -->
+    <string name="starting_engine_service">Starting engine service...</string>
+    <string name="validation_errors_with_count">Cannot save: %1$d parameter(s) have invalid values. Check logs for details.</string>
+    <string name="validation_errors_fix_first">Cannot save: %1$d parameter(s) have invalid values. Please fix them first.</string>
+    <string name="settings_saved_successfully">Settings saved successfully</string>
+    <string name="settings_saved_reload_failed">Settings saved, but failed to reload runners: %1$s</string>
+    <string name="settings_saved_new_conversation">Settings saved! Please start a new conversation to use the new model.</string>
+    <string name="settings_saved_and_reloaded">Settings saved and runners reloaded successfully.</string>
+
+    <!-- Error Dialog Titles and Messages -->
+    <string name="initialization_error">Initialization Error</string>
+    <string name="initialization_error_message">Failed to initialize AI engine: %1$s\n\nPlease restart the app and try again.</string>
+    <string name="settings_load_error">Settings Load Error</string>
+    <string name="settings_load_error_message">Failed to load engine settings: %1$s\n\nDefault settings will be used.</string>
+    <string name="runners_load_error">Runners Load Error</string>
+    <string name="runners_load_error_message">Failed to load AI runners: %1$s\n\nSome features may be unavailable.</string>
+    <string name="save_error">Save Error</string>
+    <string name="save_error_message">Failed to save settings: %1$s\n\nPlease try again.</string>
+    <string name="save_failed">Save Failed</string>
+    <string name="save_failed_message">Failed to save settings: %1$s\n\nPlease try again.</string>
+    <string name="model_fetch_failed">Model Fetch Failed</string>
+    <string name="model_fetch_failed_message">Failed to fetch models from OpenRouter: %1$s\n\nPlease check your API key and try again.</string>
+    <string name="engine_binding_failed">Engine Binding Failed</string>
+    <string name="engine_binding_failed_message">Failed to connect to BreezeApp Engine Service.\n\nThis usually happens when the engine service is still starting up or hasn\'t been initialized.\n\nYou can retry the connection or close this screen and try again later.</string>
+    <string name="retry">Retry</string>
+
+    <!-- ==================== Engine Launcher Activity ==================== -->
+
+    <string name="breeze_app_engine">BreezeApp Engine</string>
+    <string name="on_device_ai_processing">On-Device AI Processing</string>
+    <string name="service_starting">Service Starting...</string>
+
+    <!-- Feature List -->
+    <string name="feature_realtime_ai_chat">Real-time AI Chat</string>
+    <string name="feature_speech_recognition_tts">Speech Recognition &amp; TTS</string>
+    <string name="feature_on_device_privacy">100% On-Device Privacy</string>
+
+    <!-- Action Buttons -->
+    <string name="configure_ai_engine">Configure AI Engine</string>
+    <string name="view_status">View Status</string>
+    <string name="learn_more">Learn More</string>
+
+    <!-- Toast Messages - Launcher Activity -->
+    <string name="microphone_features_limited">Microphone features will be limited</string>
+    <string name="microphone_permission_granted">Microphone permission granted</string>
+    <string name="microphone_permission_denied">Microphone permission denied - ASR features may not work</string>
+    <string name="swipe_down_notification">Swipe down from top to see BreezeApp Engine notification</string>
+    <string name="service_running_no_status">Service is running without visible status.</string>
+
+    <!-- ==================== Unsaved Changes Dialog ==================== -->
+
     <string name="unsaved_changes_title">Unsaved Changes</string>
     <string name="unsaved_changes_message">You have unsaved changes in: %1$s. What would you like to do?</string>
     <string name="save">Save</string>
     <string name="discard">Discard</string>
     <string name="cancel">Cancel</string>
+
+    <!-- ==================== Error Dialog ==================== -->
+
+    <string name="error_message_copied">Error message copied to clipboard</string>
+
+    <!-- ==================== Dynamic Parameter View ==================== -->
+
+    <string name="file_picker_placeholder">File picker would open here</string>
+
+    <!-- ==================== Content Descriptions ==================== -->
+
+    <string name="breeze_app_engine_icon">BreezeApp Engine Icon</string>
 
 </resources>

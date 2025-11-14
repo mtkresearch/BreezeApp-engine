@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">BreezeApp 引擎</string>
+
+    <!-- Permission Strings (English - shown to developers/system) -->
+    <string name="permission_bind_engine_label">繫結至 AI 引擎服務</string>
+    <string name="permission_bind_engine_desc">允許繫結至 BreezeApp AI 引擎服務以使用 AI 推理功能</string>
+
+    <!-- ==================== Engine Settings Activity ==================== -->
+
+    <!-- Toolbar -->
+    <string name="ai_engine_settings">AI 引擎設定</string>
+
+    <!-- Runner Selection Section -->
+    <string name="runner_selection">執行器選擇</string>
+    <string name="select_runner_for_capability">選擇 %1$s 功能的執行器：</string>
+    <string name="runner_description_placeholder">執行器說明將顯示於此</string>
+    <string name="runner_info_not_available">執行器資訊無法使用</string>
+    <string name="no_runners_available">此功能沒有可用的執行器</string>
+    <string name="supported">✓ 支援</string>
+    <string name="not_supported">✗ 不支援</string>
+
+    <!-- Authentication Section -->
+    <string name="authentication">身份驗證</string>
+    <string name="api_key">API 金鑰</string>
+    <string name="enter_api_key_hint">輸入您的 OpenRouter API 金鑰</string>
+    <string name="get_api_key_help">從 openrouter.ai/keys 取得您的 API 金鑰</string>
+
+    <!-- Model Price Filter Section -->
+    <string name="model_price_filter">模型價格篩選</string>
+    <string name="free_models_only">僅免費模型</string>
+    <string name="price_up_to_free">最高~免費</string>
+    <string name="price_up_to_format">最高 $%1$s 每 1K 代幣</string>
+    <string name="loading_models">載入模型中...</string>
+    <string name="api_key_required">需要 API 金鑰</string>
+    <string name="failed_to_load_models">載入模型失敗</string>
+    <string name="refresh">重新整理</string>
+
+    <!-- Runner Parameters Section -->
+    <string name="runner_parameters">執行器參數</string>
+    <string name="select_runner_hint">選擇執行器以設定其參數</string>
+
+    <!-- Save Settings Button -->
+    <string name="save_settings">儲存設定</string>
+
+    <!-- Capability Tabs -->
+    <string name="capability_llm">LLM</string>
+    <string name="capability_asr">ASR</string>
+    <string name="capability_tts">TTS</string>
+    <string name="capability_vlm">VLM</string>
+    <string name="capability_guardian">Guardian</string>
+
+    <!-- Parameter Input Hints -->
+    <string name="enter_type_hint">輸入 %1$s</string>
+    <string name="enter_integer_hint">輸入整數</string>
+    <string name="enter_file_path_hint">輸入檔案路徑</string>
+    <string name="enable_parameter">啟用 %1$s</string>
+    <string name="unsupported_parameter_type">不支援的參數類型：%1$s</string>
+
+    <!-- Toast Messages - Settings Activity -->
+    <string name="starting_engine_service">正在啟動引擎服務...</string>
+    <string name="validation_errors_with_count">無法儲存：%1$d 個參數包含無效值。請查看日誌以了解詳情。</string>
+    <string name="validation_errors_fix_first">無法儲存：%1$d 個參數包含無效值。請先修正這些參數。</string>
+    <string name="settings_saved_successfully">設定已成功儲存</string>
+    <string name="settings_saved_reload_failed">設定已儲存，但重新載入執行器失敗：%1$s</string>
+    <string name="settings_saved_new_conversation">設定已儲存！請開始新對話以使用新模型。</string>
+    <string name="settings_saved_and_reloaded">設定已儲存且執行器已成功重新載入。</string>
+
+    <!-- Error Dialog Titles and Messages -->
+    <string name="initialization_error">初始化錯誤</string>
+    <string name="initialization_error_message">AI 引擎初始化失敗：%1$s\n\n請重新啟動應用程式後再試。</string>
+    <string name="settings_load_error">設定載入錯誤</string>
+    <string name="settings_load_error_message">引擎設定載入失敗：%1$s\n\n將使用預設設定。</string>
+    <string name="runners_load_error">執行器載入錯誤</string>
+    <string name="runners_load_error_message">AI 執行器載入失敗：%1$s\n\n某些功能可能無法使用。</string>
+    <string name="save_error">儲存錯誤</string>
+    <string name="save_error_message">設定儲存失敗：%1$s\n\n請再試一次。</string>
+    <string name="save_failed">儲存失敗</string>
+    <string name="save_failed_message">設定儲存失敗：%1$s\n\n請再試一次。</string>
+    <string name="model_fetch_failed">模型擷取失敗</string>
+    <string name="model_fetch_failed_message">從 OpenRouter 擷取模型失敗：%1$s\n\n請檢查您的 API 金鑰後再試。</string>
+    <string name="engine_binding_failed">引擎繫結失敗</string>
+    <string name="engine_binding_failed_message">連線至 BreezeApp 引擎服務失敗。\n\n這通常發生在引擎服務仍在啟動中或尚未初始化時。\n\n您可以重試連線，或關閉此畫面稍後再試。</string>
+    <string name="retry">重試</string>
+
+    <!-- ==================== Engine Launcher Activity ==================== -->
+
+    <string name="breeze_app_engine">BreezeApp 引擎</string>
+    <string name="on_device_ai_processing">裝置端 AI 處理</string>
+    <string name="service_starting">服務啟動中...</string>
+
+    <!-- Feature List -->
+    <string name="feature_realtime_ai_chat">即時 AI 聊天</string>
+    <string name="feature_speech_recognition_tts">語音辨識與 TTS</string>
+    <string name="feature_on_device_privacy">100% 裝置端隱私</string>
+
+    <!-- Action Buttons -->
+    <string name="configure_ai_engine">設定 AI 引擎</string>
+    <string name="view_status">檢視狀態</string>
+    <string name="learn_more">了解更多</string>
+
+    <!-- Toast Messages - Launcher Activity -->
+    <string name="microphone_features_limited">麥克風功能將受到限制</string>
+    <string name="microphone_permission_granted">已授予麥克風權限</string>
+    <string name="microphone_permission_denied">已拒絕麥克風權限 - ASR 功能可能無法運作</string>
+    <string name="swipe_down_notification">從頂部向下滑動以查看 BreezeApp 引擎通知</string>
+    <string name="service_running_no_status">服務正在執行但沒有可見狀態。</string>
+
+    <!-- ==================== Unsaved Changes Dialog ==================== -->
+
+    <string name="unsaved_changes_title">未儲存的變更</string>
+    <string name="unsaved_changes_message">您在以下項目有未儲存的變更：%1$s。您想要怎麼做？</string>
+    <string name="save">儲存</string>
+    <string name="discard">捨棄</string>
+    <string name="cancel">取消</string>
+
+    <!-- ==================== Error Dialog ==================== -->
+
+    <string name="error_message_copied">錯誤訊息已複製到剪貼簿</string>
+
+    <!-- ==================== Dynamic Parameter View ==================== -->
+
+    <string name="file_picker_placeholder">檔案選擇器將在此開啟</string>
+
+    <!-- ==================== Content Descriptions ==================== -->
+
+    <string name="breeze_app_engine_icon">BreezeApp 引擎圖示</string>
+
+</resources>
