@@ -155,8 +155,8 @@ class EngineSettingsActivity : AppCompatActivity() {
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "AI Engine Settings"
-        
+        supportActionBar?.title = getString(R.string.ai_engine_settings)
+
         // Set navigation icon tint programmatically
         toolbar.navigationIcon?.setTint(ContextCompat.getColor(this, android.R.color.white))
     }
@@ -248,15 +248,15 @@ class EngineSettingsActivity : AppCompatActivity() {
                         setupObservers()
                     }
                 }, 2000)
-                
-                Toast.makeText(this, "Starting engine service...", Toast.LENGTH_SHORT).show()
+
+                Toast.makeText(this, R.string.starting_engine_service, Toast.LENGTH_SHORT).show()
                 return
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing RunnerManager", e)
             showCriticalErrorDialog(
-                title = "Initialization Error",
-                message = "Failed to initialize AI engine: ${e.message}\n\nPlease restart the app and try again."
+                title = getString(R.string.initialization_error),
+                message = getString(R.string.initialization_error_message, e.message)
             )
         }
     }
@@ -272,8 +272,8 @@ class EngineSettingsActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "Error loading settings", e)
             showErrorDialog(
-                title = "Settings Load Error",
-                message = "Failed to load engine settings: ${e.message}\n\nDefault settings will be used."
+                title = getString(R.string.settings_load_error),
+                message = getString(R.string.settings_load_error_message, e.message)
             )
         }
     }
@@ -301,8 +301,8 @@ class EngineSettingsActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "Error loading runners", e)
             showErrorDialog(
-                title = "Runners Load Error",
-                message = "Failed to load AI runners: ${e.message}\n\nSome features may be unavailable."
+                title = getString(R.string.runners_load_error),
+                message = getString(R.string.runners_load_error_message, e.message)
             )
         }
     }
@@ -352,7 +352,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     }
     
     private fun updateCapabilityUI() {
-        tvCapabilityLabel.text = "Select runner for ${currentCapability.name} capability:"
+        tvCapabilityLabel.text = getString(R.string.select_runner_for_capability, currentCapability.name)
     }
 
     /**
@@ -375,15 +375,15 @@ class EngineSettingsActivity : AppCompatActivity() {
                 chipSupported.visibility = View.VISIBLE
                 chipNotSupported.visibility = View.GONE
             } else {
-                tvRunnerDescription.text = "Runner information not available"
+                tvRunnerDescription.text = getString(R.string.runner_info_not_available)
                 chipSupported.visibility = View.GONE
                 chipNotSupported.visibility = View.VISIBLE
             }
-            
+
             // Load and display parameters for this runner
             loadRunnerParameters(selectedRunnerName)
         } else {
-            tvRunnerDescription.text = "No runners available for this capability"
+            tvRunnerDescription.text = getString(R.string.no_runners_available)
             chipSupported.visibility = View.GONE
             chipNotSupported.visibility = View.VISIBLE
             clearParameterViews()
@@ -559,7 +559,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                     var isInitializing = true
 
                     val editText = android.widget.EditText(this).apply {
-                        hint = "Enter ${schema.type}"
+                        hint = getString(R.string.enter_type_hint, schema.type)
                         inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
 
                         // Set initial value
@@ -619,7 +619,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                     var isInitializing = true
 
                     val editText = android.widget.EditText(this).apply {
-                        hint = "Enter integer"
+                        hint = getString(R.string.enter_integer_hint)
                         inputType = android.text.InputType.TYPE_CLASS_NUMBER
                         setText(initialValue?.toString() ?: "")
 
@@ -674,7 +674,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                     var isInitializing = true
 
                     val switch = android.widget.Switch(this).apply {
-                        text = "Enable ${schema.name}"
+                        text = getString(R.string.enable_parameter, schema.name)
                         isChecked = initialValue as? Boolean ?: false
 
                         setOnCheckedChangeListener { _, isChecked ->
@@ -768,7 +768,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                     var isInitializing = true
 
                     val editText = android.widget.EditText(this).apply {
-                        hint = "Enter file path"
+                        hint = getString(R.string.enter_file_path_hint)
                         inputType = android.text.InputType.TYPE_CLASS_TEXT
 
                         addTextChangedListener(object : android.text.TextWatcher {
@@ -805,7 +805,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                     // Fallback for truly unknown types (shouldn't happen)
                     Log.w(TAG, "Unknown parameter type for ${schema.name}: ${schema.type}")
                     val label = TextView(this).apply {
-                        text = "Unsupported parameter type: ${schema.type}"
+                        text = getString(R.string.unsupported_parameter_type, schema.type)
                         setTextColor(android.graphics.Color.RED)
                     }
                     container.addView(label)
@@ -945,8 +945,8 @@ class EngineSettingsActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving settings", e)
                 showErrorDialog(
-                    title = "Save Error",
-                    message = "Failed to save settings: ${e.message}\n\nPlease try again."
+                    title = getString(R.string.save_error),
+                    message = getString(R.string.save_error_message, e.message)
                 )
             }
         }
@@ -1060,8 +1060,8 @@ class EngineSettingsActivity : AppCompatActivity() {
                 hideSaveProgress()
                 Log.e(TAG, "Failed to save settings", e)
                 showErrorDialog(
-                    title = "Save Failed",
-                    message = "Failed to save settings: ${e.message}\n\nPlease try again."
+                    title = getString(R.string.save_failed),
+                    message = getString(R.string.save_error_message, e.message)
                 )
             }
         }
@@ -1148,17 +1148,17 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                 // Show appropriate message based on what changed
                 val message = if (modelChanged) {
-                    "Settings saved! Please start a new conversation to use the new model."
+                    getString(R.string.settings_saved_new_conversation)
                 } else {
-                    "Settings saved successfully"
+                    getString(R.string.settings_saved_successfully)
                 }
                 Toast.makeText(this@EngineSettingsActivity, message, Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 hideSaveProgress()
                 Log.e(TAG, "Failed to save settings", e)
                 showErrorDialog(
-                    title = "Save Failed",
-                    message = "Failed to save settings: ${e.message}\n\nPlease try again."
+                    title = getString(R.string.save_failed),
+                    message = getString(R.string.save_error_message, e.message)
                 )
             }
         }
@@ -1525,9 +1525,9 @@ class EngineSettingsActivity : AppCompatActivity() {
      */
     private fun updatePriceLabel(maxPrice: Double) {
         tvPriceLabel.text = when {
-            maxPrice == 0.0 -> "Free models only"
-            maxPrice < 0.00001 -> "Up to ~Free"
-            else -> "Up to $${"%.6f".format(maxPrice)} per 1K tokens"
+            maxPrice == 0.0 -> getString(R.string.free_models_only)
+            maxPrice < 0.00001 -> getString(R.string.price_up_to_free)
+            else -> getString(R.string.price_up_to_format, "%.6f".format(maxPrice))
         }
     }
 
@@ -1535,7 +1535,7 @@ class EngineSettingsActivity : AppCompatActivity() {
      * Update model count text
      */
     private fun updateModelCount() {
-        tvModelCount.text = "${filteredModels.size} models available"
+        tvModelCount.text = getString(R.string.models_available_count, filteredModels.size)
     }
 
     /**
@@ -1550,13 +1550,13 @@ class EngineSettingsActivity : AppCompatActivity() {
         // Get API key from current settings
         val apiKey = getCurrentApiKey()
         if (apiKey.isNullOrBlank()) {
-            tvModelCount.text = "API key required"
+            tvModelCount.text = getString(R.string.api_key_required)
             Log.w(TAG, "Cannot fetch models: API key not set")
             return
         }
 
         // Show loading state
-        tvModelCount.text = "Loading models..."
+        tvModelCount.text = getString(R.string.loading_models)
         btnRefreshModels.isEnabled = false
 
         lifecycleScope.launch {
@@ -1573,12 +1573,12 @@ class EngineSettingsActivity : AppCompatActivity() {
                 // Regenerate parameter views to update model dropdown
                 updateRunnerInfo()
             }.onFailure { error ->
-                tvModelCount.text = "Failed to load models"
+                tvModelCount.text = getString(R.string.failed_to_load_models)
                 btnRefreshModels.isEnabled = true
                 Log.e(TAG, "Failed to fetch models", error)
                 showErrorDialog(
-                    title = "Model Fetch Failed",
-                    message = "Failed to fetch models from OpenRouter: ${error.message}\n\nPlease check your API key and try again."
+                    title = getString(R.string.model_fetch_failed),
+                    message = getString(R.string.model_fetch_failed_message, error.message)
                 )
             }
         }
@@ -1634,11 +1634,9 @@ class EngineSettingsActivity : AppCompatActivity() {
     private fun showBindingErrorDialog() {
         ErrorDialog.showWithAction(
             context = this,
-            title = "Engine Binding Failed",
-            message = "Failed to connect to BreezeApp Engine Service.\n\n" +
-                    "This usually happens when the engine service is still starting up or hasn't been initialized.\n\n" +
-                    "You can retry the connection or close this screen and try again later.",
-            actionButtonText = "Retry",
+            title = getString(R.string.engine_binding_failed),
+            message = getString(R.string.engine_binding_failed_message),
+            actionButtonText = getString(R.string.retry),
             onAction = {
                 Log.d(TAG, "User requested retry for engine binding")
                 // Retry initialization

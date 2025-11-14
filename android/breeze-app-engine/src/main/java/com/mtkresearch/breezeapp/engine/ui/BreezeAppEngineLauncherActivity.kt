@@ -245,8 +245,8 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         } catch (e: Exception) {
             android.util.Log.e("BreezeAppEngineLauncher", "Failed to launch Engine Settings", e)
             showErrorDialog(
-                title = "Launch Failed",
-                message = "Failed to open Engine Settings: ${e.message}\n\nPlease try again."
+                title = getString(R.string.launch_failed),
+                message = getString(R.string.launch_failed_message, e.message)
             )
         }
     }
@@ -329,8 +329,8 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         } catch (e: Exception) {
             android.util.Log.e("RouterEntryActivity", "Failed to start BreezeApp Engine Service", e)
             showCriticalErrorDialog(
-                title = "Service Start Failed",
-                message = "Failed to start BreezeApp Engine Service: ${e.message}\n\nThe app cannot run without the engine service. Please restart the app."
+                title = getString(R.string.service_start_failed),
+                message = getString(R.string.service_start_failed_message, e.message)
             )
         }
     }

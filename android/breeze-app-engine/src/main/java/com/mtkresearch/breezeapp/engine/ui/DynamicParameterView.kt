@@ -9,6 +9,7 @@ import androidx.appcompat.widget.SwitchCompat
 import com.google.android.material.slider.Slider
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import com.mtkresearch.breezeapp.engine.R
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
 
@@ -144,10 +145,10 @@ class DynamicParameterView(private val context: Context) {
             
             if (schema.isSensitive) {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                hint = "Enter ${schema.displayName}"
+                hint = context.getString(R.string.enter_type_hint, schema.displayName)
             } else {
                 inputType = InputType.TYPE_CLASS_TEXT
-                hint = "Enter ${schema.displayName}"
+                hint = context.getString(R.string.enter_type_hint, schema.displayName)
             }
             
             // Set current value
@@ -354,7 +355,7 @@ class DynamicParameterView(private val context: Context) {
         }
         
         val editText = TextInputEditText(context).apply {
-            hint = "Select file path"
+            hint = context.getString(R.string.select_file_path_hint)
             isEnabled = false
             val textValue = currentValue?.toString() ?: schema.defaultValue?.toString() ?: ""
             setText(textValue)

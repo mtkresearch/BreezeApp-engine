@@ -242,21 +242,23 @@ object ErrorDialog {
  * Extension function for Activity to easily show error dialogs
  */
 fun android.app.Activity.showErrorDialog(
-    title: String = "Error",
+    title: String? = null,
     message: String,
     onClose: (() -> Unit)? = null
 ) {
-    ErrorDialog.show(this, title, message, onClose)
+    val localizedTitle = title ?: getString(R.string.error)
+    ErrorDialog.show(this, localizedTitle, message, onClose)
 }
 
 /**
  * Extension function for Activity to easily show critical error dialogs
  */
 fun android.app.Activity.showCriticalErrorDialog(
-    title: String = "Critical Error",
+    title: String? = null,
     message: String
 ) {
-    ErrorDialog.showCritical(this, title, message)
+    val localizedTitle = title ?: getString(R.string.critical_error)
+    ErrorDialog.showCritical(this, localizedTitle, message)
 }
 
 /**
