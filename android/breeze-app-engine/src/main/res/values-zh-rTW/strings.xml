@@ -115,6 +115,17 @@
     <string name="swipe_down_notification">從頂部向下滑動以查看 BreezeApp 引擎通知</string>
     <string name="service_running_no_status">服務正在執行但沒有可見狀態。</string>
 
+    <!-- Service Info Dialog -->
+    <string name="service_information">服務資訊</string>
+    <string name="service_info_details">BreezeApp 引擎詳情：\n\n• 類型：前台服務\n• 用途：裝置端 AI 處理\n• 功能：聊天、TTS、ASR\n• 狀態：隨時可供客戶端使用\n• 隱私：所有處理均在裝置上進行\n\n此服務持續執行，為客戶端應用程式提供即時 AI 回應。</string>
+    <string name="got_it">知道了</string>
+
+    <!-- Overlay Permission Dialog -->
+    <string name="overlay_permission_required">需要顯示權限</string>
+    <string name="overlay_permission_message">BreezeApp 引擎需要顯示權限以：\n\n• 在處理期間顯示呼吸燈邊框\n• 顯示即時 AI 狀態指示器\n• 為活動操作提供視覺回饋\n\n這可透過視覺狀態更新來增強使用者體驗。</string>
+    <string name="grant_permission">授予權限</string>
+    <string name="skip">跳過</string>
+
     <!-- ==================== Unsaved Changes Dialog ==================== -->
 
     <string name="unsaved_changes_title">未儲存的變更</string>

@@ -213,20 +213,16 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         
         if (!Settings.canDrawOverlays(this)) {
             AlertDialog.Builder(this)
-                .setTitle("Overlay Permission Required")
-                .setMessage("BreezeApp Engine needs overlay permission to:\n\n" +
-                           "• Display breathing light border during processing\n" +
-                           "• Show real-time AI status indicators\n" +
-                           "• Provide visual feedback for active operations\n\n" +
-                           "This enhances the user experience with visual status updates.")
-                .setPositiveButton("Grant Permission") { _, _ ->
+                .setTitle(getString(R.string.overlay_permission_required))
+                .setMessage(getString(R.string.overlay_permission_message))
+                .setPositiveButton(getString(R.string.grant_permission)) { _, _ ->
                     val intent = Intent(
                         Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         android.net.Uri.parse("package:$packageName")
                     )
                     startActivity(intent)
                 }
-                .setNegativeButton("Skip") { _, _ ->
+                .setNegativeButton(getString(R.string.skip)) { _, _ ->
                     android.util.Log.w("BreezeAppEngineLauncher", "User declined overlay permission - breathing border will not work")
                 }
                 .setCancelable(false)
@@ -256,15 +252,9 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
      */
     private fun showServiceInfoDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Service Information")
-            .setMessage("BreezeApp Engine Details:\n\n" +
-                       "• Type: Foreground Service\n" +
-                       "• Purpose: On-device AI processing\n" +
-                       "• Capabilities: Chat, TTS, ASR\n" +
-                       "• Status: Always available for clients\n" +
-                       "• Privacy: All processing stays on device\n\n" +
-                       "The service runs continuously to provide instant AI responses to client applications.")
-            .setPositiveButton("Got it") { dialog, _ ->
+            .setTitle(getString(R.string.service_information))
+            .setMessage(getString(R.string.service_info_details))
+            .setPositiveButton(getString(R.string.got_it)) { dialog, _ ->
                 dialog.dismiss() // Close dialog, stay in premium layout
             }
             .setCancelable(true) // Allow back button to close dialog

@@ -115,6 +115,17 @@
     <string name="swipe_down_notification">Swipe down from top to see BreezeApp Engine notification</string>
     <string name="service_running_no_status">Service is running without visible status.</string>
 
+    <!-- Service Info Dialog -->
+    <string name="service_information">Service Information</string>
+    <string name="service_info_details">BreezeApp Engine Details:\n\n• Type: Foreground Service\n• Purpose: On-device AI processing\n• Capabilities: Chat, TTS, ASR\n• Status: Always available for clients\n• Privacy: All processing stays on device\n\nThe service runs continuously to provide instant AI responses to client applications.</string>
+    <string name="got_it">Got it</string>
+
+    <!-- Overlay Permission Dialog -->
+    <string name="overlay_permission_required">Overlay Permission Required</string>
+    <string name="overlay_permission_message">BreezeApp Engine needs overlay permission to:\n\n• Display breathing light border during processing\n• Show real-time AI status indicators\n• Provide visual feedback for active operations\n\nThis enhances the user experience with visual status updates.</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="skip">Skip</string>
+
     <!-- ==================== Unsaved Changes Dialog ==================== -->
 
     <string name="unsaved_changes_title">Unsaved Changes</string>
