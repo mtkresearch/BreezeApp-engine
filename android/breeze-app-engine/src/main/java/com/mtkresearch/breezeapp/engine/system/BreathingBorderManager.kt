@@ -131,7 +131,7 @@ class BreathingBorderManager(private val context: Context) {
     
     private fun createOverlayView() {
         overlayView = BreathingBorderView(context)
-        
+
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -142,12 +142,23 @@ class BreathingBorderManager(private val context: Context) {
             },
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or  // Extend beyond screen bounds
+            WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,  // Draw under system bars
             PixelFormat.TRANSLUCENT
         )
-        
+
+        // Position at top-left corner of physical screen
+        params.x = 0
+        params.y = 0
+
+        // For API 21+, ensure we can draw edge-to-edge
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
+        }
+
         windowManager.addView(overlayView, params)
-        Log.d(TAG, "Overlay view created and added to window manager")
+        Log.d(TAG, "Overlay view created and added to window manager with full-screen edge-to-edge layout")
     }
     
     private fun removeOverlayView() {
