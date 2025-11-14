@@ -35,6 +35,7 @@
     <string name="loading_models">載入模型中...</string>
     <string name="api_key_required">需要 API 金鑰</string>
     <string name="failed_to_load_models">載入模型失敗</string>
+    <string name="models_available_count">%1$d 個可用模型</string>
     <string name="refresh">重新整理</string>
 
     <!-- Runner Parameters Section -->
@@ -55,6 +56,7 @@
     <string name="enter_type_hint">輸入 %1$s</string>
     <string name="enter_integer_hint">輸入整數</string>
     <string name="enter_file_path_hint">輸入檔案路徑</string>
+    <string name="select_file_path_hint">選擇檔案路徑</string>
     <string name="enable_parameter">啟用 %1$s</string>
     <string name="unsupported_parameter_type">不支援的參數類型：%1$s</string>
 
@@ -68,6 +70,8 @@
     <string name="settings_saved_and_reloaded">設定已儲存且執行器已成功重新載入。</string>
 
     <!-- Error Dialog Titles and Messages -->
+    <string name="error">錯誤</string>
+    <string name="critical_error">嚴重錯誤</string>
     <string name="initialization_error">初始化錯誤</string>
     <string name="initialization_error_message">AI 引擎初始化失敗：%1$s\n\n請重新啟動應用程式後再試。</string>
     <string name="settings_load_error">設定載入錯誤</string>
@@ -82,6 +86,10 @@
     <string name="model_fetch_failed_message">從 OpenRouter 擷取模型失敗：%1$s\n\n請檢查您的 API 金鑰後再試。</string>
     <string name="engine_binding_failed">引擎繫結失敗</string>
     <string name="engine_binding_failed_message">連線至 BreezeApp 引擎服務失敗。\n\n這通常發生在引擎服務仍在啟動中或尚未初始化時。\n\n您可以重試連線，或關閉此畫面稍後再試。</string>
+    <string name="service_start_failed">服務啟動失敗</string>
+    <string name="service_start_failed_message">BreezeApp 引擎服務啟動失敗：%1$s\n\n應用程式無法在沒有引擎服務的情況下執行。請重新啟動應用程式。</string>
+    <string name="launch_failed">啟動失敗</string>
+    <string name="launch_failed_message">開啟引擎設定失敗：%1$s\n\n請再試一次。</string>
     <string name="retry">重試</string>
 
     <!-- ==================== Engine Launcher Activity ==================== -->
