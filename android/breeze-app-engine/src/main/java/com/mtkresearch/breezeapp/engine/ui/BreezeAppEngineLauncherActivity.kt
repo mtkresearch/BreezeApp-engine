@@ -31,6 +31,7 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
     private var serviceStartPending = false
     private var breathingBorderPermissionChecked = false
     private var microphonePermissionChecked = false
+    private var initializationCompleted = false
     
     companion object {
         private const val MICROPHONE_PERMISSION_REQUEST_CODE = 1001
@@ -46,6 +47,12 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         // Initialize permission manager
         permissionManager = PermissionManager(this)
         
+        // MANDATORY: Check overlay permission first - block app if not granted
+        if (!Settings.canDrawOverlays(this)) {
+            showMandatoryOverlayPermissionDialog()
+            return // Block all other initialization until permission is granted
+        }
+        
         // Check and request notification permission before starting service
         checkNotificationPermissionAndStartService()
         
@@ -56,14 +63,44 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
             }, 1500) // Allow service startup time
         } else {
             // For manual launch, show full UI
-            // Check breathing border permission
-            checkBreathingBorderPermission()
-            
             // Check microphone permission
             checkMicrophonePermission()
 
             // Initialize the premium UI components
             initializePremiumUI()
+            
+            // Mark initialization as completed
+            initializationCompleted = true
+        }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        
+        // Check if overlay permission was just granted and we need to continue initialization
+        if (Settings.canDrawOverlays(this) && !initializationCompleted) {
+            // Permission now granted, continue with normal initialization
+            val autoBackground = intent.getBooleanExtra("auto_background", false)
+            
+            // Continue with the initialization that was blocked earlier
+            checkNotificationPermissionAndStartService()
+            
+            if (autoBackground) {
+                // For programmatic wake-up, start service and finish activity
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    finish()
+                }, 1500) // Allow service startup time
+            } else {
+                // For manual launch, show full UI
+                checkMicrophonePermission()
+                initializePremiumUI()
+            }
+            
+            // Mark initialization as completed
+            initializationCompleted = true
+        } else if (!Settings.canDrawOverlays(this) && !initializationCompleted) {
+            // Still no permission, show dialog again
+            showMandatoryOverlayPermissionDialog()
         }
     }
     
@@ -201,6 +238,24 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
                 // Note: Permission handling is now unified in PermissionManager
             }
         }
+    }
+    
+    /**
+     * Shows mandatory overlay permission dialog that blocks app access until permission is granted
+     */
+    private fun showMandatoryOverlayPermissionDialog() {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.overlay_permission_required))
+            .setMessage("${getString(R.string.overlay_permission_message)}\n\nThis permission is required to use BreezeApp Engine.")
+            .setPositiveButton(getString(R.string.grant_permission)) { _, _ ->
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+            }
+            .setCancelable(false) // User cannot dismiss without granting permission
+            .show()
     }
     
     /**
