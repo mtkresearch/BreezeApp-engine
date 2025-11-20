@@ -32,6 +32,7 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
     private var breathingBorderPermissionChecked = false
     private var microphonePermissionChecked = false
     private var initializationCompleted = false
+    private var overlayPermissionDialog: androidx.appcompat.app.AlertDialog? = null
     
     companion object {
         private const val MICROPHONE_PERMISSION_REQUEST_CODE = 1001
@@ -78,30 +79,45 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
         super.onResume()
         
         // Check if overlay permission was just granted and we need to continue initialization
-        if (Settings.canDrawOverlays(this) && !initializationCompleted) {
-            // Permission now granted, continue with normal initialization
-            val autoBackground = intent.getBooleanExtra("auto_background", false)
+        if (Settings.canDrawOverlays(this)) {
+            // Permission is granted, dismiss any existing dialog
+            overlayPermissionDialog?.dismiss()
+            overlayPermissionDialog = null
             
-            // Continue with the initialization that was blocked earlier
-            checkNotificationPermissionAndStartService()
-            
-            if (autoBackground) {
-                // For programmatic wake-up, start service and finish activity
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    finish()
-                }, 1500) // Allow service startup time
-            } else {
-                // For manual launch, show full UI
-                checkMicrophonePermission()
-                initializePremiumUI()
+            if (!initializationCompleted) {
+                // Continue with normal initialization
+                val autoBackground = intent.getBooleanExtra("auto_background", false)
+                
+                // Continue with the initialization that was blocked earlier
+                checkNotificationPermissionAndStartService()
+                
+                if (autoBackground) {
+                    // For programmatic wake-up, start service and finish activity
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        finish()
+                    }, 1500) // Allow service startup time
+                } else {
+                    // For manual launch, show full UI
+                    checkMicrophonePermission()
+                    initializePremiumUI()
+                }
+                
+                // Mark initialization as completed
+                initializationCompleted = true
             }
-            
-            // Mark initialization as completed
-            initializationCompleted = true
-        } else if (!Settings.canDrawOverlays(this) && !initializationCompleted) {
-            // Still no permission, show dialog again
-            showMandatoryOverlayPermissionDialog()
+        } else if (!initializationCompleted) {
+            // Still no permission, show dialog if not already shown
+            if (overlayPermissionDialog?.isShowing != true) {
+                showMandatoryOverlayPermissionDialog()
+            }
         }
+    }
+    
+    override fun onDestroy() {
+        // Clean up any existing dialog to prevent memory leaks
+        overlayPermissionDialog?.dismiss()
+        overlayPermissionDialog = null
+        super.onDestroy()
     }
     
     /**
@@ -244,7 +260,10 @@ class BreezeAppEngineLauncherActivity : AppCompatActivity() {
      * Shows mandatory overlay permission dialog that blocks app access until permission is granted
      */
     private fun showMandatoryOverlayPermissionDialog() {
-        AlertDialog.Builder(this)
+        // Dismiss existing dialog if any
+        overlayPermissionDialog?.dismiss()
+        
+        overlayPermissionDialog = AlertDialog.Builder(this)
             .setTitle(getString(R.string.overlay_permission_required))
             .setMessage("${getString(R.string.overlay_permission_message)}\n\nThis permission is required to use BreezeApp Engine.")
             .setPositiveButton(getString(R.string.grant_permission)) { _, _ ->
