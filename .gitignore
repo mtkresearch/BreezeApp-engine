@@ -24,16 +24,26 @@ out/
 *.swp
 *.tmp
 local.properties
-gradle.properties
-# Keystore files
+# Keystore files (keep gradle.properties as it's project config)
+keystore.properties
 *.jks
 *.keystore
+*.p12
 # Captured screenshots
 captures/
 # NDK
 obj/
 # Generated files
 proguard/
+# Gradle daemon and lock files
+.gradle/daemon/
+.gradle/*/fileHashes/
+.gradle/buildOutputCleanup/cache.properties
+.gradle/file-system.probe
+# IntelliJ IDEA
+*.iws
+workspace.xml
+tasks.xml
 
 # Environment
 .env*
