@@ -336,12 +336,21 @@ class EngineSettingsActivity : AppCompatActivity() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerRunners.adapter = adapter
 
-        // Set currently selected runner
-        val selectedRunner = currentSettings.selectedRunners[currentCapability]
-        if (selectedRunner != null) {
-            val selectedIndex = runnerNames.indexOf(selectedRunner)
+        // FIXED: Show the runner that would actually be used, not just the saved preference
+        val actuallySelectedRunner = runnerManager?.getRunner(currentCapability)?.getRunnerInfo()?.name
+        if (actuallySelectedRunner != null) {
+            val selectedIndex = runnerNames.indexOf(actuallySelectedRunner)
             if (selectedIndex >= 0) {
                 spinnerRunners.setSelection(selectedIndex)
+            }
+        } else {
+            // Fallback to saved preference if RunnerManager query fails
+            val savedRunner = currentSettings.selectedRunners[currentCapability]
+            if (savedRunner != null) {
+                val selectedIndex = runnerNames.indexOf(savedRunner)
+                if (selectedIndex >= 0) {
+                    spinnerRunners.setSelection(selectedIndex)
+                }
             }
         }
 
