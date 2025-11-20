@@ -24,6 +24,16 @@ out/
 *.swp
 *.tmp
 local.properties
+gradle.properties
+# Keystore files
+*.jks
+*.keystore
+# Captured screenshots
+captures/
+# NDK
+obj/
+# Generated files
+proguard/
 
 # Environment
 .env*
