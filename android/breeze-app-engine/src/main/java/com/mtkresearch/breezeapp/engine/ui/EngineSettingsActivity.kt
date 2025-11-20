@@ -50,6 +50,28 @@ class EngineSettingsActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "EngineSettingsActivity"
     }
+    
+    /**
+     * Smart toast helper that cancels previous toasts and uses appropriate durations
+     */
+    private fun showToast(message: String, isError: Boolean = false, isSuccess: Boolean = false) {
+        // Cancel any existing toast to prevent overlapping
+        currentToast?.cancel()
+        
+        // Use appropriate duration: SHORT for success, default for info/error  
+        val duration = when {
+            isSuccess -> Toast.LENGTH_SHORT  // 2 seconds for success
+            isError -> Toast.LENGTH_LONG     // 3.5 seconds for errors (user needs time to read)
+            else -> Toast.LENGTH_SHORT       // 2 seconds for info
+        }
+        
+        currentToast = Toast.makeText(this, message, duration)
+        currentToast?.show()
+    }
+    
+    private fun showToast(resId: Int, isError: Boolean = false, isSuccess: Boolean = false) {
+        showToast(getString(resId), isError, isSuccess)
+    }
 
     /**
      * Enum representing the current state of the save operation.
@@ -95,6 +117,9 @@ class EngineSettingsActivity : AppCompatActivity() {
     private val unsavedChangesState = UnsavedChangesState()
     private val validationState = ParameterValidationState()
     private var navigationConfirmed = false
+    
+    // Toast management to prevent overlapping messages
+    private var currentToast: Toast? = null
     private var isLoadingRunners = false  // Flag to prevent tracking programmatic spinner changes
 
     // Direct RunnerManager access
@@ -249,7 +274,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                     }
                 }, 2000)
 
-                Toast.makeText(this, R.string.starting_engine_service, Toast.LENGTH_SHORT).show()
+                showToast(R.string.starting_engine_service)
                 return
             }
         } catch (e: Exception) {
@@ -890,7 +915,7 @@ class EngineSettingsActivity : AppCompatActivity() {
             is ReloadResult.Success -> "Settings saved and runners reloaded successfully."
             is ReloadResult.Failure -> "Settings saved, but failed to reload runners: ${result.error.message}"
         }
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        showToast(message, isSuccess = true)
     }
 
     private fun saveSettings() {
@@ -925,11 +950,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                         }
 
                         runOnUiThread {
-                            Toast.makeText(
-                                this@EngineSettingsActivity,
-                                "Cannot save: $errorCount parameter(s) have invalid values. Check logs for details.",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            showToast("Cannot save: $errorCount parameter(s) invalid", isError = true)
                         }
                         return@launch
                     }
@@ -969,6 +990,13 @@ class EngineSettingsActivity : AppCompatActivity() {
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    override fun onDestroy() {
+        // Cancel any pending toast to prevent memory leaks
+        currentToast?.cancel()
+        currentToast = null
+        super.onDestroy()
     }
 
     override fun finish() {
@@ -1038,11 +1066,7 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                     hideSaveProgress()
                     runOnUiThread {
-                        Toast.makeText(
-                            this@EngineSettingsActivity,
-                            "Cannot save: $errorCount parameter(s) have invalid values. Please fix them first.",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        showToast("Cannot save: $errorCount parameter(s) invalid", isError = true)
                     }
                     return@launch
                 }
@@ -1120,11 +1144,7 @@ class EngineSettingsActivity : AppCompatActivity() {
 
                     hideSaveProgress()
                     runOnUiThread {
-                        Toast.makeText(
-                            this@EngineSettingsActivity,
-                            "Cannot save: $errorCount parameter(s) have invalid values. Please fix them first.",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        showToast("Cannot save: $errorCount parameter(s) invalid", isError = true)
                     }
                     return@launch
                 }
@@ -1161,7 +1181,7 @@ class EngineSettingsActivity : AppCompatActivity() {
                 } else {
                     getString(R.string.settings_saved_successfully)
                 }
-                Toast.makeText(this@EngineSettingsActivity, message, Toast.LENGTH_LONG).show()
+                showToast(message, isSuccess = true)
             } catch (e: Exception) {
                 hideSaveProgress()
                 Log.e(TAG, "Failed to save settings", e)
