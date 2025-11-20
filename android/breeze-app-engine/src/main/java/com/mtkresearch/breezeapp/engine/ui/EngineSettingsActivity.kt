@@ -1484,6 +1484,11 @@ class EngineSettingsActivity : AppCompatActivity() {
                 // Track API key change
                 getCurrentRunnerParams()["api_key"] = apiKey
                 onParameterChanged("api_key", apiKey, originalApiKey)
+                
+                // Auto-refresh models when API key is entered (for OpenRouter runners)
+                if (isOpenRouterRunner() && apiKey.isNotBlank() && apiKey != originalApiKey) {
+                    fetchModelsFromApi(forceRefresh = true)
+                }
             }
         })
     }
