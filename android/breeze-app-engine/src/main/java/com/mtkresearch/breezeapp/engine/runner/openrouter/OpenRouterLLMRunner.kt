@@ -259,10 +259,9 @@ class OpenRouterLLMRunner(
             ParameterSchema(
                 name = "api_key",
                 displayName = "API Key",
-                description = "OpenRouter API key for authentication (starts with 'sk-or-v1-')",
+                description = "OpenRouter API key for authentication",
                 type = ParameterType.StringType(
-                    minLength = 20,
-                    pattern = Regex("^sk-or-v1-[a-zA-Z0-9]+$")
+                    minLength = 1
                 ),
                 defaultValue = "",
                 isRequired = true,
@@ -406,13 +405,10 @@ class OpenRouterLLMRunner(
     }
 
     override fun validateParameters(parameters: Map<String, Any>): ValidationResult {
-        // Validate API key format
+        // Validate API key is provided
         val apiKey = parameters["api_key"] as? String
         if (apiKey.isNullOrBlank()) {
             return ValidationResult.invalid("API key is required")
-        }
-        if (!apiKey.startsWith("sk-or-v1-")) {
-            return ValidationResult.invalid("OpenRouter API key must start with 'sk-or-v1-'")
         }
 
         // Validate temperature and top_p combination
@@ -765,7 +761,7 @@ class OpenRouterLLMRunner(
      * Basic API key validation
      */
     private fun isValidApiKey(apiKey: String): Boolean {
-        return apiKey.isNotBlank() && apiKey.length > 10 && !apiKey.contains(" ")
+        return apiKey.isNotBlank()
     }
 
     /**
