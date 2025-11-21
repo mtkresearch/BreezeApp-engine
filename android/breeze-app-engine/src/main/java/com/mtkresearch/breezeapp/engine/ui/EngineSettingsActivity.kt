@@ -7,7 +7,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.*
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
+import com.mtkresearch.breezeapp.engine.ui.base.BaseDownloadAwareActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.tabs.TabLayout
@@ -31,6 +31,7 @@ import com.mtkresearch.breezeapp.engine.ui.dialogs.showUnsavedChangesDialog
 import com.mtkresearch.breezeapp.engine.ui.dialogs.showCriticalErrorDialog
 import com.mtkresearch.breezeapp.engine.ui.dialogs.showErrorDialog
 import com.mtkresearch.breezeapp.engine.ui.dialogs.ErrorDialog
+import com.mtkresearch.breezeapp.engine.core.download.ModelDownloadService
 import kotlinx.coroutines.launch
 
 /**
@@ -45,7 +46,7 @@ import kotlinx.coroutines.launch
  * - Settings persistence
  * - Real-time validation
  */
-class EngineSettingsActivity : AppCompatActivity() {
+class EngineSettingsActivity : BaseDownloadAwareActivity() {
 
     companion object {
         private const val TAG = "EngineSettingsActivity"
@@ -102,6 +103,7 @@ class EngineSettingsActivity : AppCompatActivity() {
     private lateinit var tvParametersHint: TextView
     private lateinit var containerParameters: LinearLayout
     private lateinit var btnSave: Button
+    private lateinit var btnTestDownload: Button
     private lateinit var progressOverlay: FrameLayout
 
     // State
@@ -204,6 +206,7 @@ class EngineSettingsActivity : AppCompatActivity() {
         tvParametersHint = findViewById(R.id.tvParametersHint)
         containerParameters = findViewById(R.id.containerParameters)
         btnSave = findViewById(R.id.btnSave)
+        btnTestDownload = findViewById(R.id.btnTestDownload)
         progressOverlay = findViewById(R.id.progressOverlay)
 
         // Initialize Save button as disabled (no changes yet)
@@ -899,6 +902,12 @@ class EngineSettingsActivity : AppCompatActivity() {
         btnSave.setOnClickListener {
             // Save without navigating away (stay in settings)
             saveSettingsWithoutNavigate()
+        }
+        
+        btnTestDownload.setOnClickListener {
+            Log.d(TAG, "Test download button clicked")
+            // Show download progress bottom sheet for testing
+            showTestDownloadProgress()
         }
     }
     
@@ -1681,5 +1690,33 @@ class EngineSettingsActivity : AppCompatActivity() {
                 finish()
             }
         )
+    }
+    
+    /**
+     * Test method to show download progress UI
+     */
+    private fun showTestDownloadProgress() {
+        try {
+            Log.d(TAG, "=== showTestDownloadProgress() called ===")
+            
+            // Show download bottom sheet directly for testing
+            requestDownloadProgressUI()
+            
+            // Also start the actual download service
+            Log.d(TAG, "About to call ModelDownloadService.startDownload()")
+            ModelDownloadService.startDownload(
+                this, 
+                "test-model-id", 
+                "https://example.com/test-model.bin", 
+                "test-model.bin"
+            )
+            Log.d(TAG, "ModelDownloadService.startDownload() completed")
+            
+            showToast("Started test download", isSuccess = true)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start test download", e)
+            showToast("Failed to start download: ${e.message}", isError = true)
+        }
     }
 }

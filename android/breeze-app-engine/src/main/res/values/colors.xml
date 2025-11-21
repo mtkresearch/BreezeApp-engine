@@ -197,4 +197,15 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     
+    <!-- ================================ -->
+    <!-- Download Progress Colors -->
+    <!-- ================================ -->
+    
+    <!-- Bottom Sheet Handle -->
+    <color name="bottom_sheet_handle">#9E9E9E</color>
+    
+    <!-- Progress Bar -->
+    <color name="progress_background">#E0E0E0</color>
+    <color name="progress_background_dark">#424242</color>
+    
 </resources>

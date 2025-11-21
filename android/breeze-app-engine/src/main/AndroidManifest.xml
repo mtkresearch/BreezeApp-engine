@@ -79,6 +79,13 @@
             android:label="AI Engine Settings"
             android:theme="@style/Theme.BreezeApp" />
 
+        <!-- ===================== 下載進度頁面 ===================== -->
+        <activity
+            android:name=".ui.DownloadProgressActivity"
+            android:exported="false"
+            android:label="Download Progress"
+            android:launchMode="singleTop"
+            android:theme="@android:style/Theme.Material.Dialog.NoActionBar" />
 
         <!-- ===================== BreezeAppEngine Service ===================== -->
         <service
@@ -94,6 +101,14 @@
                 <action android:name="com.mtkresearch.breezeapp.engine.BreezeAppEngineService" />
             </intent-filter>
         </service>
+
+        <!-- ===================== Model Download Service ===================== -->
+        <service
+            android:name=".core.download.ModelDownloadService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+            android:stopWithTask="false" />
 
     </application>
 

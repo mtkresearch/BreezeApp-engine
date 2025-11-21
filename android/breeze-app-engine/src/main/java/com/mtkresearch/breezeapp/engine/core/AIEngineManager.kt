@@ -13,10 +13,14 @@ import com.mtkresearch.breezeapp.engine.model.ModelDefinition
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
 import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
 import com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipeline
+import com.mtkresearch.breezeapp.engine.core.download.ModelDownloadService
+import com.mtkresearch.breezeapp.engine.core.download.DownloadEventManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -428,35 +432,66 @@ class AIEngineManager(
                 logger.e(TAG, "Cannot update request params - params is not mutable: ${request.params::class.java}")
             }
 
-            // --- New Model Download Logic ---
+            // --- Enhanced Model Download Logic with Progress ---
             val modelManager = ModelManager.getInstance(context)
             val modelState = modelManager.getModelState(targetModelId)
 
             if (targetModelId.isNotEmpty() && modelState != null && modelState.status !in listOf(ModelManager.ModelState.Status.DOWNLOADED, ModelManager.ModelState.Status.READY)) {
-                logger.d(TAG, "Model '$targetModelId' is not downloaded. Triggering download...")
+                logger.d(TAG, "Model '$targetModelId' is not downloaded. Starting enhanced download with progress tracking...")
 
-                // Use a CompletableDeferred to wait for the download to finish.
-                val downloadCompleter = kotlinx.coroutines.CompletableDeferred<Boolean>()
+                // Get download URL from model files
+                val downloadUrl = modelState.modelInfo.files.firstOrNull()?.urls?.firstOrNull() 
+                    ?: return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "No download URL available for model: $targetModelId")))
+                val fileName = modelState.modelInfo.files.firstOrNull()?.fileName ?: "$targetModelId.bin"
+                
+                // Start foreground service with progress notifications
+                ModelDownloadService.startDownload(context, targetModelId, downloadUrl, fileName)
+                logger.d(TAG, "Started ModelDownloadService for model: $targetModelId")
+                
+                // Notify download started - this will trigger UI in any listening activities
+                DownloadEventManager.notifyDownloadStarted(context, targetModelId, fileName)
+                logger.d(TAG, "Notified download started event for model: $targetModelId")
 
-                modelManager.downloadModel(targetModelId, object : ModelManager.DownloadListener {
-                    override fun onCompleted(modelId: String) {
-                        logger.d(TAG, "Model '$modelId' downloaded successfully.")
-                        downloadCompleter.complete(true)
+                // Wait for download completion with timeout (30 minutes max)
+                try {
+                    withTimeout(30 * 60 * 1000L) { // 30 minutes
+                        // Poll for completion using the existing ModelManager
+                        var attempts = 0
+                        val maxAttempts = 1800 // 30 minutes with 1-second intervals
+                        
+                        while (attempts < maxAttempts) {
+                            delay(1000) // Check every second
+                            val updatedState = modelManager.getModelState(targetModelId)
+                            
+                            when (updatedState?.status) {
+                                ModelManager.ModelState.Status.DOWNLOADED,
+                                ModelManager.ModelState.Status.READY -> {
+                                    logger.d(TAG, "Model '$targetModelId' downloaded successfully via enhanced service")
+                                    break
+                                }
+                                ModelManager.ModelState.Status.ERROR -> {
+                                    logger.e(TAG, "Model download failed for: $targetModelId")
+                                    throw Exception("Download failed for model: $targetModelId")
+                                }
+                                else -> {
+                                    // Still downloading, continue polling
+                                    attempts++
+                                }
+                            }
+                        }
+                        
+                        if (attempts >= maxAttempts) {
+                            logger.e(TAG, "Download timeout for model: $targetModelId")
+                            throw Exception("Download timeout for model: $targetModelId")
+                        }
                     }
-
-                    override fun onError(modelId: String, error: Throwable, fileName: String?) {
-                        logger.e(TAG, "Failed to download model '$modelId'. Error: ${error.message}", error)
-                        downloadCompleter.complete(false)
-                    }
-                })
-
-                // Suspend until the download is complete or fails.
-                val downloadSuccess = downloadCompleter.await()
-                if (!downloadSuccess) {
-                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "Failed to download required model: $targetModelId")))
+                } catch (e: Exception) {
+                    logger.e(TAG, "Download failed for model: $targetModelId", e)
+                    ModelDownloadService.cancelDownload(context, targetModelId)
+                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, e.message ?: "Download failed for model: $targetModelId")))
                 }
             }
-            // --- End New Model Download Logic ---
+            // --- End Enhanced Model Download Logic ---
 
             // Skip RAM check for cloud-based runners (they don't load models into RAM)
             // Note: isCloudRunner is already declared above for model validation
