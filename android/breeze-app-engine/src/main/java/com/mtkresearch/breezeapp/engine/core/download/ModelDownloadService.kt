@@ -98,7 +98,13 @@ class ModelDownloadService : Service(), CoroutineScope {
         super.onCreate()
         logger = Logger
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        okHttpClient = OkHttpClient.Builder().build()
+        okHttpClient = OkHttpClient.Builder()
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(5, java.util.concurrent.TimeUnit.MINUTES)
+            .writeTimeout(5, java.util.concurrent.TimeUnit.MINUTES)
+            .build()
         modelManager = ModelManager.getInstance(this)
         
         createNotificationChannel()
@@ -239,7 +245,8 @@ class ModelDownloadService : Service(), CoroutineScope {
                 
                 // Update ModelManager state for error
                 try {
-                    logger.d(TAG, "Notifying ModelManager of download failure for: $modelId")
+                    modelManager.markModelDownloadFailed(modelId, e.message ?: "Unknown error")
+                    logger.d(TAG, "Notified ModelManager of download failure for: $modelId")
                 } catch (ex: Exception) {
                     logger.e(TAG, "Failed to notify ModelManager of download failure", ex)
                 }
@@ -264,11 +271,17 @@ class ModelDownloadService : Service(), CoroutineScope {
         }
         
         val contentLength = response.body?.contentLength() ?: -1L
-        val downloadDir = File(applicationContext.filesDir, "downloads")
+        // Extract base model ID (remove _file_N suffix if present)
+        val baseModelId = if (modelId.contains("_file_")) {
+            modelId.substringBefore("_file_")
+        } else {
+            modelId
+        }
+        val downloadDir = File(applicationContext.filesDir, "models/$baseModelId")
         if (!downloadDir.exists()) {
             downloadDir.mkdirs()
         }
-        
+
         val targetFile = File(downloadDir, fileName ?: "$modelId.bin")
         val sink = targetFile.sink().buffer()
         
@@ -315,21 +328,25 @@ class ModelDownloadService : Service(), CoroutineScope {
                     ensureActive()
                 }
                 
-                // Download completed
+                // Download completed - validate file content
+                if (targetFile.length() < 1000 && fileName?.endsWith(".onnx") == true) {
+                    // ONNX files should be much larger than 1KB - likely HTML error page
+                    val content = targetFile.readText().take(100)
+                    if (content.contains("<!DOCTYPE") || content.contains("<html") || content.contains("<HTML")) {
+                        throw IOException("Downloaded file appears to be HTML error page, not model file: ${targetFile.name}")
+                    }
+                }
+
                 updateDownloadState(modelId) { it.withCompleted() }
-                logger.d(TAG, "Download completed for model: $modelId")
-                
+                logger.d(TAG, "Download completed for model: $modelId (${targetFile.length()} bytes)")
+
                 // Notify completion via event manager
                 DownloadEventManager.notifyDownloadCompleted(this@ModelDownloadService, modelId)
-                
-                // Update ModelManager state
+
+                // Update ModelManager state to DOWNLOADED
                 try {
-                    // Trigger ModelManager to update the model state to DOWNLOADED
-                    val currentState = modelManager.getModelState(modelId)
-                    if (currentState != null) {
-                        // The ModelManager should detect the file exists and update status
-                        logger.d(TAG, "Notifying ModelManager of download completion for: $modelId")
-                    }
+                    modelManager.markModelAsDownloaded(modelId)
+                    logger.d(TAG, "Notified ModelManager of download completion for: $modelId")
                 } catch (e: Exception) {
                     logger.e(TAG, "Failed to notify ModelManager of download completion", e)
                 }

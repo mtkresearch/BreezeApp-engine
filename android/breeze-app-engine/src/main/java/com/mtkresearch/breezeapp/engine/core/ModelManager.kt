@@ -1,6 +1,7 @@
 package com.mtkresearch.breezeapp.engine.core
 
 import android.content.Context
+import android.util.Log
 import com.mtkresearch.breezeapp.engine.model.ModelInfo
 import com.mtkresearch.breezeapp.engine.model.ModelFile
 import kotlinx.coroutines.*
@@ -449,7 +450,7 @@ class ModelManager private constructor(
     }
     
     private fun updateModelStatus(
-        modelId: String, 
+        modelId: String,
         status: ModelState.Status,
         errorMessage: String? = null
     ) {
@@ -462,6 +463,23 @@ class ModelManager private constructor(
             )
         }
         _modelStates.value = currentStates
+    }
+
+    /**
+     * Mark a model as downloaded. Called by ModelDownloadService after download completes.
+     * This updates the model state to DOWNLOADED so polling loops can detect completion.
+     */
+    fun markModelAsDownloaded(modelId: String) {
+        Log.d("ModelManager", "Marking model as downloaded: $modelId")
+        updateModelStatus(modelId, ModelState.Status.DOWNLOADED)
+    }
+
+    /**
+     * Mark a model download as failed. Called by ModelDownloadService on download error.
+     */
+    fun markModelDownloadFailed(modelId: String, errorMessage: String) {
+        Log.e("ModelManager", "Marking model download as failed: $modelId - $errorMessage")
+        updateModelStatus(modelId, ModelState.Status.ERROR, errorMessage)
     }
     
     private fun updateModelProgress(modelId: String, percent: Int, speed: Long, eta: Long) {

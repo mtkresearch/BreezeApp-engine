@@ -439,57 +439,79 @@ class AIEngineManager(
             if (targetModelId.isNotEmpty() && modelState != null && modelState.status !in listOf(ModelManager.ModelState.Status.DOWNLOADED, ModelManager.ModelState.Status.READY)) {
                 logger.d(TAG, "Model '$targetModelId' is not downloaded. Starting enhanced download with progress tracking...")
 
-                // Get download URL from model files
-                val downloadUrl = modelState.modelInfo.files.firstOrNull()?.urls?.firstOrNull() 
-                    ?: return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "No download URL available for model: $targetModelId")))
-                val fileName = modelState.modelInfo.files.firstOrNull()?.fileName ?: "$targetModelId.bin"
-                
-                // Start foreground service with progress notifications
-                ModelDownloadService.startDownload(context, targetModelId, downloadUrl, fileName)
-                logger.d(TAG, "Started ModelDownloadService for model: $targetModelId")
-                
-                // Notify download started - this will trigger UI in any listening activities
-                DownloadEventManager.notifyDownloadStarted(context, targetModelId, fileName)
-                logger.d(TAG, "Notified download started event for model: $targetModelId")
+                // Get all files to download
+                val filesToDownload = modelState.modelInfo.files
+                if (filesToDownload.isEmpty()) {
+                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "No files to download for model: $targetModelId")))
+                }
 
-                // Wait for download completion with timeout (30 minutes max)
-                try {
-                    withTimeout(30 * 60 * 1000L) { // 30 minutes
-                        // Poll for completion using the existing ModelManager
-                        var attempts = 0
-                        val maxAttempts = 1800 // 30 minutes with 1-second intervals
-                        
-                        while (attempts < maxAttempts) {
-                            delay(1000) // Check every second
-                            val updatedState = modelManager.getModelState(targetModelId)
-                            
-                            when (updatedState?.status) {
-                                ModelManager.ModelState.Status.DOWNLOADED,
-                                ModelManager.ModelState.Status.READY -> {
-                                    logger.d(TAG, "Model '$targetModelId' downloaded successfully via enhanced service")
-                                    break
+                logger.d(TAG, "Model '$targetModelId' has ${filesToDownload.size} files to download")
+
+                // Create fresh model directory (delete any corrupted files from failed downloads)
+                val modelDir = java.io.File(context.filesDir, "models/$targetModelId")
+                if (modelDir.exists()) {
+                    modelDir.deleteRecursively()
+                    logger.d(TAG, "Deleted existing model directory for fresh download: $targetModelId")
+                }
+                modelDir.mkdirs()
+
+                // Notify download started for UI
+                val firstFileName = filesToDownload.firstOrNull()?.fileName ?: "$targetModelId.bin"
+                DownloadEventManager.notifyDownloadStarted(context, targetModelId, firstFileName)
+
+                // Download all files sequentially
+                for ((index, fileInfo) in filesToDownload.withIndex()) {
+                    val downloadUrl = fileInfo.urls.firstOrNull()
+                        ?: return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "No download URL available for file: ${fileInfo.fileName}")))
+                    val fileName = fileInfo.fileName
+
+                    logger.d(TAG, "Downloading file ${index + 1}/${filesToDownload.size}: $fileName")
+
+                    // Use unique download ID per file to avoid overwrites
+                    // ModelDownloadService extracts base modelId for consistent notifications
+                    val downloadId = "${targetModelId}_file_$index"
+                    ModelDownloadService.startDownload(context, downloadId, downloadUrl, fileName)
+
+                    // Wait for this file to complete before starting next
+                    // Check that file size stabilizes (stops growing) to ensure download is complete
+                    val targetFile = java.io.File(modelDir, fileName)
+
+                    var fileDownloaded = false
+                    var attempts = 0
+                    val maxAttempts = 1800 // 30 minutes
+                    var lastSize = 0L
+                    var stableCount = 0
+
+                    while (!fileDownloaded && attempts < maxAttempts) {
+                        delay(1000)
+                        if (targetFile.exists()) {
+                            val currentSize = targetFile.length()
+                            if (currentSize > 0 && currentSize == lastSize) {
+                                stableCount++
+                                // Consider complete if size stable for 2 seconds
+                                if (stableCount >= 2) {
+                                    fileDownloaded = true
+                                    logger.d(TAG, "File downloaded: $fileName (${currentSize} bytes)")
                                 }
-                                ModelManager.ModelState.Status.ERROR -> {
-                                    logger.e(TAG, "Model download failed for: $targetModelId")
-                                    throw Exception("Download failed for model: $targetModelId")
-                                }
-                                else -> {
-                                    // Still downloading, continue polling
-                                    attempts++
-                                }
+                            } else {
+                                stableCount = 0
+                                lastSize = currentSize
                             }
                         }
-                        
-                        if (attempts >= maxAttempts) {
-                            logger.e(TAG, "Download timeout for model: $targetModelId")
-                            throw Exception("Download timeout for model: $targetModelId")
-                        }
+                        attempts++
                     }
-                } catch (e: Exception) {
-                    logger.e(TAG, "Download failed for model: $targetModelId", e)
-                    ModelDownloadService.cancelDownload(context, targetModelId)
-                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, e.message ?: "Download failed for model: $targetModelId")))
+
+                    if (!fileDownloaded) {
+                        logger.e(TAG, "Failed to download file: $fileName")
+                        ModelDownloadService.cancelDownload(context, downloadId)
+                        return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "Failed to download file: $fileName")))
+                    }
                 }
+
+                // All files downloaded - update ModelManager state
+                logger.d(TAG, "All ${filesToDownload.size} files downloaded for model: $targetModelId")
+                modelManager.markModelAsDownloaded(targetModelId)
+                DownloadEventManager.notifyDownloadCompleted(context, targetModelId)
             }
             // --- End Enhanced Model Download Logic ---
 
