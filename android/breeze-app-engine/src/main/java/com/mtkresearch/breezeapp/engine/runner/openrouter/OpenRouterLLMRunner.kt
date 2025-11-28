@@ -494,12 +494,14 @@ class OpenRouterLLMRunner(
                         val data = trimmedLine.substring(6)
                         
                         if (data == "[DONE]") {
-                            // Send final result
-                            val finalResult = InferenceResult.textOutput(
-                                text = responseBuffer.toString(),
+                            // Send final completion marker WITHOUT accumulated text to prevent duplication
+                            // Clients should accumulate deltas themselves
+                            val finalResult = InferenceResult.success(
+                                outputs = emptyMap(), // No content in final packet
                                 metadata = mapOf(
                                     InferenceResult.META_SESSION_ID to input.sessionId,
                                     InferenceResult.META_MODEL_NAME to modelName,
+                                    InferenceResult.META_FINISH_REASON to "stop",
                                     "partial" to false
                                 ),
                                 partial = false

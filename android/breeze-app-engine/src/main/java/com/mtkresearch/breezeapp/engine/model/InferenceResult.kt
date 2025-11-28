@@ -26,6 +26,7 @@ data class InferenceResult(
         const val META_PARTIAL_TOKENS = "partial_tokens"
         const val META_SESSION_ID = "session_id"
         const val META_STREAM_MODE = "stream_mode"
+        const val META_FINISH_REASON = "finish_reason"
         
         // 快速建立成功結果的工廠方法
         fun success(
