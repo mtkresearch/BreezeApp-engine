@@ -88,6 +88,7 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
      */
     private fun createOfflineModelConfig(type: Int): OfflineModelConfig {
         val modelsDir = context.filesDir.absolutePath + "/models"
+        val lang = if (currentLanguage == "auto") "" else currentLanguage
 
         return when (type) {
             0 -> {
@@ -97,7 +98,7 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
                     whisper = OfflineWhisperModelConfig(
                         encoder = "$modelDir/breeze-asr-25-half-encoder.int8.onnx",
                         decoder = "$modelDir/breeze-asr-25-half-decoder.int8.onnx",
-                        language = "zh"
+                        language = lang
                     ),
                     tokens = "$modelDir/breeze-asr-25-half-tokens.txt",
                     modelType = "whisper"
@@ -108,7 +109,8 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
                 OfflineModelConfig(
                     whisper = OfflineWhisperModelConfig(
                         encoder = "$modelDir/base-encoder.onnx",
-                        decoder = "$modelDir/base-decoder.onnx"
+                        decoder = "$modelDir/base-decoder.onnx",
+                        language = lang
                     ),
                     tokens = "$modelDir/base-tokens.txt",
                     modelType = "whisper"
@@ -119,7 +121,8 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
                 OfflineModelConfig(
                     whisper = OfflineWhisperModelConfig(
                         encoder = "$modelDir/medium-encoder.int8.onnx",
-                        decoder = "$modelDir/medium-decoder.int8.onnx"
+                        decoder = "$modelDir/medium-decoder.int8.onnx",
+                        language = lang
                     ),
                     tokens = "$modelDir/medium-tokens.txt",
                     modelType = "whisper"
@@ -161,16 +164,47 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
         Log.d(TAG, "All ${filesToCheck.size} required model files validated successfully")
     }
 
+    private var currentLanguage: String = "auto"
+
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         // Validate model is loaded
         validateModelLoaded()?.let { return it }
+        
+        // Check if language update is needed
+        val requestLanguage = input.params["language"] as? String
+        if (requestLanguage != null && requestLanguage != "auto") {
+            // Map full language code to Whisper format (e.g. zh-TW -> zh)
+            val targetLanguage = when {
+                requestLanguage.startsWith("zh") -> "zh"
+                requestLanguage.startsWith("en") -> "en"
+                requestLanguage.startsWith("ja") -> "ja"
+                requestLanguage.startsWith("ko") -> "ko"
+                requestLanguage.startsWith("fr") -> "fr"
+                requestLanguage.startsWith("de") -> "de"
+                requestLanguage.startsWith("es") -> "es"
+                requestLanguage.startsWith("ru") -> "ru"
+                else -> requestLanguage
+            }
+            
+            if (targetLanguage != currentLanguage) {
+                Log.i(TAG, "Language change detected: $currentLanguage -> $targetLanguage. Re-initializing model...")
+                currentLanguage = targetLanguage
+                try {
+                    releaseModel()
+                    initModel()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to re-initialize model with new language", e)
+                    return InferenceResult.error(RunnerError.runtimeError("Failed to switch language: ${e.message}"))
+                }
+            }
+        }
         
         // Validate input data
         val (audioData, error) = validateInput<ByteArray>(input, InferenceRequest.INPUT_AUDIO)
         error?.let { return it }
         
         return try {
-            Log.d(TAG, "Processing offline ASR with ${audioData!!.size} bytes of audio data")
+            Log.d(TAG, "Processing offline ASR with ${audioData!!.size} bytes of audio data (Language: $currentLanguage)")
             
             val startTime = System.currentTimeMillis()
             
@@ -218,7 +252,8 @@ class SherpaOfflineASRRunner(context: Context) : BaseSherpaRunner(context) {
                     InferenceResult.META_CONFIDENCE to 0.95f, // Sherpa does not provide confidence
                     InferenceResult.META_PROCESSING_TIME_MS to elapsed,
                     InferenceResult.META_MODEL_NAME to modelName,
-                    InferenceResult.META_SESSION_ID to input.sessionId
+                    InferenceResult.META_SESSION_ID to input.sessionId,
+                    "language" to currentLanguage
                 )
             )
         } catch (e: Exception) {
