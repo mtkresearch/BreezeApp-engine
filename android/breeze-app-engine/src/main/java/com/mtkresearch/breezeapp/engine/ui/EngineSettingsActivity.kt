@@ -503,7 +503,13 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
             // Skip validation for "model" parameter when using OpenRouter with dynamic models
             // The schema only has one hardcoded model, but API provides many models dynamically
             if (schema.name == "model" && isOpenRouterRunner() && filteredModels.isNotEmpty()) {
-                Log.d(TAG, "Skipping validation for dynamically fetched model: $value")
+                Log.d(TAG, "Skipping validation for dynamically fetched OpenRouter model: $value")
+                return@forEach
+            }
+
+            // Skip validation for "model_id" parameter when using LlamaStack with dynamic models
+            if (schema.name == "model_id" && isLlamaStackRunner() && llamaStackModels.isNotEmpty()) {
+                Log.d(TAG, "Skipping validation for dynamically fetched LlamaStack model: $value")
                 return@forEach
             }
 
@@ -944,9 +950,11 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                 val selectedRunnerName = spinnerRunners.selectedItem?.toString()
                 if (selectedRunnerName != null) {
                     // Pre-save validation: Validate all parameters comprehensively
-                    val schemas = runnerParameters[selectedRunnerName] ?: emptyList()
+                    val allSchemas = runnerParameters[selectedRunnerName] ?: emptyList()
+                    // Filter out dynamic model parameters (OpenRouter "model", LlamaStack "model_id")
+                    val schemas = filterSchemasForDynamicModels(allSchemas)
                     val runnerParams = getCurrentRunnerParams()
-                    Log.d(TAG, "Pre-save validation: ${schemas.size} schemas, ${runnerParams.size} parameters")
+                    Log.d(TAG, "Pre-save validation: ${schemas.size} schemas (filtered ${allSchemas.size - schemas.size}), ${runnerParams.size} parameters")
                     Log.d(TAG, "Parameters to validate: ${runnerParams.keys}")
 
                     val isValid = validationState.validateRunner(
@@ -1055,13 +1063,9 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                 // CRITICAL: Pre-save validation to prevent saving invalid values
                 val allSchemas = runnerParameters[selectedRunner] ?: emptyList()
 
-                // Filter out "model" schema when using OpenRouter with dynamic models
+                // Filter out dynamic model parameters (OpenRouter "model", LlamaStack "model_id")
                 // Dynamic models from API are valid by definition, static schema validation doesn't apply
-                val schemas = if (isOpenRouterRunner() && filteredModels.isNotEmpty()) {
-                    allSchemas.filter { it.name != "model" }
-                } else {
-                    allSchemas
-                }
+                val schemas = filterSchemasForDynamicModels(allSchemas)
                 Log.d(TAG, "saveSettingsAndNavigate: Pre-save validation with ${schemas.size} schemas (filtered ${allSchemas.size - schemas.size})")
 
                 val isValid = validationState.validateRunner(
@@ -1133,13 +1137,9 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                 // CRITICAL: Pre-save validation to prevent saving invalid values
                 val allSchemas = runnerParameters[selectedRunner] ?: emptyList()
 
-                // Filter out "model" schema when using OpenRouter with dynamic models
+                // Filter out dynamic model parameters (OpenRouter "model", LlamaStack "model_id")
                 // Dynamic models from API are valid by definition, static schema validation doesn't apply
-                val schemas = if (isOpenRouterRunner() && filteredModels.isNotEmpty()) {
-                    allSchemas.filter { it.name != "model" }
-                } else {
-                    allSchemas
-                }
+                val schemas = filterSchemasForDynamicModels(allSchemas)
                 Log.d(TAG, "saveSettingsWithoutNavigate: Pre-save validation with ${schemas.size} schemas (filtered ${allSchemas.size - schemas.size})")
 
                 val isValid = validationState.validateRunner(
@@ -1257,7 +1257,13 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
         if (schema != null) {
             // Skip validation for "model" parameter when using OpenRouter with dynamic models
             if (parameterName == "model" && isOpenRouterRunner() && filteredModels.isNotEmpty()) {
-                Log.d(TAG, "Skipping validation for dynamically fetched model: $currentValue")
+                Log.d(TAG, "Skipping validation for dynamically fetched OpenRouter model: $currentValue")
+                // Still need to update UI to clear any previous errors
+                updateParameterValidationUI(parameterName, ValidationResult.valid())
+            }
+            // Skip validation for "model_id" parameter when using LlamaStack with dynamic models
+            else if (parameterName == "model_id" && isLlamaStackRunner() && llamaStackModels.isNotEmpty()) {
+                Log.d(TAG, "Skipping validation for dynamically fetched LlamaStack model: $currentValue")
                 // Still need to update UI to clear any previous errors
                 updateParameterValidationUI(parameterName, ValidationResult.valid())
             } else {
@@ -1697,6 +1703,33 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
     private fun isLlamaStackRunner(): Boolean {
         val selectedRunner = getSelectedRunnerName()
         return selectedRunner?.contains("LlamaStack", ignoreCase = true) == true
+    }
+
+    /**
+     * Filter schemas to exclude dynamically-fetched model parameters from validation.
+     *
+     * When models are fetched from an API (OpenRouter or LlamaStack), the static schema
+     * validation doesn't apply - the models are valid by definition since they came from the API.
+     *
+     * @param schemas The full list of parameter schemas
+     * @return Filtered schemas excluding dynamic model parameters
+     */
+    private fun filterSchemasForDynamicModels(schemas: List<ParameterSchema>): List<ParameterSchema> {
+        return schemas.filter { schema ->
+            when {
+                // Skip OpenRouter "model" parameter when dynamic models are loaded
+                schema.name == "model" && isOpenRouterRunner() && filteredModels.isNotEmpty() -> {
+                    Log.d(TAG, "filterSchemasForDynamicModels: Excluding OpenRouter 'model' (${filteredModels.size} dynamic models available)")
+                    false
+                }
+                // Skip LlamaStack "model_id" parameter when dynamic models are loaded
+                schema.name == "model_id" && isLlamaStackRunner() && llamaStackModels.isNotEmpty() -> {
+                    Log.d(TAG, "filterSchemasForDynamicModels: Excluding LlamaStack 'model_id' (${llamaStackModels.size} dynamic models available)")
+                    false
+                }
+                else -> true
+            }
+        }
     }
 
     /**
