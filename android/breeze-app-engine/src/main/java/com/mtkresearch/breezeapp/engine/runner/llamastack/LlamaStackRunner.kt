@@ -480,11 +480,12 @@ class LlamaStackRunner(
                             }
                         }
                         ChatCompletionResponseStreamChunk.Event.EventType.COMPLETE -> {
-                            // COMPLETE event - send final result
-                            Log.d(TAG, "Streaming complete: ${accumulatedText.length} characters")
+                            // COMPLETE event - send final SUCCESS SIGNAL (no content to avoid duplication)
+                            // Clients accumulate deltas themselves, so we only signal completion
+                            Log.d(TAG, "Streaming complete: ${accumulatedText.length} characters total")
 
-                            emit(InferenceResult.textOutput(
-                                text = accumulatedText,
+                            emit(InferenceResult.success(
+                                outputs = emptyMap(), // No content - clients already accumulated deltas
                                 metadata = mapOf(
                                     InferenceResult.META_MODEL_NAME to runtimeConfig.modelId,
                                     InferenceResult.META_SESSION_ID to input.sessionId,
@@ -492,8 +493,9 @@ class LlamaStackRunner(
                                     "capability_type" to "LLM",
                                     "endpoint_used" to runtimeConfig.endpoint,
                                     "sdk_version" to "official-0.2.14",
-                                    "finish_reason" to (stopReason?.toString() ?: "complete"),
-                                    InferenceResult.META_PROCESSING_TIME_MS to (System.currentTimeMillis() - startTime)
+                                    InferenceResult.META_FINISH_REASON to (stopReason?.toString() ?: "stop"),
+                                    InferenceResult.META_PROCESSING_TIME_MS to (System.currentTimeMillis() - startTime),
+                                    "total_characters" to accumulatedText.length
                                 ),
                                 partial = false
                             ))
