@@ -376,6 +376,7 @@ class AIEngineManager(
 
         // Get the model that should be used (before loading)
         val isCloudRunner = runnerName.contains("OpenRouter", ignoreCase = true) ||
+                           runnerName.contains("LlamaStack", ignoreCase = true) ||
                            runnerName.contains("cloud", ignoreCase = true)
         val isRequestModelValid = if (!requestModel.isNullOrBlank()) {
             if (isCloudRunner) {
@@ -390,8 +391,9 @@ class AIEngineManager(
         val targetModelId = if (isRequestModelValid) {
             requestModel!!
         } else {
-            // Use InferenceRequest.PARAM_MODEL ("model") not "model_id"
+            // Check both "model" (OpenRouter) and "model_id" (LlamaStack/Executorch) keys
             settings.getRunnerParameters(runnerName)[InferenceRequest.PARAM_MODEL] as? String
+                ?: settings.getRunnerParameters(runnerName)["model_id"] as? String
                 ?: getDefaultModelForRunner(runnerName)
         }
 
@@ -433,8 +435,9 @@ class AIEngineManager(
             }
 
             // --- Enhanced Model Download Logic with Progress ---
+            // Skip download check for cloud runners (models run on remote server)
             val modelManager = ModelManager.getInstance(context)
-            val modelState = modelManager.getModelState(targetModelId)
+            val modelState = if (isCloudRunner) null else modelManager.getModelState(targetModelId)
 
             if (targetModelId.isNotEmpty() && modelState != null && modelState.status !in listOf(ModelManager.ModelState.Status.DOWNLOADED, ModelManager.ModelState.Status.READY)) {
                 logger.d(TAG, "Model '$targetModelId' is not downloaded. Starting enhanced download with progress tracking...")

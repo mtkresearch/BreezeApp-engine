@@ -27,6 +27,8 @@ import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
 import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelInfo
 import com.mtkresearch.breezeapp.engine.runner.openrouter.models.ModelParametersFetcher
 import com.mtkresearch.breezeapp.engine.runner.openrouter.models.OpenRouterModelFetcher
+import com.mtkresearch.breezeapp.engine.runner.llamastack.models.LlamaStackModelFetcher
+import com.mtkresearch.breezeapp.engine.runner.llamastack.models.LlamaStackModelInfo
 import com.mtkresearch.breezeapp.engine.ui.dialogs.showUnsavedChangesDialog
 import com.mtkresearch.breezeapp.engine.ui.dialogs.showCriticalErrorDialog
 import com.mtkresearch.breezeapp.engine.ui.dialogs.showErrorDialog
@@ -145,6 +147,14 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
     }
     private val parametersFetcher by lazy {
         ModelParametersFetcher()
+    }
+
+    // Model fetching (for LlamaStack LLM)
+    private var llamaStackModels: List<LlamaStackModelInfo> = emptyList()
+    private val llamaStackModelFetcher by lazy {
+        LlamaStackModelFetcher(
+            prefs = getSharedPreferences("engine_settings_llamastack_models", MODE_PRIVATE)
+        )
     }
     
     private val onBackPressedCallback = object : OnBackPressedCallback(false) {
@@ -1374,19 +1384,30 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
 
         Log.d(TAG, "handleSelectionType for ${schema.name}: initialValue=$initialValue, initialKey=$initialKey")
 
-        // Determine options: use fetched models for OpenRouter model parameter, otherwise use schema options
-        val options = if (isOpenRouterRunner() && schema.name == "model" && filteredModels.isNotEmpty()) {
-            // Use dynamically fetched models
-            filteredModels.map { model ->
-                SelectionOption(
-                    key = model.id,
-                    displayName = model.getShortDisplayName(),
-                    description = model.description
-                )
+        // Determine options: use fetched models for OpenRouter/LlamaStack model parameter, otherwise use schema options
+        val options = when {
+            // OpenRouter: use dynamically fetched models for "model" parameter
+            isOpenRouterRunner() && schema.name == "model" && filteredModels.isNotEmpty() -> {
+                filteredModels.map { model ->
+                    SelectionOption(
+                        key = model.id,
+                        displayName = model.getShortDisplayName(),
+                        description = model.description
+                    )
+                }
             }
-        } else {
-            // Use schema-defined options
-            selectionType.options
+            // LlamaStack: use dynamically fetched models for "model_id" parameter
+            isLlamaStackRunner() && schema.name == "model_id" && llamaStackModels.isNotEmpty() -> {
+                llamaStackModels.map { model ->
+                    SelectionOption(
+                        key = model.providerResourceId,  // Use provider_resource_id for API calls
+                        displayName = model.displayName,
+                        description = model.description
+                    )
+                }
+            }
+            // Default: use schema-defined options
+            else -> selectionType.options
         }
 
         Log.d(TAG, "handleSelectionType for ${schema.name}: ${options.size} options available")
@@ -1628,11 +1649,54 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
     }
 
     /**
+     * Fetch models from LlamaStack server
+     */
+    private fun fetchLlamaStackModels(forceRefresh: Boolean = false) {
+        // Only fetch for LlamaStackRunner
+        if (!isLlamaStackRunner()) {
+            return
+        }
+
+        // Get endpoint from current parameters
+        val endpoint = getCurrentRunnerParams()["endpoint"] as? String
+            ?: currentSettings.getRunnerParameters(getSelectedRunnerName() ?: "")["endpoint"] as? String
+            ?: "http://127.0.0.1:8321"
+
+        val apiKey = getCurrentRunnerParams()["api_key"] as? String ?: ""
+
+        Log.d(TAG, "Fetching LlamaStack models from endpoint: $endpoint")
+
+        lifecycleScope.launch {
+            val result = llamaStackModelFetcher.fetchModels(endpoint, apiKey, forceRefresh)
+
+            result.onSuccess { models ->
+                llamaStackModels = models
+                Log.d(TAG, "Successfully loaded ${models.size} LLM models from LlamaStack")
+
+                // Regenerate parameter views to update model dropdown
+                updateRunnerInfo()
+            }.onFailure { error ->
+                Log.e(TAG, "Failed to fetch LlamaStack models", error)
+                // Don't show error dialog, just use default models from schema
+                // This allows the UI to work even when server is not reachable
+            }
+        }
+    }
+
+    /**
      * Check if current runner is OpenRouterLLMRunner
      */
     private fun isOpenRouterRunner(): Boolean {
         val selectedRunner = getSelectedRunnerName()
         return selectedRunner?.contains("OpenRouter", ignoreCase = true) == true
+    }
+
+    /**
+     * Check if current runner is LlamaStackRunner
+     */
+    private fun isLlamaStackRunner(): Boolean {
+        val selectedRunner = getSelectedRunnerName()
+        return selectedRunner?.contains("LlamaStack", ignoreCase = true) == true
     }
 
     /**
@@ -1666,6 +1730,13 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
             // Fetch models when OpenRouter runner is selected
             if (allModels.isEmpty()) {
                 fetchModelsFromApi()
+            }
+        }
+
+        // Fetch LlamaStack models when LlamaStack runner is selected
+        if (isLlamaStackRunner()) {
+            if (llamaStackModels.isEmpty()) {
+                fetchLlamaStackModels()
             }
         }
     }
