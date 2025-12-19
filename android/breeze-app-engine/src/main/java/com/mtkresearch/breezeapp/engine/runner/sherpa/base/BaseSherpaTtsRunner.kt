@@ -34,6 +34,9 @@ abstract class BaseSherpaTtsRunner(context: Context) : BaseSherpaRunner(context)
     /**
      * Initialize audio playback with robust error handling
      */
+    /**
+     * Initialize audio playback with robust error handling and low latency mode
+     */
     protected fun initAudioPlayback(sampleRate: Int) {
         try {
             Log.d(TAG, "Initializing audio playback")
@@ -68,10 +71,22 @@ abstract class BaseSherpaTtsRunner(context: Context) : BaseSherpaRunner(context)
                         .setSampleRate(sampleRate)
                         .build()
 
-                    audioTrack = AudioTrack(
-                        attr, format, bufLength, AudioTrack.MODE_STREAM,
-                        AudioManager.AUDIO_SESSION_ID_GENERATE
-                    )
+                    // Use AudioTrack.Builder for API 26+ to enable low latency mode
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        audioTrack = AudioTrack.Builder()
+                            .setAudioAttributes(attr)
+                            .setAudioFormat(format)
+                            .setBufferSizeInBytes(bufLength)
+                            .setTransferMode(AudioTrack.MODE_STREAM)
+                            .setSessionId(AudioManager.AUDIO_SESSION_ID_GENERATE)
+                            .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
+                            .build()
+                    } else {
+                        audioTrack = AudioTrack(
+                            attr, format, bufLength, AudioTrack.MODE_STREAM,
+                            AudioManager.AUDIO_SESSION_ID_GENERATE
+                        )
+                    }
                     
                     if (audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
                         throw Exception("Failed to initialize AudioTrack")
@@ -82,7 +97,7 @@ abstract class BaseSherpaTtsRunner(context: Context) : BaseSherpaRunner(context)
                     audioTrack?.play()
                     isPlaying.set(true)
                     
-                    Log.d(TAG, "Audio playback initialized - sampleRate: $sampleRate")
+                    Log.d(TAG, "Audio playback initialized - sampleRate: $sampleRate, lowLatency: ${android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O}")
                 }
             }
         } catch (e: Exception) {

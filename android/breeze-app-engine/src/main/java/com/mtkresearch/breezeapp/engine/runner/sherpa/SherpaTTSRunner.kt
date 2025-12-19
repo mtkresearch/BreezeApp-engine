@@ -16,6 +16,7 @@ import com.mtkresearch.breezeapp.engine.system.SherpaLibraryManager
 import com.mtkresearch.breezeapp.engine.util.SherpaTtsConfigUtil
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 
 /**
  * SherpaTTSRunner - Real TTS runner using Sherpa ONNX with direct audio playback
@@ -52,6 +53,7 @@ class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStre
             if (!SherpaLibraryManager.initializeGlobally()) throw Exception("Failed to initialize Sherpa ONNX library")
             if (!SherpaLibraryManager.isLibraryReady()) throw Exception("Sherpa ONNX library not ready for use")
             initializeTts()
+            warmup()
             
             // CRITICAL FIX: Set isLoaded flag to true after successful initialization
             isLoaded.set(true)
@@ -82,75 +84,166 @@ class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStre
             val speed = validateSpeed(input)
             val startTime = System.currentTimeMillis()
             
-            Log.d(TAG, "Starting TTS generation - text: '$text', speakerId: $speakerId, speed: $speed")
-            
-            // Initialize audio playback
-            initAudioPlayback(tts!!.sampleRate())
-
-            // find the number of characters in the text, and place space between each number character
-            val textWithSpaces = text!!.mapIndexed { index, c ->
-                if (c.isDigit() && index > 0 && text[index - 1].isDigit()) " $c" else c.toString()
-            }.joinToString("")
-            
-            // Use generateWithCallback for real streaming with direct playback
-            val audio = tts!!.generateWithCallback(
-                text = textWithSpaces, 
-                sid = speakerId, 
-                speed = speed,
-                callback = { samples ->
-                    // Direct audio playback in callback
-                    if (!isStopped.get()) {
-                        synchronized(audioLock) {
-                            val amplifiedSamples = amplifyVolume(samples, 2.0f)
-                            audioTrack?.write(amplifiedSamples, 0, amplifiedSamples.size, AudioTrack.WRITE_BLOCKING)
-                        }
-                        return@generateWithCallback 1 // Continue generation
-                    } else {
-                        synchronized(audioLock) {
-                            audioTrack?.stop()
-                        }
-                        return@generateWithCallback 0 // Stop generation
-                    }
-                }
-            )
-            
-            Log.d(TAG, "TTS generation completed - samples: ${audio.samples.size}, sampleRate: ${audio.sampleRate}")
-            
-            if (audio.samples.isEmpty()) {
-                Log.e(TAG, "Generated audio samples is empty!")
-                stopAudioPlayback()
-                SherpaLibraryManager.markInferenceCompleted()
-                return InferenceResult.error(RunnerError.runtimeError("Failed to generate audio - samples is empty"))
+            // Call the internal run method with TTFA capture
+            var ttfa: Long? = null
+            val audioData = run(text ?: "", modelName, "default", speed, speakerId) { capturedTtfa ->
+                ttfa = capturedTtfa
             }
             
-            // Stop audio playback
-            stopAudioPlayback()
-            
-            val pcm16 = floatArrayToPCM16(audio.samples)
-            Log.d(TAG, "Converted to PCM16 - size: ${pcm16.size} bytes")
-            
             val elapsed = System.currentTimeMillis() - startTime
-            val outputs = mapOf("audioData" to pcm16)
-            val metadata = mapOf(
-                "sampleRate" to audio.sampleRate,
+            val outputs = mapOf("audioData" to audioData)
+            val metadata = mutableMapOf<String, Any>(
+                "sampleRate" to tts!!.sampleRate(),
                 "channels" to 1,
                 "bitDepth" to 16,
                 "format" to "pcm16",
-                "durationMs" to (pcm16.size / 2 * 1000 / audio.sampleRate),
-                "chunkIndex" to 0,
-                "isLastChunk" to true
+                "durationMs" to (audioData.size / 2 * 1000 / tts!!.sampleRate())
             )
             
-            Log.d(TAG, "TTS result - duration: ${pcm16.size / 2 * 1000 / audio.sampleRate}ms, elapsed: ${elapsed}ms")
+            // Add TTFA to metadata if captured
+            ttfa?.let { metadata["timeToFirstAudio"] = it }
+            
+            Log.d(TAG, "TTS run completed - size: ${audioData.size}, elapsed: ${elapsed}ms, TTFA: ${ttfa}ms")
             SherpaLibraryManager.markInferenceCompleted()
             InferenceResult.success(outputs, metadata, partial = false)
         } catch (e: Exception) {
-            Log.e(TAG, "TTS generation failed", e)
-            stopAudioPlayback()
+            Log.e(TAG, "TTS run failed", e)
             SherpaLibraryManager.markInferenceCompleted()
-            InferenceResult.error(RunnerError.runtimeError("TTS generation failed: ${e.message}"))
+            InferenceResult.error(RunnerError.runtimeError("TTS run failed: ${e.message}"))
         }
     }
+
+    fun run(
+        text: String,
+        modelId: String,
+        voiceId: String,
+        speed: Float,
+        speakerId: Int,
+        onTtfa: ((Long) -> Unit)? = null
+    ): ByteArray {
+        if (tts == null) {
+            Log.e(TAG, "TTS not initialized")
+            return ByteArray(0)
+        }
+
+        try {
+            // OPTIMIZATION: Split text into sentences to reduce TTFA (Time To First Audio)
+            // Instead of processing the whole paragraph, we process and play sentence by sentence.
+            // This avoids the "Head-of-Line Blocking" where the engine waits to encode the full text.
+            val sentences = splitIntoSentences(text)
+            Log.d(TAG, "Splitting text into ${sentences.size} sentences for low-latency streaming")
+
+            val allAudioBytes = java.io.ByteArrayOutputStream()
+            val generationStart = System.currentTimeMillis()
+            var firstChunkReported = false
+            
+            // Initialize audio playback once for the whole session
+            initAudioPlayback(tts!!.sampleRate())
+
+            for ((index, sentence) in sentences.withIndex()) {
+                if (isStopped.get()) break
+                
+                // Skip empty sentences
+                if (sentence.isBlank()) continue
+                
+                Log.d(TAG, "Processing sentence ${index + 1}/${sentences.size}: \"${sentence.take(20)}...\"")
+                
+                // Add spaces for better prosody if needed, though splitting might have removed them
+                val textToProcess = sentence.trim()
+                
+                tts!!.generateWithCallback(
+                    text = textToProcess,
+                    sid = speakerId,
+                    speed = speed,
+                    callback = { samples ->
+                        if (!firstChunkReported) {
+                            val ttfa = System.currentTimeMillis() - generationStart
+                            Log.i(TAG, "TTFA (Time To First Audio): ${ttfa}ms")
+                            onTtfa?.invoke(ttfa)
+                            firstChunkReported = true
+                        }
+
+                        // Direct audio playback in callback
+                        if (!isStopped.get()) {
+                            synchronized(audioLock) {
+                                val amplifiedSamples = amplifyVolume(samples, 2.0f)
+                                audioTrack?.write(amplifiedSamples, 0, amplifiedSamples.size, AudioTrack.WRITE_BLOCKING)
+                                
+                                // Convert to PCM16 for returning the full audio data (optional, mostly for file mode)
+                                val pcm16 = FloatArray(amplifiedSamples.size) { amplifiedSamples[it] }
+                                    .map { (it * 32767).toInt().coerceIn(-32768, 32767).toShort() }
+                                    .let { shortArray ->
+                                        val byteBuffer = java.nio.ByteBuffer.allocate(shortArray.size * 2)
+                                        byteBuffer.order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                                        shortArray.forEach { s -> byteBuffer.putShort(s) }
+                                        byteBuffer.array()
+                                    }
+                                allAudioBytes.write(pcm16)
+                            }
+                            return@generateWithCallback 1 // Continue generation
+                        } else {
+                            synchronized(audioLock) {
+                                audioTrack?.stop()
+                            }
+                            return@generateWithCallback 0 // Stop generation
+                        }
+                    }
+                )
+            }
+            
+            return allAudioBytes.toByteArray()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "TTS generation failed", e)
+            return ByteArray(0)
+        } finally {
+            // We don't stop audioTrack here to allow tail to play, 
+            // but we might want to release it if we are sure we are done.
+            // For now, keep it open or let the next call reset it.
+            // Actually, BaseSherpaTtsRunner.stop() handles cleanup.
+        }
+    }
+
+    /**
+     * Helper to split text into chunks for low-latency streaming.
+     * Splits on sentences (.!?) and clauses (,:;) to minimize TTFA.
+     * Also separates consecutive digits (e.g. "1997" -> "1 9 9 7") for better TTS pronunciation.
+     * Merges very short chunks to preserve basic prosody.
+     */
+    private fun splitIntoSentences(text: String): List<String> {
+        // Preprocess: Insert space between consecutive digits
+        val processedText = text.mapIndexed { index, c ->
+            if (c.isDigit() && index > 0 && text[index - 1].isDigit()) " $c" else c.toString()
+        }.joinToString("")
+
+        // Split by sentence terminators (.!?) AND clause terminators (,:;)
+        // Keep delimiters.
+        val rawChunks = processedText.split(Regex("(?<=[.!?,,:;])\\s+|(?<=[.!?,,:;])$")).filter { it.isNotBlank() }
+        
+        val mergedChunks = mutableListOf<String>()
+        var currentChunk = ""
+        
+        for (chunk in rawChunks) {
+            currentChunk += chunk
+            // Heuristic: If chunk is too short (e.g. "No,"), append to next one to avoid robotic feel.
+            // Unless it ends with a strong sentence terminator.
+            if (currentChunk.length < 5 && !currentChunk.matches(Regex(".*[.!?]$"))) {
+                currentChunk += " " // Add space for merging
+                continue
+            }
+            mergedChunks.add(currentChunk.trim())
+            currentChunk = ""
+        }
+        
+        // Add any remaining text
+        if (currentChunk.isNotBlank()) {
+            mergedChunks.add(currentChunk.trim())
+        }
+        
+        return mergedChunks
+    }
+
+
 
     override fun runAsFlow(input: InferenceRequest): Flow<InferenceResult> = flow {
         // Validate model is loaded
@@ -173,63 +266,99 @@ class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStre
             val speakerId = validateSpeakerId(input)
             val speed = validateSpeed(input)
             val startTime = System.currentTimeMillis()
-            Log.d(TAG, "Starting TTS generation (Flow) - text: '$text', speakerId: $speakerId, speed: $speed")
             
-            // Initialize audio playback for streaming
+            // OPTIMIZATION: Split text into sentences for low-latency streaming
+            val sentences = splitIntoSentences(text ?: "")
+            Log.d(TAG, "Splitting text into ${sentences.size} sentences for flow streaming")
+
             initAudioPlayback(tts!!.sampleRate())
 
-            // find the number of characters in the text, and place space between each number character
-            val textWithSpaces = text!!.mapIndexed { index, c ->
-                if (c.isDigit() && index > 0 && text[index - 1].isDigit()) " $c" else c.toString()
-            }.joinToString("")
+            // Use a Channel to bridge the blocking callback and the flow
+            val channel = kotlinx.coroutines.channels.Channel<InferenceResult>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+            
+            // Launch generation in a separate coroutine to avoid blocking the flow collector
+            val generationJob = kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val generationStart = System.currentTimeMillis()
+                    var firstChunkReported = false
 
+                    for ((index, sentence) in sentences.withIndex()) {
+                        if (isStopped.get()) break
+                        if (sentence.isBlank()) continue
 
-            // Use generateWithCallback for real streaming with direct playback
-            val audio = tts!!.generateWithCallback(
-                text = textWithSpaces,
-                sid = speakerId,
-                speed = speed,
-                callback = { samples ->
-                    // Direct audio playback in callback
-                    if (!isStopped.get()) {
-                        synchronized(audioLock) {
-                            val amplifiedSamples = amplifyVolume(samples, 2.0f)
-                            audioTrack?.write(amplifiedSamples, 0, amplifiedSamples.size, AudioTrack.WRITE_BLOCKING)
-                        }
-                        return@generateWithCallback 1 // Continue generation
-                    } else {
-                        synchronized(audioLock) {
-                            audioTrack?.stop()
-                        }
-                        return@generateWithCallback 0 // Stop generation
+                        Log.d(TAG, "Processing flow sentence ${index + 1}/${sentences.size}")
+
+                        tts!!.generateWithCallback(
+                            text = sentence.trim(),
+                            sid = speakerId,
+                            speed = speed,
+                            callback = { samples ->
+                                if (!firstChunkReported) {
+                                    val ttfa = System.currentTimeMillis() - generationStart
+                                    Log.i(TAG, "TTFA (Flow): ${ttfa}ms")
+                                    firstChunkReported = true
+                                }
+
+                                if (!isStopped.get()) {
+                                    synchronized(audioLock) {
+                                        val amplifiedSamples = amplifyVolume(samples, 2.0f)
+                                        // Play audio directly
+                                        audioTrack?.write(amplifiedSamples, 0, amplifiedSamples.size, AudioTrack.WRITE_BLOCKING)
+                                        
+                                        // Emit partial result via Channel
+                                        val pcm16 = FloatArray(amplifiedSamples.size) { amplifiedSamples[it] }
+                                            .map { (it * 32767).toInt().coerceIn(-32768, 32767).toShort() }
+                                            .let { shortArray ->
+                                                val byteBuffer = java.nio.ByteBuffer.allocate(shortArray.size * 2)
+                                                byteBuffer.order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                                                shortArray.forEach { s -> byteBuffer.putShort(s) }
+                                                byteBuffer.array()
+                                            }
+                                        
+                                        channel.trySend(InferenceResult.success(
+                                            outputs = mapOf("audioChunk" to pcm16),
+                                            metadata = mapOf("isPartial" to true),
+                                            partial = true
+                                        ))
+                                    }
+                                    return@generateWithCallback 1 // Continue
+                                } else {
+                                    synchronized(audioLock) {
+                                        audioTrack?.stop()
+                                    }
+                                    return@generateWithCallback 0 // Stop
+                                }
+                            }
+                        )
                     }
+                    
+                    val elapsed = System.currentTimeMillis() - startTime
+                    Log.d(TAG, "TTS Flow completed - elapsed: ${elapsed}ms")
+                    
+                    // Send completion signal
+                    channel.send(InferenceResult.success(
+                        outputs = mapOf(),
+                        metadata = mapOf("isLastChunk" to true),
+                        partial = false
+                    ))
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in generation coroutine", e)
+                    channel.close(e)
+                } finally {
+                    channel.close()
+                    SherpaLibraryManager.markInferenceCompleted()
                 }
-            )
-            
-            Log.d(TAG, "TTS generation completed (Flow) - samples: ${audio.samples.size}, sampleRate: ${audio.sampleRate}")
-            
-            if (audio.samples.isEmpty()) {
-                Log.e(TAG, "Generated audio samples is empty (Flow)!")
-                stopAudioPlayback()
-                emit(InferenceResult.error(RunnerError.runtimeError("Failed to generate audio - samples is empty")))
-                SherpaLibraryManager.markInferenceCompleted()
-                return@flow
+            }
+
+            // Collect from channel and emit to flow
+            for (result in channel) {
+                emit(result)
             }
             
-            // Stop audio playback
-            stopAudioPlayback()
+            // Ensure generation job is cancelled if flow collection stops
+            generationJob.cancel()
             
-            val elapsed = System.currentTimeMillis() - startTime
-            Log.d(TAG, "TTS Flow completed - elapsed: ${elapsed}ms")
-            
-            // Emit completion signal
-            emit(InferenceResult.success(
-                outputs = mapOf(),
-                metadata = mapOf("isLastChunk" to true),
-                partial = false
-            ))
-            
-            SherpaLibraryManager.markInferenceCompleted()
         } catch (e: Exception) {
             Log.e(TAG, "Error in SherpaTTSRunner.runAsFlow", e)
             stopAudioPlayback()
@@ -284,6 +413,30 @@ class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStre
             modelConfig = modelConfig,
             useExternalStorage = true
         ) ?: throw Exception("Failed to create TTS config for ${modelConfig.modelDir}")
+        
+        // OPTIMIZATION: Set single thread for lower latency on mobile devices
+        // This reduces CPU contention and thermal throttling
+        config.model.numThreads = 1
+        config.model.debug = false
+        
         tts = OfflineTts(assetManager = context.assets, config = config)
+    }
+
+    /**
+     * Warmup the model with a short inference to ensure ONNX runtime is fully initialized.
+     * This performs memory allocation and graph optimization to prevent "cold start" stutter
+     * on the first user request.
+     */
+    private fun warmup() {
+        try {
+            Log.d(TAG, "Starting TTS model warmup (initializing ONNX Runtime)...")
+            val start = System.currentTimeMillis()
+            // Generate a very short silent audio
+            tts?.generate(text = "a", sid = 0, speed = 1.0f)
+            val elapsed = System.currentTimeMillis() - start
+            Log.i(TAG, "TTS model warmup completed in ${elapsed}ms - ONNX Runtime ready")
+        } catch (e: Exception) {
+            Log.w(TAG, "TTS model warmup failed (non-fatal)", e)
+        }
     }
 }
