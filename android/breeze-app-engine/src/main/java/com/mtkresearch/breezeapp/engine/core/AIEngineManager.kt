@@ -111,9 +111,23 @@ class AIEngineManager(
         return try {
             // 1. Guardian Configuration Assessment
             val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
-            val effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
+            var effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
             
             logger.d(TAG, "Guardian mode for request $requestId: ${effectiveGuardianConfig.mode}")
+
+            // FIX: Auto-disable Guardian for non-generative capabilities (TTS, ASR) unless explicitly enabled
+            val isGenerative = capability == CapabilityType.LLM || capability == CapabilityType.VLM
+            val explicitEnable = request.params[com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipeline.PARAM_GUARDIAN_ENABLED] as? Boolean
+            
+            if (!isGenerative && explicitEnable != true) {
+                // If not LLM/VLM and not explicitly enabled (null or false), disable it
+                // We use reflection copy if needed, but GuardianPipelineConfig is a data class so copy() works
+                effectiveGuardianConfig = effectiveGuardianConfig.copy(
+                    enabled = false, 
+                    mode = com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.DISABLED
+                )
+                logger.d(TAG, "Guardian disabled for non-generative capability: $capability")
+            }
             
             // 2. Input Guardian Check (if enabled)
             if (effectiveGuardianConfig.shouldCheckInput()) {
@@ -191,9 +205,22 @@ class AIEngineManager(
         try {
             // 1. Guardian Configuration Assessment
             val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
-            val effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
+            var effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
             
             logger.d(TAG, "Guardian mode for stream request $requestId: ${effectiveGuardianConfig.mode}")
+
+            // FIX: Auto-disable Guardian for non-generative capabilities (TTS, ASR) unless explicitly enabled
+            val isGenerative = capability == CapabilityType.LLM || capability == CapabilityType.VLM
+            val explicitEnable = request.params[com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipeline.PARAM_GUARDIAN_ENABLED] as? Boolean
+            
+            if (!isGenerative && explicitEnable != true) {
+                // If not LLM/VLM and not explicitly enabled (null or false), disable it
+                effectiveGuardianConfig = effectiveGuardianConfig.copy(
+                    enabled = false, 
+                    mode = com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.DISABLED
+                )
+                logger.d(TAG, "Guardian disabled for non-generative capability: $capability")
+            }
 
             // 2. Input Guardian Check (blocking) - Core Guardian responsibility
             if (effectiveGuardianConfig.shouldCheckInput()) {
