@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Quick Test Section for Engine Settings -->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardQuickTest"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="1dp"
+    app:cardBackgroundColor="@color/surface">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Section Title -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/quick_test"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Status Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <!-- Status Icon -->
+            <ImageView
+                android:id="@+id/ivTestStatus"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="8dp"
+                android:src="@drawable/ic_info"
+                android:contentDescription="@string/status_icon" />
+
+            <!-- Status Text -->
+            <TextView
+                android:id="@+id/tvTestStatus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/initializing"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary" />
+
+            <!-- Progress Indicator (hidden by default) -->
+            <ProgressBar
+                android:id="@+id/progressTest"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- Test Input Field -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/layoutTestInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etTestInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/test_input_hint"
+                android:maxLines="3"
+                android:inputType="textMultiLine" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Test Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRunTest"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="@string/run_test"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:enabled="false"
+            app:cornerRadius="8dp"
+            app:icon="@drawable/ic_send"
+            app:iconGravity="textStart"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Result Display (hidden by default) -->
+        <LinearLayout
+            android:id="@+id/layoutTestResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:background="#212121"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/test_result"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary_light"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/tvTestResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="@color/primary_light"
+                android:maxLines="5"
+                android:ellipsize="end" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

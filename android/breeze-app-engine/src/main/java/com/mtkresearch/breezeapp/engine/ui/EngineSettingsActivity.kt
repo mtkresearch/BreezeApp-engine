@@ -34,7 +34,13 @@ import com.mtkresearch.breezeapp.engine.ui.dialogs.showCriticalErrorDialog
 import com.mtkresearch.breezeapp.engine.ui.dialogs.showErrorDialog
 import com.mtkresearch.breezeapp.engine.ui.dialogs.ErrorDialog
 import com.mtkresearch.breezeapp.engine.core.download.ModelDownloadService
+import com.mtkresearch.breezeapp.engine.model.InferenceRequest
+import com.mtkresearch.breezeapp.engine.model.TestMetrics
+import com.mtkresearch.breezeapp.engine.model.*
+import com.mtkresearch.breezeapp.engine.util.MetricsCollector
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Engine Settings Activity
@@ -105,8 +111,18 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
     private lateinit var tvParametersHint: TextView
     private lateinit var containerParameters: LinearLayout
     private lateinit var btnSave: Button
-    private lateinit var btnTestDownload: Button
     private lateinit var progressOverlay: FrameLayout
+
+    // Quick Test Section UI Components
+    private lateinit var cardQuickTest: com.google.android.material.card.MaterialCardView
+    private lateinit var ivTestStatus: ImageView
+    private lateinit var tvTestStatus: TextView
+    private lateinit var progressTest: ProgressBar
+    private lateinit var layoutTestInput: com.google.android.material.textfield.TextInputLayout
+    private lateinit var etTestInput: com.google.android.material.textfield.TextInputEditText
+    private lateinit var btnRunTest: Button
+    private lateinit var layoutTestResult: LinearLayout
+    private lateinit var tvTestResult: TextView
 
     // State
     private var currentCapability: CapabilityType = CapabilityType.LLM
@@ -216,8 +232,18 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
         tvParametersHint = findViewById(R.id.tvParametersHint)
         containerParameters = findViewById(R.id.containerParameters)
         btnSave = findViewById(R.id.btnSave)
-        btnTestDownload = findViewById(R.id.btnTestDownload)
         progressOverlay = findViewById(R.id.progressOverlay)
+
+        // Initialize Quick Test Section UI Components
+        cardQuickTest = findViewById(R.id.cardQuickTest)
+        ivTestStatus = findViewById(R.id.ivTestStatus)
+        tvTestStatus = findViewById(R.id.tvTestStatus)
+        progressTest = findViewById(R.id.progressTest)
+        layoutTestInput = findViewById(R.id.layoutTestInput)
+        etTestInput = findViewById(R.id.etTestInput)
+        btnRunTest = findViewById(R.id.btnRunTest)
+        layoutTestResult = findViewById(R.id.layoutTestResult)
+        tvTestResult = findViewById(R.id.tvTestResult)
 
         // Initialize Save button as disabled (no changes yet)
         btnSave.isEnabled = false
@@ -247,6 +273,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                     currentCapability = capabilities[tab.position].second
                     updateCapabilityUI()
                     loadRunnersForCapability()
+                    updateQuickTestSection()
                 }
             }
             
@@ -400,6 +427,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
     
     private fun updateCapabilityUI() {
         tvCapabilityLabel.text = getString(R.string.select_runner_for_capability, currentCapability.name)
+        updateQuickTestSection()
     }
 
     /**
@@ -920,10 +948,8 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
             saveSettingsWithoutNavigate()
         }
         
-        btnTestDownload.setOnClickListener {
-            Log.d(TAG, "Test download button clicked")
-            // Show download progress bottom sheet for testing
-            showTestDownloadProgress()
+        btnRunTest.setOnClickListener {
+            runQuickTest()
         }
     }
     
@@ -1797,30 +1823,379 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
     }
     
     /**
-     * Test method to show download progress UI
+     * Run quick test for current capability
      */
-    private fun showTestDownloadProgress() {
-        try {
-            Log.d(TAG, "=== showTestDownloadProgress() called ===")
+    private fun runQuickTest() {
+        lifecycleScope.launch {
+            try {
+                // Update UI to testing state
+                updateTestStatus(TestStatus.TESTING)
+                
+                val testInput = etTestInput.text?.toString() ?: ""
+                if (testInput.isBlank()) {
+                    showToast("Please enter test input", isError = true)
+                    updateTestStatus(TestStatus.READY)
+                    return@launch
+                }
+                
+                val result = when (currentCapability) {
+                    CapabilityType.LLM -> testLLM(testInput)
+                    CapabilityType.TTS -> testTTS(testInput)
+                    CapabilityType.ASR -> testASR()
+                    CapabilityType.VLM -> testVLM()
+                    CapabilityType.GUARDIAN -> testGuardrail(testInput)
+                    else -> "Test not implemented for ${currentCapability.name}"
+                }
+                
+                // Show result
+                tvTestResult.text = result
+                layoutTestResult.visibility = View.VISIBLE
+                updateTestStatus(TestStatus.SUCCESS)
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Quick test failed", e)
+                tvTestResult.text = "Error: ${e.message}"
+                layoutTestResult.visibility = View.VISIBLE
+                updateTestStatus(TestStatus.ERROR)
+            }
+        }
+    }
+    
+    private suspend fun testLLM(input: String): String {
+        return withContext(Dispatchers.IO) {
+            val collector = MetricsCollector()
             
-            // Show download bottom sheet directly for testing
-            requestDownloadProgressUI()
+            try {
+                val runner = runnerManager?.getRunner(CapabilityType.LLM)
+                    ?: return@withContext "Error: LLM runner not loaded"
+                
+                // Robust loading for LLM
+                if (!runner.isLoaded()) {
+                    Log.d(TAG, "testLLM: Model not loaded, attempting to load...")
+                    val modelId = currentSettings.getSelectedModel(runner.getRunnerInfo().name) 
+                        ?: "default"
+                    
+                    val success = runner.load(
+                        modelId = modelId,
+                        settings = currentSettings,
+                        initialParams = getCurrentRunnerParams()
+                    )
+                    
+                    if (!success) {
+                        return@withContext "⚠️ Model failed to load"
+                    }
+                }
+                
+                val request = InferenceRequest(
+                    sessionId = "quick-test-llm",
+                    inputs = mapOf(InferenceRequest.INPUT_TEXT to input),
+                    params = getCurrentRunnerParams()
+                )
+                
+                collector.mark("start")
+                val result = runner.run(request, stream = false)
+                collector.mark("end")
+                
+                // Inspect what runner provides
+                Log.d(TAG, "LLM outputs: ${result.outputs.keys}")
+                Log.d(TAG, "LLM metadata: ${result.metadata.keys}")
+                
+                val metrics = TestMetrics.LLM(
+                    totalLatency = collector.duration("start", "end") ?: 0,
+                    success = result.error == null,
+                    errorMessage = result.error?.message,
+                    responseLength = (result.outputs["text"] ?: result.outputs["response"])?.toString()?.length,
+                    tokenCount = result.getIntOrNull("token_count")
+                )
+                
+                formatLLMMetrics(metrics, result)
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "LLM test exception", e)
+                "✗ Exception: ${e.message}"
+            }
+        }
+    }
+    
+    private suspend fun testTTS(input: String): String {
+        return withContext(Dispatchers.IO) {
+            val collector = MetricsCollector()
             
-            // Also start the actual download service
-            Log.d(TAG, "About to call ModelDownloadService.startDownload()")
-            ModelDownloadService.startDownload(
-                this, 
-                "test-model-id", 
-                "https://example.com/test-model.bin", 
-                "test-model.bin"
-            )
-            Log.d(TAG, "ModelDownloadService.startDownload() completed")
+            try {
+                Log.d(TAG, "testTTS: Starting TTS test")
+                val runner = runnerManager?.getRunner(CapabilityType.TTS)
+                    ?: return@withContext "Error: TTS runner not loaded"
+                
+                Log.d(TAG, "testTTS: Got runner: ${runner.getRunnerInfo().name}")
+                
+                // Check if model is loaded, if not, try to load it
+                if (!runner.isLoaded()) {
+                    Log.d(TAG, "testTTS: Model not loaded, attempting to load...")
+                    val modelId = currentSettings.getSelectedModel(runner.getRunnerInfo().name) 
+                        ?: "default" // Fallback
+                    
+                    val success = runner.load(
+                        modelId = modelId,
+                        settings = currentSettings,
+                        initialParams = getCurrentRunnerParams()
+                    )
+                    
+                    if (!success) {
+                        return@withContext "⚠️ Model failed to load\n\nPlease check logs or try selecting a different model."
+                    }
+                    Log.d(TAG, "testTTS: Model loaded successfully")
+                }
+                
+                val request = InferenceRequest(
+                    sessionId = "quick-test-tts",
+                    inputs = mapOf(InferenceRequest.INPUT_TEXT to input),
+                    params = getCurrentRunnerParams()
+                )
+                
+                Log.d(TAG, "testTTS: Created request, about to call runner.run()")
+                collector.mark("start")
+                val result = runner.run(request, stream = false)
+                collector.mark("end")
+                Log.d(TAG, "testTTS: runner.run() completed")
+                
+                // Check for error first
+                if (result.error != null) {
+                    Log.e(TAG, "testTTS: Runner returned error - code: ${result.error.code}, message: ${result.error.message}")
+                }
+                
+                // Inspect what runner provides
+                Log.d(TAG, "TTS outputs: ${result.outputs.keys}")
+                Log.d(TAG, "TTS metadata: ${result.metadata.keys}")
+                
+                val audioData = result.outputs["audio"] as? ByteArray
+                val metrics = TestMetrics.TTS(
+                    totalLatency = collector.duration("start", "end") ?: 0,
+                    success = result.error == null,
+                    errorMessage = result.error?.message,
+                    audioSize = audioData?.size,
+                    sampleRate = result.getIntOrNull("sampleRate"),
+                    audioDurationMs = result.getLongOrNull("durationMs"),
+                    timeToFirstAudio = result.getLongOrNull("timeToFirstAudio")
+                )
+                
+                Log.d(TAG, "testTTS: Formatting metrics")
+                formatTTSMetrics(metrics)
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "TTS test exception", e)
+                "✗ Exception: ${e.message}"
+            }
+        }
+    }
+    
+    private suspend fun testASR(): String {
+        return withContext(Dispatchers.IO) {
+            "ASR test requires microphone recording - not yet implemented in quick test"
+        }
+    }
+    
+    private suspend fun testVLM(): String {
+        return withContext(Dispatchers.IO) {
+            "VLM test requires image selection - not yet implemented in quick test"
+        }
+    }
+    
+    private suspend fun testGuardrail(input: String): String {
+        return withContext(Dispatchers.IO) {
+            val collector = MetricsCollector()
             
-            showToast("Started test download", isSuccess = true)
+            try {
+                val runner = runnerManager?.getRunner(CapabilityType.GUARDIAN)
+                    ?: return@withContext "Error: Guardrail runner not loaded"
+                
+                val request = InferenceRequest(
+                    sessionId = "quick-test-guardrail",
+                    inputs = mapOf(InferenceRequest.INPUT_TEXT to input),
+                    params = getCurrentRunnerParams()
+                )
+                
+                collector.mark("start")
+                val result = runner.run(request, stream = false)
+                collector.mark("end")
+                
+                // Inspect what runner provides
+                Log.d(TAG, "Guardrail outputs: ${result.outputs.keys}")
+                Log.d(TAG, "Guardrail metadata: ${result.metadata.keys}")
+                
+                val metrics = TestMetrics.Guardrail(
+                    totalLatency = collector.duration("start", "end") ?: 0,
+                    success = result.error == null,
+                    errorMessage = result.error?.message,
+                    isSafe = result.getBooleanOrNull("is_safe"),
+                    categories = result.getStringListOrNull("categories"),
+                    confidence = result.getFloatOrNull("confidence")
+                )
+                
+                formatGuardrailMetrics(metrics, result)
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Guardrail test exception", e)
+                "✗ Exception: ${e.message}"
+            }
+        }
+    }
+    
+    private enum class TestStatus {
+        LOADING, READY, TESTING, SUCCESS, ERROR
+    }
+    
+    private fun updateTestStatus(status: TestStatus) {
+        when (status) {
+            TestStatus.LOADING -> {
+                ivTestStatus.setImageResource(R.drawable.ic_info)
+                tvTestStatus.text = getString(R.string.initializing)
+                tvTestStatus.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                progressTest.visibility = View.VISIBLE
+                btnRunTest.isEnabled = false
+            }
+            TestStatus.READY -> {
+                ivTestStatus.setImageResource(R.drawable.ic_check_circle)
+                tvTestStatus.text = getString(R.string.ready_to_test)
+                tvTestStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+                progressTest.visibility = View.GONE
+                btnRunTest.isEnabled = true
+                layoutTestResult.visibility = View.GONE
+            }
+            TestStatus.TESTING -> {
+                ivTestStatus.setImageResource(R.drawable.ic_info)
+                tvTestStatus.text = getString(R.string.testing)
+                tvTestStatus.setTextColor(ContextCompat.getColor(this, R.color.primary))
+                progressTest.visibility = View.VISIBLE
+                btnRunTest.isEnabled = false
+            }
+            TestStatus.SUCCESS -> {
+                ivTestStatus.setImageResource(R.drawable.ic_check_circle)
+                tvTestStatus.text = getString(R.string.test_passed)
+                tvTestStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+                progressTest.visibility = View.GONE
+                btnRunTest.isEnabled = true
+            }
+            TestStatus.ERROR -> {
+                ivTestStatus.setImageResource(R.drawable.ic_error)
+                tvTestStatus.text = getString(R.string.test_failed)
+                tvTestStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_dark))
+                progressTest.visibility = View.GONE
+                btnRunTest.isEnabled = true
+            }
+        }
+    }
+    
+    /**
+     * Update quick test section based on current capability and runner status
+     */
+    private fun updateQuickTestSection() {
+        // Set default test input based on capability
+        val defaultInput = when (currentCapability) {
+            CapabilityType.LLM -> "聯發科的董事長是誰"
+            CapabilityType.TTS -> "聯發科MediaTek成立於1997年，是業界的pioneer"
+            CapabilityType.GUARDIAN -> "This is a safe message."
+            else -> ""
+        }
+        
+        // Update input field
+        if (etTestInput.text.isNullOrBlank() || currentCapability != CapabilityType.ASR) {
+            etTestInput.setText(defaultInput)
+        }
+        
+        // Hide input for ASR (uses microphone)
+        if (currentCapability == CapabilityType.ASR || currentCapability == CapabilityType.VLM) {
+            layoutTestInput.visibility = View.GONE
+        } else {
+            layoutTestInput.visibility = View.VISIBLE
+        }
+        
+        // Check if runner is loaded
+        val runner = runnerManager?.getRunner(currentCapability)
+        if (runner != null) {
+            updateTestStatus(TestStatus.READY)
+        } else {
+            updateTestStatus(TestStatus.LOADING)
+        }
+        
+        // Hide previous results
+        layoutTestResult.visibility = View.GONE
+    }
+    
+    /**
+     * Format LLM metrics for display (shows what's available)
+     */
+    private fun formatLLMMetrics(m: TestMetrics.LLM, result: InferenceResult): String = buildString {
+        if (m.success) {
+            append("✓ Success\n")
+            append("⏱️ Total: ${m.totalLatency}ms\n")
             
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start test download", e)
-            showToast("Failed to start download: ${e.message}", isError = true)
+            // Show response
+            val output = result.outputs["text"] ?: result.outputs["response"]
+            if (output != null) {
+                val preview = output.toString().take(100)
+                append("📝 Response: $preview${if (output.toString().length > 100) "..." else ""}\n")
+            }
+            
+            // Optional fields
+            m.responseLength?.let { append("📊 Length: $it chars\n") }
+            m.tokenCount?.let { append("🔢 Tokens: $it") }
+        } else {
+            append("✗ Error: ${m.errorMessage}")
+        }
+    }
+    
+    /**
+     * Format TTS metrics for display (shows what's available)
+     */
+    private fun formatTTSMetrics(m: TestMetrics.TTS): String = buildString {
+        if (m.success) {
+            append("✓ TTS completed\n")
+            append("⏱️ Total: ${m.totalLatency}ms\n")
+            m.timeToFirstAudio?.let { append("⚡ TTFA: ${it}ms\n") }
+            
+            // Optional fields
+            m.audioSize?.let { 
+                val kb = it / 1024.0
+                append("📊 Audio: ${"%.1f".format(kb)} KB\n")
+            }
+            m.sampleRate?.let { append("🎼 Rate: ${it}Hz\n") }
+            m.audioDurationMs?.let { 
+                val seconds = it / 1000.0
+                append("🎵 Duration: ${"%.1f".format(seconds)}s")
+            }
+        } else {
+            append("✗ Error: ${m.errorMessage}")
+        }
+    }
+    
+    /**
+     * Format Guardrail metrics for display (shows what's available)
+     */
+    private fun formatGuardrailMetrics(m: TestMetrics.Guardrail, result: InferenceResult): String = buildString {
+        if (m.success) {
+            append("✓ Check completed\n")
+            append("⏱️ Total: ${m.totalLatency}ms\n")
+            
+            // Safety result
+            m.isSafe?.let { isSafe ->
+                if (isSafe) {
+                    append("🛡️ Content is safe\n")
+                } else {
+                    append("⚠️ Content flagged\n")
+                    val reason = result.getStringOrNull("reason")
+                    reason?.let { append("Reason: $it\n") }
+                }
+            }
+            
+            // Optional fields
+            m.categories?.let { 
+                if (it.isNotEmpty()) {
+                    append("📋 Categories: ${it.joinToString(", ")}\n")
+                }
+            }
+            m.confidence?.let { append("🎯 Confidence: ${"%.1f".format(it * 100)}%") }
+        } else {
+            append("✗ Error: ${m.errorMessage}")
         }
     }
 }

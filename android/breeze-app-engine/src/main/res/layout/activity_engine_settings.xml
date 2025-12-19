@@ -315,17 +315,8 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Test Download Progress Button -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnTestDownload"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="Test Download Progress"
-                android:textSize="14sp"
-                android:textAllCaps="false"
-                app:cornerRadius="12dp"
-                app:backgroundTint="@color/secondary"
-                android:layout_marginBottom="8dp" />
+            <!-- Quick Test Section -->
+            <include layout="@layout/quick_test_section" />
 
             <!-- Save Button - Material Button -->
             <com.google.android.material.button.MaterialButton
