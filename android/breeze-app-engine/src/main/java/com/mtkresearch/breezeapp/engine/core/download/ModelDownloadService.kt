@@ -119,7 +119,7 @@ class ModelDownloadService : Service(), CoroutineScope {
                 val fileName = intent.getStringExtra(EXTRA_FILE_NAME)
                 
                 launch {
-                    startDownloadInternal(modelId, downloadUrl, fileName)
+                    startDownload(modelId, downloadUrl, fileName)
                 }
             }
             ACTION_CANCEL_DOWNLOAD -> {
@@ -222,16 +222,25 @@ class ModelDownloadService : Service(), CoroutineScope {
         }
     }
     
-    private suspend fun startDownloadInternal(modelId: String, downloadUrl: String, fileName: String?) {
-        val stateFlow = getOrCreateStateFlow(modelId)
-        stateFlow.value = DownloadState.initial(modelId, fileName)
+    private suspend fun startDownload(modelId: String, downloadUrl: String, fileName: String?) {
+        logger.d(TAG, "Starting download for model: $modelId, file: $fileName")
+        
+        // Extract base model ID (remove _file_N suffix if present)
+        val baseModelId = if (modelId.contains("_file_")) {
+            modelId.substringBefore("_file_")
+        } else {
+            modelId
+        }
+        
+        // Initialize download state
+        updateDownloadState(modelId) { DownloadState.initial(modelId, fileName) }
         
         // Start foreground service with initial notification
-        val initialNotification = createProgressNotification(stateFlow.value)
+        val initialNotification = createProgressNotification(getOrCreateStateFlow(modelId).value)
         startForeground(NOTIFICATION_ID, initialNotification)
         
-        // Notify download started via event manager
-        DownloadEventManager.notifyDownloadStarted(this, modelId, fileName)
+        // Notify download started via event manager - use baseModelId for UI consistency
+        DownloadEventManager.notifyDownloadStarted(this, baseModelId, fileName)
         
         val downloadJob = launch {
             try {
@@ -240,13 +249,13 @@ class ModelDownloadService : Service(), CoroutineScope {
                 logger.e(TAG, "Download failed for model: $modelId", e)
                 updateDownloadState(modelId) { it.withError(e.message ?: "Unknown error") }
                 
-                // Notify failure via event manager
-                DownloadEventManager.notifyDownloadFailed(this@ModelDownloadService, modelId, e.message ?: "Unknown error")
+                // Notify failure via event manager - use baseModelId
+                DownloadEventManager.notifyDownloadFailed(this@ModelDownloadService, baseModelId, e.message ?: "Unknown error")
                 
                 // Update ModelManager state for error
                 try {
-                    modelManager.markModelDownloadFailed(modelId, e.message ?: "Unknown error")
-                    logger.d(TAG, "Notified ModelManager of download failure for: $modelId")
+                    modelManager.markModelDownloadFailed(baseModelId, e.message ?: "Unknown error")
+                    logger.d(TAG, "Notified ModelManager of download failure for: $baseModelId")
                 } catch (ex: Exception) {
                     logger.e(TAG, "Failed to notify ModelManager of download failure", ex)
                 }
@@ -310,13 +319,13 @@ class ModelDownloadService : Service(), CoroutineScope {
                             state.withProgress(totalBytesRead, contentLength, speed)
                         }
                         
-                        // Notify progress via event manager
+                        // Notify progress via event manager - use baseModelId for UI consistency
                         val progressPercentage = if (contentLength > 0) {
                             ((totalBytesRead * 100) / contentLength).toInt()
                         } else 0
                         DownloadEventManager.notifyDownloadProgress(
                             this@ModelDownloadService, 
-                            modelId, 
+                            baseModelId, 
                             progressPercentage, 
                             totalBytesRead, 
                             contentLength
@@ -340,8 +349,8 @@ class ModelDownloadService : Service(), CoroutineScope {
                 updateDownloadState(modelId) { it.withCompleted() }
                 logger.d(TAG, "Download completed for model: $modelId (${targetFile.length()} bytes)")
 
-                // Notify completion via event manager
-                DownloadEventManager.notifyDownloadCompleted(this@ModelDownloadService, modelId)
+                // Notify per-file completion (AIEngineManager will send batch completion after all files)
+                DownloadEventManager.notifyDownloadCompleted(this@ModelDownloadService, baseModelId, fileName)
 
                 // Update ModelManager state to DOWNLOADED
                 try {
@@ -420,8 +429,20 @@ class ModelDownloadService : Service(), CoroutineScope {
     }
     
     private suspend fun checkAndStopService() {
-        if (getActiveDownloadCountInternal() == 0) {
-            delay(2000) // Give time for UI to process final updates
+        val activeCount = getActiveDownloadCountInternal()
+        val hasBatches = DownloadBatchTracker.hasActiveBatches()
+        
+        logger.d(TAG, "checkAndStopService: activeCount=$activeCount, hasBatches=$hasBatches")
+        
+        if (activeCount == 0) {
+            // PROPER FIX: Check if any download batches are still active
+            // This handles multi-file downloads correctly without timing dependencies
+            if (hasBatches) {
+                logger.d(TAG, "Active download batches exist, keeping service alive. Active Batches: ${DownloadBatchTracker.getActiveBatches()}")
+                return
+            }
+            
+            logger.d(TAG, "No active downloads or batches, stopping service")
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
