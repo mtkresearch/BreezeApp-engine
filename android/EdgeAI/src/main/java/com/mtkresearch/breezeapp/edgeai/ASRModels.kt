@@ -18,7 +18,8 @@ data class ASRRequest(
     val include: List<String>? = null,
     val stream: Boolean? = false,
     val temperature: Float? = 0f,
-    val timestampGranularities: List<String>? = listOf("segment")
+    val timestampGranularities: List<String>? = listOf("segment"),
+    val metadata: Map<String, String>? = null
 ) : Parcelable {
     private val internalFile: ByteArray = _file.copyOf() // defensive copy
     val file: ByteArray get() = internalFile.copyOf() // always return a copy
@@ -62,6 +63,7 @@ data class ASRRequest(
         if (stream != other.stream) return false
         if (temperature != other.temperature) return false
         if (timestampGranularities != other.timestampGranularities) return false
+        if (metadata != other.metadata) return false
 
         return true
     }
@@ -76,6 +78,7 @@ data class ASRRequest(
         result = 31 * result + (stream?.hashCode() ?: 0)
         result = 31 * result + (temperature?.hashCode() ?: 0)
         result = 31 * result + (timestampGranularities?.hashCode() ?: 0)
+        result = 31 * result + (metadata?.hashCode() ?: 0)
         return result
     }
 }
@@ -109,7 +112,12 @@ data class ASRResponse(
     /**
      * Whether this is a streaming chunk (true) or final response (false)
      */
-    val isChunk: Boolean = false
+    val isChunk: Boolean = false,
+
+    /**
+     * Performance metrics from the engine
+     */
+    val metrics: Map<String, String>? = null
 ) : Parcelable
 
 /**

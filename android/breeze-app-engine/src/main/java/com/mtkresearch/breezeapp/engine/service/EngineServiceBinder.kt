@@ -214,6 +214,67 @@ class EngineServiceBinder(
         }
         
         /**
+         * Get information about the currently selected runner for a capability.
+         */
+        override fun getSelectedRunnerInfo(capability: String?): com.mtkresearch.breezeapp.edgeai.RunnerInfoParcel? {
+            Log.d(TAG, "getSelectedRunnerInfo() called: capability=$capability")
+            
+            if (capability == null) {
+                Log.w(TAG, "getSelectedRunnerInfo received null capability")
+                return null
+            }
+            
+            return try {
+                // Convert capability string to CapabilityType
+                val capabilityType = when (capability.uppercase()) {
+                    "ASR" -> CapabilityType.ASR
+                    "TTS" -> CapabilityType.TTS
+                    "LLM", "CHAT" -> CapabilityType.LLM
+                    "VLM" -> CapabilityType.VLM
+                    "GUARDRAIL", "GUARDIAN" -> CapabilityType.GUARDIAN
+                    else -> {
+                        Log.w(TAG, "Unknown capability: $capability")
+                        return null
+                    }
+                }
+                
+                // Get runner from AIEngineManager
+                val settings = aiEngineManager.getCurrentEngineSettings()
+                val selectedRunnerName = settings.selectedRunners[capabilityType]
+                
+                // If no specific runner selected, get the default
+                val runnerManager = aiEngineManager.javaClass.getDeclaredField("runnerManager").apply {
+                    isAccessible = true
+                }.get(aiEngineManager) as com.mtkresearch.breezeapp.engine.runner.core.RunnerManager
+                
+                val runner = if (selectedRunnerName != null) {
+                    runnerManager.getAllRunners().find { it.getRunnerInfo().name == selectedRunnerName }
+                } else {
+                    runnerManager.getRunner(capabilityType)
+                }
+                
+                if (runner == null) {
+                    Log.w(TAG, "No runner found for capability: $capability")
+                    return null
+                }
+                
+                // Check if runner supports streaming
+                val supportsStreaming = runner is com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
+                
+                // Create and return RunnerInfoParcel
+                com.mtkresearch.breezeapp.edgeai.RunnerInfoParcel().apply {
+                    name = runner.getRunnerInfo().name
+                    this.supportsStreaming = supportsStreaming
+                    capabilities = runner.getCapabilities().map { it.name }.toTypedArray()
+                    vendor = runner.javaClass.getAnnotation(com.mtkresearch.breezeapp.engine.annotation.AIRunner::class.java)?.vendor?.name ?: ""
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting runner info for capability: $capability", e)
+                null
+            }
+        }
+        
+        /**
          * Checks if the service has a specific capability.
          */
         override fun hasCapability(capabilityName: String?): Boolean {
@@ -599,7 +660,14 @@ class EngineServiceBinder(
         fun createMutableParams(baseParams: Map<String, Any>): Map<String, Any> {
             Log.d(TAG, "🎤 ASR Client overrides: $baseParams")
             // Use engine-first parameter strategy
-            return buildEngineFirstParameters(baseParams, CapabilityType.ASR, requestId)
+            val params = buildEngineFirstParameters(baseParams, CapabilityType.ASR, requestId).toMutableMap()
+            
+            // Add metadata from request if available
+            request.metadata?.forEach { (key, value) ->
+                params[key] = value
+            }
+            
+            return params
         }
         
         return if (isMicrophoneMode) {
@@ -702,7 +770,8 @@ class EngineServiceBinder(
                     text = content,
                     isComplete = isComplete,
                     state = state,
-                    error = error
+                    error = error,
+                    metrics = result.metadata.entries.associate { (k, v) -> k to v.toString() }
                 )
             }
             "tts" -> {
@@ -719,7 +788,8 @@ class EngineServiceBinder(
                     state = state,
                     error = error,
                     audioData = audioData,
-                    sampleRate = sampleRate
+                    sampleRate = sampleRate,
+                    metrics = result.metadata.entries.associate { (k, v) -> k to v.toString() }
                 )
             }
             "asr" -> {
@@ -733,7 +803,8 @@ class EngineServiceBinder(
                     text = text,
                     isComplete = isComplete,
                     state = state,
-                    error = error
+                    error = error,
+                    metrics = result.metadata.entries.associate { (k, v) -> k to v.toString() }
                 )
             }
             "guardrail" -> {
@@ -761,7 +832,8 @@ class EngineServiceBinder(
                     text = structuredResult,
                     isComplete = isComplete,
                     state = state,
-                    error = error
+                    error = error,
+                    metrics = result.metadata.entries.associate { (k, v) -> k to v.toString() }
                 )
             }
             else -> {
@@ -776,7 +848,8 @@ class EngineServiceBinder(
                     text = text,
                     isComplete = isComplete,
                     state = state,
-                    error = error
+                    error = error,
+                    metrics = result.metadata.entries.associate { (k, v) -> k to v.toString() }
                 )
             }
         }

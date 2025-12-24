@@ -82,7 +82,8 @@ fun asrRequest(
     language: String? = null,
     format: String = "json",
     temperature: Float? = null,
-    stream: Boolean = false
+    stream: Boolean = false,
+    metadata: Map<String, String>? = null
 ): ASRRequest {
     return ASRRequest(
         _file = audioBytes,
@@ -90,7 +91,8 @@ fun asrRequest(
         language = language,
         responseFormat = format,
         temperature = temperature,
-        stream = stream
+        stream = stream,
+        metadata = metadata
     )
 }
 

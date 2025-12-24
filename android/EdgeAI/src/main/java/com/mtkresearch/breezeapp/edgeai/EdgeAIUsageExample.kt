@@ -26,9 +26,9 @@ class EdgeAIUsageExample(private val context: Context) {
      * Initialize the EdgeAI SDK (Basic - may not be connected immediately)
      * Call this once in your Application.onCreate() or Activity.onCreate()
      */
-    fun initializeSDK() {
+    suspend fun initializeSDK() {
         try {
-            EdgeAI.initialize(context)
+            EdgeAI.initialize(context).getOrThrow()
             Log.i(TAG, "EdgeAI SDK initialization started")
         } catch (e: ServiceConnectionException) {
             Log.e(TAG, "Failed to initialize EdgeAI SDK", e)

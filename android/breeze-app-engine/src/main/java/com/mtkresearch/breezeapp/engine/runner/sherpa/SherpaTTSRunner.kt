@@ -293,8 +293,10 @@ class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStre
                             sid = speakerId,
                             speed = speed,
                             callback = { samples ->
+                                var currentTtfa: Long? = null
                                 if (!firstChunkReported) {
                                     val ttfa = System.currentTimeMillis() - generationStart
+                                    currentTtfa = ttfa
                                     Log.i(TAG, "TTFA (Flow): ${ttfa}ms")
                                     firstChunkReported = true
                                 }
@@ -315,9 +317,14 @@ class SherpaTTSRunner(context: Context) : BaseSherpaTtsRunner(context), FlowStre
                                                 byteBuffer.array()
                                             }
                                         
+                                        val metadata = mutableMapOf<String, Any>("isPartial" to true)
+                                        if (currentTtfa != null) {
+                                            metadata["timeToFirstAudio"] = currentTtfa
+                                        }
+                                        
                                         channel.trySend(InferenceResult.success(
                                             outputs = mapOf("audioChunk" to pcm16),
-                                            metadata = mapOf("isPartial" to true),
+                                            metadata = metadata,
                                             partial = true
                                         ))
                                     }

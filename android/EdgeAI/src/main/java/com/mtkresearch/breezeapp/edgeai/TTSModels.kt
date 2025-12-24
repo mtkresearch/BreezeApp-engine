@@ -84,7 +84,12 @@ data class TTSResponse(
     val chunkIndex: Int = 0,
     val isLastChunk: Boolean = true,
     val channels: Int = 1,
-    val bitDepth: Int = 16
+    val bitDepth: Int = 16,
+    
+    /**
+     * Performance metrics from the engine (TTFA, Total Time, etc.)
+     */
+    val metrics: Map<String, String>? = null
 ) {
     /**
      * Convert audio data to InputStream for playback

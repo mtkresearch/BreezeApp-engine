@@ -226,7 +226,12 @@ data class ChatResponse(
      * Error information if the request failed
      * Contains structured error details including Guardian violations
      */
-    val error: ChatError? = null
+    val error: ChatError? = null,
+
+    /**
+     * Performance metrics from the engine (latency, token speed, etc.)
+     */
+    val metrics: @RawValue Map<String, String>? = null
 ) : Parcelable
 
 /**

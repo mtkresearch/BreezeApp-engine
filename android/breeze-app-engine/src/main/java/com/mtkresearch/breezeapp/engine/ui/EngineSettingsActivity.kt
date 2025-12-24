@@ -1988,9 +1988,99 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
         }
     }
     
+    
     private suspend fun testASR(): String {
         return withContext(Dispatchers.IO) {
-            "ASR test requires microphone recording - not yet implemented in quick test"
+            val collector = MetricsCollector()
+            
+            try {
+                val runner = runnerManager?.getRunner(CapabilityType.ASR)
+                    ?: return@withContext "Error: ASR runner not loaded"
+                
+                Log.d(TAG, "testASR: Got runner - ${runner.getRunnerInfo().name}")
+                
+                // Check if model is loaded, if not, try to load it
+                if (!runner.isLoaded()) {
+                    Log.d(TAG, "testASR: Model not loaded, attempting to load...")
+                    val modelId = currentSettings.getSelectedModel(runner.getRunnerInfo().name) 
+                        ?: "default" // Fallback
+                    
+                    val success = runner.load(
+                        modelId = modelId,
+                        settings = currentSettings,
+                        initialParams = getCurrentRunnerParams()
+                    )
+                    
+                    if (!success) {
+                        return@withContext "⚠️ Model failed to load\n\nPlease check logs or try selecting a different model."
+                    }
+                    Log.d(TAG, "testASR: Model loaded successfully")
+                }
+                
+                // For quick test, we'll use empty audio bytes with microphone_mode flag
+                // This tells the runner to use microphone input
+                val request = InferenceRequest(
+                    sessionId = "quick-test-asr",
+                    inputs = mapOf(InferenceRequest.INPUT_AUDIO to byteArrayOf()),
+                    params = getCurrentRunnerParams().toMutableMap().apply {
+                        put("microphone_mode", "true")
+                        put("language", currentSettings.getRunnerParameters(runner.getRunnerInfo().name)["language"] ?: "en")
+                    }
+                )
+                
+                Log.d(TAG, "testASR: Created request, about to call runner.run()")
+                collector.mark("start")
+                
+                // For streaming ASR, we need to collect the flow
+                if (runner is com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner) {
+                    Log.d(TAG, "testASR: Using streaming runner")
+                    var transcription = ""
+                    var firstTokenTime: Long? = null
+                    
+                    runner.runAsFlow(request).collect { result ->
+                        if (firstTokenTime == null) {
+                            firstTokenTime = System.currentTimeMillis()
+                            collector.mark("first_token")
+                        }
+                        
+                        result.outputs["text"]?.let { text ->
+                            transcription = text.toString()
+                            Log.d(TAG, "testASR: Received text - $transcription")
+                        }
+                    }
+                    
+                    collector.mark("end")
+                    
+                    val metrics = TestMetrics.ASR(
+                        totalLatency = collector.duration("start", "end") ?: 0,
+                        success = transcription.isNotEmpty(),
+                        errorMessage = if (transcription.isEmpty()) "No transcription received" else null,
+                        transcription = transcription,
+                        timeToFirstToken = collector.duration("start", "first_token")
+                    )
+                    
+                    formatASRMetrics(metrics)
+                } else {
+                    // Non-streaming ASR
+                    val result = runner.run(request, stream = false)
+                    collector.mark("end")
+                    
+                    val transcription = result.outputs["text"]?.toString() ?: ""
+                    val metrics = TestMetrics.ASR(
+                        totalLatency = collector.duration("start", "end") ?: 0,
+                        success = result.error == null,
+                        errorMessage = result.error?.message,
+                        transcription = transcription,
+                        timeToFirstToken = null
+                    )
+                    
+                    formatASRMetrics(metrics)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "ASR test exception", e)
+                "✗ Exception: ${e.message}"
+            }
         }
     }
     
@@ -2149,22 +2239,30 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
      */
     private fun formatTTSMetrics(m: TestMetrics.TTS): String = buildString {
         if (m.success) {
-            append("✓ TTS completed\n")
-            append("⏱️ Total: ${m.totalLatency}ms\n")
-            m.timeToFirstAudio?.let { append("⚡ TTFA: ${it}ms\n") }
-            
-            // Optional fields
-            m.audioSize?.let { 
-                val kb = it / 1024.0
-                append("📊 Audio: ${"%.1f".format(kb)} KB\n")
-            }
-            m.sampleRate?.let { append("🎼 Rate: ${it}Hz\n") }
-            m.audioDurationMs?.let { 
-                val seconds = it / 1000.0
-                append("🎵 Duration: ${"%.1f".format(seconds)}s")
-            }
+            appendLine("✓ TTS Test Successful")
+            appendLine()
+            appendLine("Latency: ${m.totalLatency}ms")
+            m.timeToFirstAudio?.let { appendLine("TTFA: ${it}ms") }
+            m.audioSize?.let { appendLine("Audio Size: ${it} bytes") }
+            m.sampleRate?.let { appendLine("Sample Rate: ${it} Hz") }
+            m.audioDurationMs?.let { appendLine("Duration: ${it}ms") }
         } else {
-            append("✗ Error: ${m.errorMessage}")
+            appendLine("✗ TTS Test Failed")
+            m.errorMessage?.let { appendLine("Error: $it") }
+        }
+    }
+    
+    private fun formatASRMetrics(m: TestMetrics.ASR): String = buildString {
+        if (m.success) {
+            appendLine("✓ ASR Test Successful")
+            appendLine()
+            appendLine("Transcription: ${m.transcription}")
+            appendLine()
+            appendLine("Latency: ${m.totalLatency}ms")
+            m.timeToFirstToken?.let { appendLine("TTFT: ${it}ms") }
+        } else {
+            appendLine("✗ ASR Test Failed")
+            m.errorMessage?.let { appendLine("Error: $it") }
         }
     }
     

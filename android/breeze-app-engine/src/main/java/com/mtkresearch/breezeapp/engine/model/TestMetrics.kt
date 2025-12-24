@@ -43,9 +43,11 @@ sealed class TestMetrics(
         val totalLatency: Long,
         override val success: Boolean,
         override val errorMessage: String?,
+        val transcription: String? = null,          // The actual transcription text
+        val timeToFirstToken: Long? = null,         // For streaming ASR
         val transcriptionLength: Int? = null,
         val wordCount: Int? = null,
-        val confidence: Float? = null            // From metadata if available
+        val confidence: Float? = null               // From metadata if available
     ) : TestMetrics(success, errorMessage)
     
     /**

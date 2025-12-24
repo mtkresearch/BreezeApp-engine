@@ -28,7 +28,9 @@ data class AIResponse(
     val sampleRate: Int = 16000,
     val channels: Int = 1,
     val bitDepth: Int = 16,
-    val durationMs: Int = 0
+    val durationMs: Int = 0,
+    // Metrics transport
+    val metrics: Map<String, String>? = null
 ) : Parcelable {
 
     /**

@@ -24,11 +24,11 @@ import kotlinx.coroutines.flow.flow
  *
  * Model files must be extracted to internal storage before loading.
  */
-//  @AIRunner(
-//     vendor = VendorType.SHERPA,
-//     priority = RunnerPriority.NORMAL,
-//     capabilities = [CapabilityType.ASR]
-// )
+ @AIRunner(
+    vendor = VendorType.SHERPA,
+    priority = RunnerPriority.HIGH, // Increased priority to prefer over offline runner
+    capabilities = [CapabilityType.ASR]
+)
 class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStreamingRunner {
     companion object {
         private const val TAG = "SherpaASRRunner"
@@ -72,6 +72,9 @@ class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStre
         val featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80)
         val modelConfig = createOnlineModelConfig(modelType)
         
+        // Validate all required model files exist before initialization
+        validateModelFilesExist(modelConfig)
+        
         val recognizerConfig = OnlineRecognizerConfig(
             featConfig = featConfig,
             modelConfig = modelConfig,
@@ -110,6 +113,37 @@ class SherpaASRRunner(context: Context) : BaseSherpaAsrRunner(context), FlowStre
                 throw IllegalArgumentException("Unsupported online model type: $type")
             }
         }
+    }
+
+    /**
+     * Validate that all required model files exist before creating OnlineRecognizer
+     * This prevents native crashes from invalid recognizer initialization
+     */
+    private fun validateModelFilesExist(modelConfig: OnlineModelConfig) {
+        val filesToCheck = mutableListOf<String>()
+
+        // Add transducer model files
+        modelConfig.transducer.encoder.takeIf { it.isNotEmpty() }?.let { filesToCheck.add(it) }
+        modelConfig.transducer.decoder.takeIf { it.isNotEmpty() }?.let { filesToCheck.add(it) }
+        modelConfig.transducer.joiner.takeIf { it.isNotEmpty() }?.let { filesToCheck.add(it) }
+
+        // Add tokens file
+        modelConfig.tokens.takeIf { it.isNotEmpty() }?.let { filesToCheck.add(it) }
+
+        // Check each file
+        val missingFiles = filesToCheck.filter { path ->
+            val file = java.io.File(path)
+            !file.exists()
+        }
+
+        if (missingFiles.isNotEmpty()) {
+            val errorMsg = "Required ASR model files missing (${missingFiles.size}/${filesToCheck.size}):\n" +
+                    missingFiles.joinToString("\n") { "  - ${it.substringAfterLast('/')}" }
+            Log.e(TAG, errorMsg)
+            throw IllegalStateException(errorMsg)
+        }
+
+        Log.d(TAG, "All ${filesToCheck.size} required model files validated successfully")
     }
 
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
