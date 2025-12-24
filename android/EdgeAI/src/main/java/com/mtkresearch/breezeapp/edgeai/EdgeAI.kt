@@ -143,50 +143,107 @@ object EdgeAI {
     }
 
     /**
-     * Initialize the EdgeAI SDK with the provided context (simplified version)
+     * Initialize the EdgeAI SDK
+     *
+     * Must be called before using any other SDK functions.
+     * This method binds to the BreezeApp Engine Service.
+     *
+     * @param context Android application context
+     * @return Result indicating success or failure
      */
-    suspend fun initializeAndWait(context: Context, timeoutMs: Long = 10000) {
-        val appContext = context.applicationContext
-        Log.d(TAG, "initializeAndWait() called - isInitialized=$isInitialized, isBound=$isBound")
-        return suspendCancellableCoroutine { continuation ->
-            if (isInitialized && isBound) {
-                Log.d(TAG, "Already initialized and bound, skipping")
-                continuation.resume(Unit)
-                return@suspendCancellableCoroutine
-            }
+    suspend fun initialize(context: Context): Result<Unit> = suspendCancellableCoroutine { continuation ->
+        if (isInitialized) {
+            continuation.resume(Result.success(Unit))
+            return@suspendCancellableCoroutine
+        }
 
-            this.context = appContext
+        this.context = context.applicationContext
 
-            initializationCompletion = { result ->
-                result.fold(
-                    onSuccess = {
-                        isInitialized = true
-                        continuation.resume(Unit)
-                    },
-                    onFailure = { continuation.resumeWithException(it) }
-                )
-            }
+        // Set up completion callback
+        initializationCompletion = { result ->
+            isInitialized = result.isSuccess
+            continuation.resume(result)
+        }
 
-            val intent = Intent(AI_ROUTER_SERVICE_ACTION).apply {
-                setPackage(AI_ROUTER_SERVICE_PACKAGE)
-            }
+        // Bind to service
+        val intent = Intent(AI_ROUTER_SERVICE_ACTION).apply {
+            setPackage(AI_ROUTER_SERVICE_PACKAGE)
+        }
 
-            Log.d(TAG, "Attempting to bind to service: action=$AI_ROUTER_SERVICE_ACTION, package=$AI_ROUTER_SERVICE_PACKAGE")
-            val bindResult = appContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-            Log.d(TAG, "bindService() result: $bindResult")
-            if (!bindResult) {
-                initializationCompletion = null
-                continuation.resumeWithException(ServiceConnectionException("Failed to bind to BreezeApp Engine Service"))
-                return@suspendCancellableCoroutine
-            }
+        val bound = try {
+            context.applicationContext.bindService(
+                intent,
+                serviceConnection,
+                Context.BIND_AUTO_CREATE
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to bind to service", e)
+            false
+        }
 
-            // Set timeout
-            continuation.invokeOnCancellation {
-                if (initializationCompletion != null) {
-                    appContext.unbindService(serviceConnection)
-                    initializationCompletion = null
+        if (!bound) {
+            val error = ServiceConnectionException("Failed to bind to BreezeApp Engine Service")
+            initializationCompletion?.invoke(Result.failure(error))
+            initializationCompletion = null
+        }
+
+        // Handle cancellation
+        continuation.invokeOnCancellation {
+            initializationCompletion = null
+            if (isBound) {
+                try {
+                    context.applicationContext.unbindService(serviceConnection)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error unbinding service during cancellation: ${e.message}")
                 }
             }
+        }
+    }
+
+    /**
+     * Get information about the currently selected runner for a capability
+     * 
+     * This allows clients to query runner capabilities (e.g., streaming support)
+     * to adapt their behavior accordingly.
+     * 
+     * @param capability The capability type ("ASR", "TTS", "LLM", etc.)
+     * @return RunnerInfo containing runner details, or null if not available
+     * @throws ServiceConnectionException if service is not connected
+     */
+    suspend fun getSelectedRunnerInfo(capability: String): RunnerInfo? {
+        validateConnection()
+        
+        return try {
+            val runnerInfoParcel = service?.getSelectedRunnerInfo(capability)
+            runnerInfoParcel?.let {
+                RunnerInfo(
+                    name = it.name,
+                    supportsStreaming = it.supportsStreaming,
+                    capabilities = it.capabilities.toList(),
+                    vendor = it.vendor
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get runner info for capability: $capability", e)
+            null
+        }
+    }
+
+    /**
+     * Initialize the EdgeAI SDK and wait for connection (backward compatibility)
+     * 
+     * This is a convenience wrapper around the new suspend initialize() method.
+     * Throws exception on failure instead of returning Result.
+     * 
+     * @param context Android application context
+     * @param timeoutMs Timeout in milliseconds (currently unused, kept for API compatibility)
+     * @throws ServiceConnectionException if initialization fails
+     */
+    suspend fun initializeAndWait(context: Context, timeoutMs: Long = 10000) {
+        val result = initialize(context)
+        result.getOrElse { error ->
+            throw error as? ServiceConnectionException 
+                ?: ServiceConnectionException("Initialization failed: ${error.message}")
         }
     }
 
@@ -226,9 +283,10 @@ object EdgeAI {
                     else -> InternalErrorException("Chat completion failed: ${e.message}", e)
                 }
             } finally {
-                // Ensure cleanup even if the collecting coroutine is cancelled
+                // Clean up local state only - don't cancel the request on service side
                 pendingRequests.remove(requestId)
                 responseChannel.close()
+                // NOTE: Not calling service?.cancelRequest() - let service complete the request
             }
         }
     }
@@ -264,8 +322,10 @@ object EdgeAI {
                     else -> InternalErrorException("TTS request failed: ${e.message}", e)
                 }
             } finally {
+                // Clean up local state only - don't cancel the request on service side
                 pendingRequests.remove(requestId)
                 responseChannel.close()
+                // NOTE: Not calling service?.cancelRequest() - let service complete the request
             }
         }
     }
@@ -300,8 +360,15 @@ object EdgeAI {
                     else -> InternalErrorException("ASR request failed: ${e.message}", e)
                 }
             } finally {
+                // Clean up local state only - don't cancel the request on service side
+                // The service will complete the request and send results even if client stopped collecting
                 pendingRequests.remove(requestId)
                 responseChannel.close()
+                
+                // NOTE: We intentionally DO NOT call service?.cancelRequest() here
+                // Reason: If the client's collecting coroutine is cancelled (e.g., due to UI lifecycle),
+                // we still want the service to complete the request and deliver results.
+                // This allows late-arriving results to be logged/stored even if the UI is gone.
             }
         }
     }
@@ -336,8 +403,10 @@ object EdgeAI {
                     else -> InternalErrorException("Guardrail request failed: ${e.message}", e)
                 }
             } finally {
+                // Clean up local state only - don't cancel the request on service side
                 pendingRequests.remove(requestId)
                 responseChannel.close()
+                // NOTE: Not calling service?.cancelRequest() - let service complete the request
             }
         }
     }
@@ -433,9 +502,7 @@ object EdgeAI {
             created = System.currentTimeMillis() / 1000,
             model = modelName ?: "default-llm",
             choices = listOf(choice),
-            usage = if (!isStreaming && aiResponse.isComplete) {
-                Usage(promptTokens = 0, completionTokens = 0, totalTokens = 0)
-            } else null
+            metrics = aiResponse.metrics
         )
     }
 
@@ -446,7 +513,9 @@ object EdgeAI {
         aiResponse: AIResponse
     ): ASRResponse {
         return ASRResponse(
-            text = aiResponse.text
+            text = aiResponse.text,
+            isChunk = !aiResponse.isComplete,
+            metrics = aiResponse.metrics
         )
     }
 
@@ -465,7 +534,8 @@ object EdgeAI {
             bitDepth = aiResponse.bitDepth,
             chunkIndex = aiResponse.chunkIndex,
             isLastChunk = aiResponse.isLastChunk,
-            durationMs = aiResponse.durationMs.toLong()
+            durationMs = aiResponse.durationMs.toLong(),
+            metrics = aiResponse.metrics
         )
     }
 
@@ -527,20 +597,6 @@ object EdgeAI {
         val regex = Regex(pattern)
         val match = regex.find(content)
         return match?.groups?.get(1)?.value ?: match?.groups?.get(2)?.value?.trim()
-    }
-
-    /**
-     * Synchronous initialization for simple cases
-     */
-    fun initialize(context: Context) {
-        val appContext = context.applicationContext
-        this.context = appContext
-
-        val intent = Intent(AI_ROUTER_SERVICE_ACTION).apply {
-            setPackage(AI_ROUTER_SERVICE_PACKAGE)
-        }
-
-        appContext.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 
     /**
