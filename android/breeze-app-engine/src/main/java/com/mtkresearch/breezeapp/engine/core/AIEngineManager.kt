@@ -15,12 +15,20 @@ import com.mtkresearch.breezeapp.engine.service.ModelRegistryService
 import com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipeline
 import com.mtkresearch.breezeapp.engine.core.download.ModelDownloadService
 import com.mtkresearch.breezeapp.engine.core.download.DownloadEventManager
+import com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.joinAll
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -72,19 +80,46 @@ class AIEngineManager(
 
     companion object {
         private const val TAG = "AIEngineManager"
+
+        // Layer 1: Download deduplication - track models currently being downloaded
+        private val downloadingModels = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+        /**
+         * Check if a model is currently being downloaded
+         */
+        fun isModelDownloading(modelId: String): Boolean {
+            return downloadingModels.contains(modelId)
+        }
+
+        /**
+         * Mark model as downloading (returns false if already downloading)
+         */
+        fun startModelDownload(modelId: String): Boolean {
+            return downloadingModels.add(modelId)
+        }
+
+        /**
+         * Mark model download as complete
+         */
+        fun finishModelDownload(modelId: String) {
+            downloadingModels.remove(modelId)
+        }
     }
 
     private val systemResourceMonitor: SystemResourceMonitor = SystemResourceMonitorImpl(context)
 
+    // Dedicated scope for downloads to ensure they survive request cancellation
+    private val downloadScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
     // 執行緒安全的 Runner 儲存
     private val activeRunners = ConcurrentHashMap<String, BaseRunner>()
-    
+
     // 讀寫鎖保護配置變更
     private val configLock = ReentrantReadWriteLock()
 
     // 使用統一的取消管理器
     private val cancellationManager = CancellationManager.getInstance()
-    
+
     // Guardian 管道處理器
     private val guardianPipeline = GuardianPipeline(runnerManager, logger)
 
@@ -112,23 +147,23 @@ class AIEngineManager(
             // 1. Guardian Configuration Assessment
             val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
             var effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
-            
+
             logger.d(TAG, "Guardian mode for request $requestId: ${effectiveGuardianConfig.mode}")
 
             // FIX: Auto-disable Guardian for non-generative capabilities (TTS, ASR) unless explicitly enabled
             val isGenerative = capability == CapabilityType.LLM || capability == CapabilityType.VLM
             val explicitEnable = request.params[com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipeline.PARAM_GUARDIAN_ENABLED] as? Boolean
-            
+
             if (!isGenerative && explicitEnable != true) {
                 // If not LLM/VLM and not explicitly enabled (null or false), disable it
                 // We use reflection copy if needed, but GuardianPipelineConfig is a data class so copy() works
                 effectiveGuardianConfig = effectiveGuardianConfig.copy(
-                    enabled = false, 
+                    enabled = false,
                     mode = com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.DISABLED
                 )
                 logger.d(TAG, "Guardian disabled for non-generative capability: $capability")
             }
-            
+
             // 2. Input Guardian Check (if enabled)
             if (effectiveGuardianConfig.shouldCheckInput()) {
                 logger.d(TAG, "Performing guardian input validation for request $requestId")
@@ -139,7 +174,7 @@ class AIEngineManager(
                 }
                 logger.d(TAG, "Guardian input validation passed for request $requestId")
             }
-            
+
             // 3. AI Processing with Guardian Mode Awareness
             val aiResult = selectAndLoadRunner(request, capability, preferredRunner).fold(
                 onSuccess = { runner ->
@@ -152,7 +187,7 @@ class AIEngineManager(
                     InferenceResult.error(runnerError)
                 }
             )
-            
+
             // 4. Output Guardian Check (mode-dependent)
             when (effectiveGuardianConfig.mode) {
                 com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.INPUT_ONLY -> {
@@ -160,20 +195,20 @@ class AIEngineManager(
                     logger.d(TAG, "INPUT_ONLY Guardian mode - skipping output check for request $requestId")
                     aiResult
                 }
-                
+
                 com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.FULL -> {
                     // FULL mode deprecated - no output filtering
                     logger.w(TAG, "FULL Guardian mode deprecated, no output filtering for request $requestId")
                     aiResult
                 }
-                
+
                 com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.DISABLED -> {
                     // No Guardian processing
                     logger.d(TAG, "Guardian disabled - no output check for request $requestId")
                     aiResult
                 }
             }
-            
+
         } catch (e: Exception) {
             logger.e(TAG, "Error processing request", e)
             InferenceResult.error(RunnerError.processingError(e.message ?: "Unknown error", e))
@@ -206,17 +241,17 @@ class AIEngineManager(
             // 1. Guardian Configuration Assessment
             val baseGuardianConfig = runnerManager.getCurrentSettings().guardianConfig
             var effectiveGuardianConfig = guardianPipeline.createEffectiveConfig(baseGuardianConfig, request)
-            
+
             logger.d(TAG, "Guardian mode for stream request $requestId: ${effectiveGuardianConfig.mode}")
 
             // FIX: Auto-disable Guardian for non-generative capabilities (TTS, ASR) unless explicitly enabled
             val isGenerative = capability == CapabilityType.LLM || capability == CapabilityType.VLM
             val explicitEnable = request.params[com.mtkresearch.breezeapp.engine.runner.guardian.GuardianPipeline.PARAM_GUARDIAN_ENABLED] as? Boolean
-            
+
             if (!isGenerative && explicitEnable != true) {
                 // If not LLM/VLM and not explicitly enabled (null or false), disable it
                 effectiveGuardianConfig = effectiveGuardianConfig.copy(
-                    enabled = false, 
+                    enabled = false,
                     mode = com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.DISABLED
                 )
                 logger.d(TAG, "Guardian disabled for non-generative capability: $capability")
@@ -252,7 +287,7 @@ class AIEngineManager(
                             }
                             logger.d(TAG, "INPUT_ONLY Guardian streaming completed for request $requestId")
                         }
-                        
+
                         com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.FULL -> {
                             // FULL mode deprecated - use INPUT_ONLY for better performance
                             logger.w(TAG, "FULL Guardian mode deprecated, falling back to INPUT_ONLY behavior for request $requestId")
@@ -261,7 +296,7 @@ class AIEngineManager(
                             }
                             logger.d(TAG, "FULL Guardian (deprecated) streaming completed for request $requestId")
                         }
-                        
+
                         com.mtkresearch.breezeapp.engine.runner.guardian.GuardianMode.DISABLED -> {
                             // Direct streaming with no Guardian processing
                             logger.d(TAG, "Guardian disabled - direct LLM streaming for request $requestId")
@@ -366,12 +401,12 @@ class AIEngineManager(
         capability: CapabilityType,
         preferredRunner: String?
     ): Result<BaseRunner> {
-        // 1. Select runner using the new priority-based selection
+        // 1. Select runner using priority-based selection
         val runner = if (preferredRunner != null) {
             // Find specific runner by name
             runnerManager.getAllRunners().find { it.getRunnerInfo().name == preferredRunner }
         } else {
-            // Use priority-based selection
+            // Use priority-based selection (RunnerManager handles priority automatically)
             runnerManager.getRunner(capability)
         }
 
@@ -469,79 +504,155 @@ class AIEngineManager(
             if (targetModelId.isNotEmpty() && modelState != null && modelState.status !in listOf(ModelManager.ModelState.Status.DOWNLOADED, ModelManager.ModelState.Status.READY)) {
                 logger.d(TAG, "Model '$targetModelId' is not downloaded. Starting enhanced download with progress tracking...")
 
+                // CRITICAL FIX: Use independent scope to protect download from request cancellation
+                // This ensures downloads complete even if the parent inference request is cancelled
+
                 // Get all files to download
-                val filesToDownload = modelState.modelInfo.files
+                val filesToDownload = modelState!!.modelInfo.files
                 if (filesToDownload.isEmpty()) {
-                    return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "No files to download for model: $targetModelId")))
+                    throw RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "No files to download for model: $targetModelId"))
                 }
 
                 logger.d(TAG, "Model '$targetModelId' has ${filesToDownload.size} files to download")
 
-                // Create fresh model directory (delete any corrupted files from failed downloads)
-                val modelDir = java.io.File(context.filesDir, "models/$targetModelId")
-                if (modelDir.exists()) {
-                    modelDir.deleteRecursively()
-                    logger.d(TAG, "Deleted existing model directory for fresh download: $targetModelId")
-                }
-                modelDir.mkdirs()
-
-                // Notify download started for UI
-                val firstFileName = filesToDownload.firstOrNull()?.fileName ?: "$targetModelId.bin"
-                DownloadEventManager.notifyDownloadStarted(context, targetModelId, firstFileName)
-
-                // Download all files sequentially
-                for ((index, fileInfo) in filesToDownload.withIndex()) {
-                    val downloadUrl = fileInfo.urls.firstOrNull()
-                        ?: return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "No download URL available for file: ${fileInfo.fileName}")))
-                    val fileName = fileInfo.fileName
-
-                    logger.d(TAG, "Downloading file ${index + 1}/${filesToDownload.size}: $fileName")
-
-                    // Use unique download ID per file to avoid overwrites
-                    // ModelDownloadService extracts base modelId for consistent notifications
-                    val downloadId = "${targetModelId}_file_$index"
-                    ModelDownloadService.startDownload(context, downloadId, downloadUrl, fileName)
-
-                    // Wait for this file to complete before starting next
-                    // Check that file size stabilizes (stops growing) to ensure download is complete
-                    val targetFile = java.io.File(modelDir, fileName)
-
-                    var fileDownloaded = false
-                    var attempts = 0
-                    val maxAttempts = 1800 // 30 minutes
-                    var lastSize = 0L
-                    var stableCount = 0
-
-                    while (!fileDownloaded && attempts < maxAttempts) {
-                        delay(1000)
-                        if (targetFile.exists()) {
-                            val currentSize = targetFile.length()
-                            if (currentSize > 0 && currentSize == lastSize) {
-                                stableCount++
-                                // Consider complete if size stable for 2 seconds
-                                if (stableCount >= 2) {
-                                    fileDownloaded = true
-                                    logger.d(TAG, "File downloaded: $fileName (${currentSize} bytes)")
-                                }
-                            } else {
-                                stableCount = 0
-                                lastSize = currentSize
-                            }
+                // Launch download in independent scope so it survives request cancellation
+                val downloadJob = downloadScope.launch {
+                    try {
+                        // Create fresh model directory (delete any corrupted files from failed downloads)
+                        val modelDir = java.io.File(context.filesDir, "models/$targetModelId")
+                        if (modelDir.exists()) {
+                            modelDir.deleteRecursively()
+                            logger.d(TAG, "Deleted existing model directory for fresh download: $targetModelId")
                         }
-                        attempts++
-                    }
+                        modelDir.mkdirs()
 
-                    if (!fileDownloaded) {
-                        logger.e(TAG, "Failed to download file: $fileName")
-                        ModelDownloadService.cancelDownload(context, downloadId)
-                        return Result.failure(RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "Failed to download file: $fileName")))
+                        // Start batch tracking to prevent service from stopping between files
+                        val batchId = "${targetModelId}_batch"
+                        DownloadBatchTracker.startBatch(batchId, targetModelId, filesToDownload.size)
+
+                        // Notify app-wide that downloads are active
+                        DownloadEventManager.notifyGlobalDownloadState(context, isDownloading = true, modelId = targetModelId)
+
+                        // Show download UI once at batch start
+                        val showUIIntent = android.content.Intent(com.mtkresearch.breezeapp.edgeai.DownloadConstants.ACTION_SHOW_DOWNLOAD_UI).apply {
+                            putExtra(com.mtkresearch.breezeapp.edgeai.DownloadConstants.EXTRA_MODEL_ID, targetModelId)
+                        }
+                        context.sendBroadcast(showUIIntent)
+
+                        // Download all files sequentially
+                        for ((index, fileInfo) in filesToDownload.withIndex()) {
+                            val downloadUrl = fileInfo.urls.firstOrNull()
+                                ?: throw RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "No download URL available for file: ${fileInfo.fileName}"))
+                            val fileName = fileInfo.fileName
+
+                            logger.d(TAG, "Downloading file ${index + 1}/${filesToDownload.size}: $fileName")
+                            
+                            // Notify UI of specific file download with index/total
+                            DownloadEventManager.notifyDownloadStarted(
+                                context, 
+                                targetModelId, 
+                                fileName,
+                                currentFileIndex = index,
+                                totalFiles = filesToDownload.size
+                            )
+
+                            // Use unique download ID per file to avoid overwrites
+                            val downloadId = "${targetModelId}_file_$index"
+                            ModelDownloadService.startDownload(context, downloadId, downloadUrl, fileName)
+
+                            // Wait for this file to complete before starting next
+                            // Check that file size stabilizes (stops growing) to ensure download is complete
+                            val targetFile = java.io.File(modelDir, fileName)
+
+                            var fileDownloaded = false
+                            var attempts = 0
+                            val maxAttempts = 1800 // 30 minutes
+                            var lastSize = 0L
+                            var stableCount = 0
+
+                            logger.d(TAG, "Waiting for file to stabilize: $fileName")
+
+                            while (!fileDownloaded && attempts < maxAttempts) {
+                                delay(1000)
+                                if (targetFile.exists()) {
+                                    val currentSize = targetFile.length()
+                                    if (currentSize > 0 && currentSize == lastSize) {
+                                        stableCount++
+                                        if (stableCount % 5 == 0) logger.d(TAG, "File $fileName stable for ${stableCount}s (size: $currentSize)")
+
+                                        // Consider complete if size stable for 2 seconds
+                                        if (stableCount >= 2) {
+                                            fileDownloaded = true
+                                            logger.d(TAG, "File downloaded and stabilized: $fileName ($currentSize bytes)")
+                                        }
+                                    } else {
+                                        if (stableCount > 0) logger.d(TAG, "File $fileName size changed ($lastSize -> $currentSize), resetting stable count")
+                                        stableCount = 0
+                                        lastSize = currentSize
+                                    }
+                                } else {
+                                    if (attempts % 10 == 0) logger.d(TAG, "File $fileName does not exist yet (attempt $attempts)")
+                                }
+                                attempts++
+                            }
+
+                            if (!fileDownloaded) {
+                                logger.e(TAG, "Failed to download file: $fileName (Timeout or instability)")
+                                ModelDownloadService.cancelDownload(context, downloadId)
+                                DownloadBatchTracker.cancelBatch(batchId)
+                                throw RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "Failed to download file: $fileName"))
+                            }
+
+                            // Mark file complete in batch
+                            logger.d(TAG, "Marking file complete in batch: $fileName")
+                            DownloadBatchTracker.markFileComplete(batchId, index)
+                        }
+
+                        // All files downloaded - validate before marking as complete
+                        logger.d(TAG, "All ${filesToDownload.size} files downloaded for model: $targetModelId, validating...")
+
+                        for (fileInfo in filesToDownload) {
+                            val file = java.io.File(modelDir, fileInfo.fileName)
+
+                            // Validate file exists
+                            if (!file.exists()) {
+                                DownloadBatchTracker.cancelBatch(batchId)
+                                throw RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "Downloaded file missing: ${fileInfo.fileName}"))
+                            }
+
+                            // Validate file size (should be > 1KB for model files)
+                            if (file.length() < 1024) {
+                                DownloadBatchTracker.cancelBatch(batchId)
+                                throw RunnerSelectionException(RunnerError(RunnerError.Code.MODEL_DOWNLOAD_FAILED, "Downloaded file too small: ${fileInfo.fileName} (${file.length()} bytes)"))
+                            }
+
+                            logger.d(TAG, "✓ Validated: ${fileInfo.fileName} (${file.length()} bytes)")
+                        }
+
+                        logger.d(TAG, "All files validated successfully for model: $targetModelId")
+
+                        // Complete batch and update ModelManager state
+                        DownloadBatchTracker.completeBatch(batchId)
+                        modelManager.markModelAsDownloaded(targetModelId)
+                        DownloadEventManager.notifyDownloadCompleted(context, targetModelId)
+
+                        // Notify app-wide that downloads are complete
+                        DownloadEventManager.notifyGlobalDownloadState(context, isDownloading = false, modelId = targetModelId)
+
+                    } catch (e: Exception) {
+                        logger.e(TAG, "Download job failed", e)
+                        if (e is CancellationException) throw e
                     }
                 }
 
-                // All files downloaded - update ModelManager state
-                logger.d(TAG, "All ${filesToDownload.size} files downloaded for model: $targetModelId")
-                modelManager.markModelAsDownloaded(targetModelId)
-                DownloadEventManager.notifyDownloadCompleted(context, targetModelId)
+                // Wait for download to complete
+                // If this waiting is cancelled (e.g. user cancels request), the downloadJob continues!
+                try {
+                    downloadJob.join()
+                } catch (e: CancellationException) {
+                    logger.w(TAG, "Request cancelled during download wait, but download job will continue in background")
+                    throw e // Re-throw to cancel the request handling
+                }
             }
             // --- End Enhanced Model Download Logic ---
 
@@ -606,17 +717,17 @@ class AIEngineManager(
         configLock.write {
             activeRunners[runner.getRunnerInfo().name] = runner
         }
-        
+
         return Result.success(runner)
     }
 
     /**
      * Runtime hardware validation for runners.
-     * 
+     *
      * Validates that a runner's hardware requirements are met on the current device.
      * This provides an additional safety check beyond discovery-time validation.
      * Uses clean architecture approach with direct method calls instead of reflection.
-     * 
+     *
      * @param runner The runner to validate
      * @return true if the runner is supported on current hardware, false otherwise
      */
@@ -626,7 +737,7 @@ class AIEngineManager(
             val isSupported = runner.isSupported()
             logger.d(TAG, "Runtime hardware support check for ${runner.javaClass.simpleName}: $isSupported")
             isSupported
-            
+
         } catch (e: Exception) {
             logger.d(TAG, "Runtime hardware support check failed for ${runner.javaClass.simpleName}, assuming supported")
             true  // Fail safe - if we can't verify support, assume supported for compatibility
@@ -669,11 +780,11 @@ class AIEngineManager(
             // 3. Select the most appropriate model based on criteria:
             // - First, look for models with "default" or "base" in their name
             val defaultModel = compatibleModels.find { model ->
-                model.id.contains("default", ignoreCase = true) || 
+                model.id.contains("default", ignoreCase = true) ||
                 model.id.contains("base", ignoreCase = true) ||
                 model.id.contains("spin", ignoreCase = true) // Prefer spin quantized models for lower RAM
             }
-            
+
             if (defaultModel != null) {
                 logger.d(TAG, "Using named default model ${defaultModel.id} for runner $runnerName")
                 return defaultModel.id
@@ -684,7 +795,7 @@ class AIEngineManager(
             // For cloud runners, any model is fine
             val isCloudRunner = runnerName.contains("openrouter", ignoreCase = true) ||
                                runnerName.contains("cloud", ignoreCase = true)
-            
+
             val selectedModel = if (isCloudRunner) {
                 // For cloud runners, use the first available model
                 compatibleModels.firstOrNull()
@@ -692,7 +803,7 @@ class AIEngineManager(
                 // For local runners, prefer models with lower RAM requirements
                 compatibleModels.minByOrNull { it.ramGB }
             }
-            
+
             if (selectedModel != null) {
                 logger.d(TAG, "Using ${if (isCloudRunner) "first" else "lightest"} model ${selectedModel.id} (${selectedModel.ramGB}GB) as default for runner $runnerName")
                 return selectedModel.id
@@ -720,7 +831,7 @@ class AIEngineManager(
     suspend fun updateSettings(settings: EngineSettings) {
         runnerManager.saveSettings(settings)
     }
-    
+
     /**
      * Get parameter schema defaults for a specific runner.
      * Used to ensure all runner parameters have proper default values.
@@ -747,6 +858,7 @@ class AIEngineManager(
         }
     }
 }
+
 
 // Note: StreamingCompletionOrchestrator removed - Guardian now only validates input
 // Output filtering and progressive analysis removed for simplified architecture
