@@ -17,9 +17,9 @@
 v1.2.3
 
 # 範例
-EdgeAI-v0.1.8  # 當前版本
-EdgeAI-v0.1.8  # 下一個修訂版本
-EdgeAI-v0.1.8  # 功能版本
+EdgeAI-v0.2.0  # 當前版本
+EdgeAI-v0.2.0  # 下一個修訂版本
+EdgeAI-v0.2.0  # 功能版本
 ```
 
 ### 2. 程式碼檢查
@@ -53,10 +53,10 @@ EdgeAI-v0.1.8  # 功能版本
 git checkout main
 
 # 建立標籤
-git tag -a EdgeAI-v0.1.8 -m "Release EdgeAI SDK v0.1.8"
+git tag -a EdgeAI-v0.2.0 -m "Release EdgeAI SDK v0.1.8"
 
 # 推送標籤
-git push origin EdgeAI-v0.1.8
+git push origin EdgeAI-v0.2.0
 ```
 
 ### 2. JitPack 自動建置
@@ -73,7 +73,7 @@ JitPack 會自動檢測新的標籤並開始建置：
 ```kotlin
 // 測試新版本
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.8")
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.2.0")
 }
 ```
 
@@ -112,7 +112,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = "com.github.mtkresearch"
             artifactId = "BreezeApp-engine"
-            version = "EdgeAI-v0.1.8"
+            version = "EdgeAI-v0.2.0"
             
             afterEvaluate {
                 from(components["release"])
@@ -180,7 +180,7 @@ fun testChatAPI() {
 2. **依賴衝突**
    ```kotlin
    // 排除衝突的依賴
-   implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.8") {
+   implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.2.0") {
        exclude group: "conflicting.group"
    }
    ```
@@ -194,12 +194,12 @@ fun testChatAPI() {
 
 ```bash
 # 如果需要回滾版本
-git tag -d EdgeAI-v0.1.8
-git push origin :refs/tags/EdgeAI-v0.1.8
+git tag -d EdgeAI-v0.2.0
+git push origin :refs/tags/EdgeAI-v0.2.0
 
 # 建立新的修正版本
-git tag -a EdgeAI-v0.1.8 -m "Fix critical issue"
-git push origin EdgeAI-v0.1.8
+git tag -a EdgeAI-v0.2.0 -m "Fix critical issue"
+git push origin EdgeAI-v0.2.0
 ```
 
 ---
