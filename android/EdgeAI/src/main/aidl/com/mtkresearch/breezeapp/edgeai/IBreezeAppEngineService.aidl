@@ -7,6 +7,8 @@ import com.mtkresearch.breezeapp.edgeai.TTSRequest;
 import com.mtkresearch.breezeapp.edgeai.ASRRequest;
 import com.mtkresearch.breezeapp.edgeai.GuardrailRequest;
 
+import com.mtkresearch.breezeapp.edgeai.RunnerInfoParcel;
+
 /**
  * AIDL interface for the BreezeApp Engine Service.
  * This interface defines the contract for communication between client applications
@@ -72,6 +74,15 @@ interface IBreezeAppEngineService {
      * Unregisters a previously registered listener.
      */
     void unregisterListener(IBreezeAppEngineListener listener);
+    
+    /**
+     * Get information about the currently selected runner for a capability.
+     * This allows clients to query runner capabilities (e.g., streaming support).
+     * 
+     * @param capability The capability type ("ASR", "TTS", "LLM", etc.)
+     * @return RunnerInfoParcel containing runner details, or null if not available
+     */
+    RunnerInfoParcel getSelectedRunnerInfo(String capability);
     
     /**
      * Checks if the service supports a specific capability.
