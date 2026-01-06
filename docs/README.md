@@ -10,32 +10,19 @@ BreezeApp-engine serves as the core AI inference engine for the Breeze ecosystem
 
 ## 📖 Documentation by Role
 
-### 👩‍💻 For Developers
+### 🧠 For Engine Developers
 
-Building apps that integrate with BreezeApp-engine:
+Extending the AI engine with new capabilities:
 
-- **[Developer Integration Guide](./guides/developer-integration.md)** - Start here! Complete integration walkthrough
 - **[Runner Development](./guides/runner-development.md)** - Create custom AI runners
-- **[Model Download UI](./guides/model-download-ui.md)** - Implement model management UI
-- **[Contributing Guide](./guides/contributing.md)** - Contribute to the project
+- **[Architecture Overview](./architecture/README.md)** - High-level patterns and principles
+- **[System Design](./architecture/system-design.md)** - Detailed component architecture
 
-**Quick Start**: [`guides/developer-integration.md`](./guides/developer-integration.md)
-
----
-
-### 🚀 For Operators & Release Managers
-
-Deploying and managing BreezeApp-engine:
-
-- **[Play Store Deployment](./guides/play-store-deployment.md)** - Deploy to Google Play Store
-- **[Building Releases](./guides/building-releases.md)** - Build and sign releases
-- **[Security Practices](./guides/security-practices.md)** - Security best practices
-
-**Quick Start**: [`guides/play-store-deployment.md`](./guides/play-store-deployment.md)
+**Quick Start**: [`guides/runner-development.md`](./guides/runner-development.md)
 
 ---
 
-### 🏗️ For Architects & Technical Leads
+### 🏗️ For Architects \u0026 Technical Leads
 
 Understanding system architecture and design:
 
@@ -49,25 +36,32 @@ Understanding system architecture and design:
 
 ---
 
+### 🚀 For Release Managers
+
+Building and deploying releases:
+
+- **[Play Store Deployment](./play-store/play-store-deployment.md)** - Deploy to Google Play Store
+- **[Release Notes Template](./play-store/release-notes-template-en.md)** - Template for release notes
+
+**Quick Start**: [`play-store/play-store-deployment.md`](./play-store/play-store-deployment.md)
+
+---
+
 ## 📚 Reference Documentation
 
-### API Reference
-- **[Versioning Strategy](./api/versioning.md)** - AIDL API versioning
-- **[Evolution Strategy](./api/evolution.md)** - Long-term API evolution
-- **[Deprecation Policy](./api/deprecation.md)** - How we deprecate APIs
-- **[Version Checker Example](./api/version-checker.kt)** - Client-side compatibility checking
+### Architecture
+- **[Architecture Overview](./architecture/README.md)** - High-level patterns
+- **[System Design](./architecture/system-design.md)** - Component architecture
+- **[Data Flow](./architecture/data-flow.md)** - Request processing
+- **[Deployment Model](./architecture/deployment-model.md)** - Physical deployment
+- **[Integration Patterns](./architecture/integration-patterns.md)** - Integration patterns
 
 ### Security
 - **[Security Model](./security/security-model.md)** - Comprehensive security architecture
 
-### Play Store Assets
-- **[Descriptions](./play-store/)** - English & Chinese app descriptions
-- **[Graphics Requirements](./play-store/graphics-requirements.md)** - Screenshot specifications
-- **[Release Notes](./play-store/)** - Release note templates
-- **[Reviewer Notes](./play-store/reviewer-notes.md)** - Testing instructions
-
-### Translations
-- **[中文文档](./i18n/)** - Traditional Chinese translations
+### Development
+- **[Runner Development](./guides/runner-development.md)** - AI runner development guide
+- **[Technical Backlog](./BACKLOG.md)** - Future refactoring plans
 
 ---
 
@@ -75,14 +69,10 @@ Understanding system architecture and design:
 
 ### I want to...
 
-- **Integrate BreezeApp-engine into my app** → [`guides/developer-integration.md`](./guides/developer-integration.md)
-- **Deploy to Play Store** → [`guides/play-store-deployment.md`](./guides/play-store-deployment.md)
-- **Build a release** → [`guides/building-releases.md`](./guides/building-releases.md)
 - **Add a new AI runner** → [`guides/runner-development.md`](./guides/runner-development.md)
 - **Understand the architecture** → [`architecture/README.md`](./architecture/README.md)
-- **Implement model downloads** → [`guides/model-download-ui.md`](./guides/model-download-ui.md)
-- **Contribute to the project** → [`guides/contributing.md`](./guides/contributing.md)
-- **Review security practices** → [`guides/security-practices.md`](./guides/security-practices.md)
+- **Deploy to Play Store** → [`play-store/play-store-deployment.md`](./play-store/play-store-deployment.md)
+- **Review security architecture** → [`security/security-model.md`](./security/security-model.md)
 
 ---
 
@@ -90,42 +80,25 @@ Understanding system architecture and design:
 
 ```
 docs/
-├── README.md                      # This file - documentation hub
+├── README.md                          # This file - documentation hub
+├── BACKLOG.md                         # Technical debt and future plans
 │
-├── guides/                        # How-to guides for all users
-│   ├── developer-integration.md   # Client app integration
-│   ├── play-store-deployment.md   # Play Store deployment
-│   ├── building-releases.md       # Build and release process
-│   ├── security-practices.md      # Security best practices
-│   ├── runner-development.md      # AI runner development
-│   ├── model-download-ui.md       # Model management UI
-│   └── contributing.md            # Contribution guidelines
+├── architecture/                      # System design (5 files)
+│   ├── README.md                      # Architecture overview
+│   ├── system-design.md               # Component architecture
+│   ├── deployment-model.md            # Deployment topology
+│   ├── data-flow.md                   # Request processing
+│   └── integration-patterns.md        # Integration patterns
 │
-├── architecture/                  # System design documentation
-│   ├── README.md                  # Architecture overview
-│   ├── system-design.md           # Component architecture
-│   ├── deployment-model.md        # Deployment topology
-│   ├── data-flow.md               # Request processing
-│   └── integration-patterns.md    # Integration patterns
+├── guides/                            # Essential guides (1 file)
+│   └── runner-development.md          # AI runner development
 │
-├── api/                           # API reference
-│   ├── versioning.md              # AIDL versioning
-│   ├── evolution.md               # API evolution strategy
-│   ├── deprecation.md             # Deprecation policy
-│   └── version-checker.kt         # Example code
+├── security/                          # Security (1 file)
+│   └── security-model.md              # Security architecture
 │
-├── security/                      # Security reference
-│   └── security-model.md          # Security architecture
-│
-├── play-store/                    # Play Store assets
-│   ├── description-en.md          # English description
-│   ├── description-zh-TW.md       # Chinese description
-│   ├── graphics-requirements.md   # Asset specs
-│   ├── release-notes-template-*.md
-│   └── reviewer-notes.md
-│
-└── i18n/                          # Translations
-    └── (Chinese translations)
+└── play-store/                        # Release documentation (2 files)
+    ├── play-store-deployment.md       # Build and deployment guide
+    └── release-notes-template-en.md   # Release notes template
 ```
 
 ---
@@ -134,12 +107,12 @@ docs/
 
 - **GitHub Repository**: https://github.com/mtkresearch/BreezeApp-engine
 - **Issue Tracker**: https://github.com/mtkresearch/BreezeApp-engine/issues
-- **Discussions**: https://github.com/mtkresearch/BreezeApp-engine/discussions
+- **Client Integration**: See [BreezeApp-client](https://github.com/mtkresearch/BreezeApp-client) repository
 
 ---
 
 ## 📝 Version
 
-This documentation corresponds to **BreezeApp-engine v1.0.0+**
+This documentation corresponds to **BreezeApp-engine v0.1.1+**
 
-**Last Updated**: 2025-11-10
+**Last Updated**: 2026-01-06
