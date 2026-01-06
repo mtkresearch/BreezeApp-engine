@@ -1,4 +1,4 @@
-English | [繁體中文](./docs/i18n/README_zh.md)
+English
 
 # 🤖 Welcome to BreezeApp Engine!
 
@@ -70,12 +70,12 @@ If you want to add AI features to your Android app, this is your path.
 
 If you want to add a new model or AI capability to the engine itself.
 
-1.  **Understand the Design:** The **[Architecture Guide](./docs/ARCHITECTURE.md)** explains the internal design of the engine and how all the pieces fit together.
-2.  **Build a Runner:** Follow the **[Runner Development Guide](./docs/RUNNER_DEVELOPMENT.md)** to learn how to implement a new `Runner` that can be discovered by the engine.
+1.  **Understand the Design:** The **[Architecture Guide](./docs/architecture/README.md)** explains the internal design of the engine and how all the pieces fit together.
+2.  **Build a Runner:** Follow the **[Runner Development Guide](./docs/guides/runner-development.md)** to learn how to implement a new `Runner` that can be discovered by the engine.
 
 ## 🤝 Join Our Community & Contribute
 
 Whether you're fixing a bug, improving the docs, or adding a revolutionary new runner, we welcome your contributions!
 
-* **Contribution Guidelines:** Please read our **[Contributing Guide](./docs/CONTRIBUTING.md)**.
+* **Contribution Guidelines:** Please read our **[Contributing Guide](./docs/guides/contributing.md)**.
 * **Have Questions?** Don't hesitate to open an issue! We're happy to help.
