@@ -6,6 +6,23 @@
 
 ---
 
+## Task 0: AIDL Connection Mechanism Improvement
+
+**Priority**: P1 (High)  
+**Status**: 🔴 Not Started  
+**Estimated Effort**: 1-2 weeks
+
+**Problem**: After rebuilding engine, client apps fail to connect (AIDL stub mismatch, signature issues).
+
+**Workaround**: Rebuild both engine and client: `./gradlew :breeze-app-engine:installDebug && adb shell am force-stop com.mtkresearch.breezeapp.engine` then rebuild client.
+
+**Future Solutions**:
+- Add AIDL versioning with `getVersion()` method
+- Implement hot-reload for debug builds
+- Better error messages for version mismatches
+
+---
+
 ## Priority 1: Single Interface Refactor
 
 **Goal**: Make `EdgeAI` the sole interface for all engine interactions, including configuration.
