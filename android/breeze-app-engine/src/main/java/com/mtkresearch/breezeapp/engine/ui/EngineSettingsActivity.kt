@@ -199,6 +199,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
         loadSettings()
         setupEventListeners()
         setupObservers()
+        updateQuickTestSection()  // Initialize Quick Test status
 
         // Setup unsaved changes detection
         onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
@@ -311,6 +312,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                         updateCapabilityUI()
                         loadRunnersForCapability()
                         setupObservers()
+                        updateQuickTestSection()
                     }
                 }, 2000)
 
@@ -1847,9 +1849,11 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                     else -> "Test not implemented for ${currentCapability.name}"
                 }
                 
-                // Show result
-                tvTestResult.text = result
-                layoutTestResult.visibility = View.VISIBLE
+                // Show result (LLM test handles its own UI updates, so skip for LLM)
+                if (currentCapability != CapabilityType.LLM) {
+                    tvTestResult.text = result
+                    layoutTestResult.visibility = View.VISIBLE
+                }
                 updateTestStatus(TestStatus.SUCCESS)
                 
             } catch (e: Exception) {
@@ -1869,11 +1873,18 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                 val runner = runnerManager?.getRunner(CapabilityType.LLM)
                     ?: return@withContext "Error: LLM runner not loaded"
                 
-                // Robust loading for LLM
-                if (!runner.isLoaded()) {
-                    Log.d(TAG, "testLLM: Model not loaded, attempting to load...")
-                    val modelId = currentSettings.getSelectedModel(runner.getRunnerInfo().name) 
-                        ?: "default"
+                // Get model_id from UI parameters (not from saved settings)
+                val modelId = getCurrentRunnerParams()["model_id"]?.toString()
+                    ?: currentSettings.getSelectedModel(runner.getRunnerInfo().name)
+                    ?: runner.getRunnerInfo().capabilities.firstOrNull()?.name
+                    ?: return@withContext "⚠️ No model selected"
+                
+                // Check if we need to (re)load the model
+                // Reload if: not loaded, or model_id has changed
+                val needsReload = !runner.isLoaded() || runner.getLoadedModelId() != modelId
+                
+                if (needsReload) {
+                    Log.d(TAG, "testLLM: Loading model: $modelId (current: ${runner.getLoadedModelId()})")
                     
                     val success = runner.load(
                         modelId = modelId,
@@ -1882,8 +1893,10 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                     )
                     
                     if (!success) {
-                        return@withContext "⚠️ Model failed to load"
+                        return@withContext "⚠️ Model failed to load. Please check if the model files exist."
                     }
+                } else {
+                    Log.d(TAG, "testLLM: Model already loaded: $modelId")
                 }
                 
                 val request = InferenceRequest(
@@ -1893,22 +1906,93 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                 )
                 
                 collector.mark("start")
-                val result = runner.run(request, stream = false)
-                collector.mark("end")
                 
-                // Inspect what runner provides
-                Log.d(TAG, "LLM outputs: ${result.outputs.keys}")
-                Log.d(TAG, "LLM metadata: ${result.metadata.keys}")
-                
-                val metrics = TestMetrics.LLM(
-                    totalLatency = collector.duration("start", "end") ?: 0,
-                    success = result.error == null,
-                    errorMessage = result.error?.message,
-                    responseLength = (result.outputs["text"] ?: result.outputs["response"])?.toString()?.length,
-                    tokenCount = result.getIntOrNull("token_count")
-                )
-                
-                formatLLMMetrics(metrics, result)
+                // Check if runner supports streaming (like ExecutorchLLMRunner)
+                if (runner is com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner) {
+                    Log.d(TAG, "testLLM: Using streaming runner")
+                    var response = ""
+                    var firstTokenTime: Long? = null
+                    
+                    // Show initial state
+                    runOnUiThread {
+                        tvTestResult.text = ""
+                        layoutTestResult.visibility = View.VISIBLE
+                    }
+                    
+                    runner.runAsFlow(request).collect { result ->
+                        if (firstTokenTime == null) {
+                            firstTokenTime = System.currentTimeMillis()
+                            collector.mark("first_token")
+                        }
+                        
+                        result.outputs["text"]?.let { text ->
+                            response += text.toString()
+                            Log.d(TAG, "testLLM: Received text chunk")
+                            
+                            // Update UI in real-time
+                            runOnUiThread {
+                                tvTestResult.text = response
+                            }
+                        }
+                    }
+                    
+                    collector.mark("end")
+                    
+                    val metrics = TestMetrics.LLM(
+                        totalLatency = collector.duration("start", "end") ?: 0,
+                        success = response.isNotEmpty(),
+                        errorMessage = if (response.isEmpty()) "No response received" else null,
+                        responseLength = response.length,
+                        tokenCount = null
+                    )
+                    
+                    // Build statistics string
+                    val statistics = buildString {
+                        append("\n\n")
+                        append("━".repeat(10))
+                        append("\n📊 Test Statistics\n")
+                        append("━".repeat(10))
+                        
+                        // Convert milliseconds to seconds with 2 decimal places
+                        val totalSeconds = metrics.totalLatency / 1000.0
+                        append("\n⏱️  Total Time: %.2f s".format(totalSeconds))
+                        
+                        collector.duration("start", "first_token")?.let { ttft ->
+                            val ttftSeconds = ttft / 1000.0
+                            append("\n⚡ TTFT: %.2f s".format(ttftSeconds))
+                        }
+                        
+                        metrics.responseLength?.let { 
+                            append("\n📝 Response Length: $it characters")
+                        }
+                    }
+                    
+                    // Update UI with final response + statistics in one call
+                    runOnUiThread {
+                        tvTestResult.text = response + statistics
+                    }
+                    
+                    // Return success message for logging
+                    "✓ Test completed successfully"
+                } else {
+                    // Non-streaming LLM
+                    val result = runner.run(request, stream = false)
+                    collector.mark("end")
+                    
+                    // Inspect what runner provides
+                    Log.d(TAG, "LLM outputs: ${result.outputs.keys}")
+                    Log.d(TAG, "LLM metadata: ${result.metadata.keys}")
+                    
+                    val metrics = TestMetrics.LLM(
+                        totalLatency = collector.duration("start", "end") ?: 0,
+                        success = result.error == null,
+                        errorMessage = result.error?.message,
+                        responseLength = (result.outputs["text"] ?: result.outputs["response"])?.toString()?.length,
+                        tokenCount = result.getIntOrNull("token_count")
+                    )
+                    
+                    formatLLMMetrics(metrics, result)
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "LLM test exception", e)
@@ -2199,7 +2283,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
             layoutTestInput.visibility = View.VISIBLE
         }
         
-        // Check if runner is loaded
+        // Check if runner exists (not if model is loaded - let the test handle that)
         val runner = runnerManager?.getRunner(currentCapability)
         if (runner != null) {
             updateTestStatus(TestStatus.READY)

@@ -114,14 +114,22 @@
                 android:textColor="@color/primary_light"
                 android:layout_marginBottom="4dp" />
 
-            <TextView
-                android:id="@+id/tvTestResult"
+            <!-- Scrollable result container -->
+            <ScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="@color/primary_light"
-                android:maxLines="5"
-                android:ellipsize="end" />
+                android:maxHeight="300dp"
+                android:scrollbars="vertical">
+
+                <TextView
+                    android:id="@+id/tvTestResult"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="@color/primary_light"
+                    android:scrollbars="vertical" />
+
+            </ScrollView>
 
         </LinearLayout>
 
