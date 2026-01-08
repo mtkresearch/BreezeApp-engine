@@ -28,7 +28,7 @@ BreezeApp-engine uses Android's signature-level protection mechanism to restrict
 ┌─────────────────────────────────────────────────────────────┐
 │ Client App (companion-app)                                  │
 │ - Signed with Certificate A                                 │
-│ - Declares: <uses-permission BIND_AI_SERVICE />            │
+│ - Declares: <uses-permission BIND_ENGINE_SERVICE />            │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      │ 1. bindService()
@@ -52,7 +52,7 @@ BreezeApp-engine uses Android's signature-level protection mechanism to restrict
 
 ### Permission Definition
 
-**Permission Name**: `com.mtkresearch.breezeapp.engine.permission.BIND_AI_SERVICE`
+**Permission Name**: `com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE`
 
 **Protection Level**: `signature`
 
@@ -191,7 +191,7 @@ Client App                    Android System               BreezeApp-engine
 
     <!-- Define custom permission with signature protection -->
     <permission
-        android:name="com.mtkresearch.breezeapp.engine.permission.BIND_AI_SERVICE"
+        android:name="com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE"
         android:protectionLevel="signature"
         android:label="@string/permission_bind_engine_label"
         android:description="@string/permission_bind_engine_desc" />
@@ -201,7 +201,7 @@ Client App                    Android System               BreezeApp-engine
         <service
             android:name=".service.AIEngineService"
             android:exported="true"
-            android:permission="com.mtkresearch.breezeapp.engine.permission.BIND_AI_SERVICE"
+            android:permission="com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE"
             android:process=":ai_engine">
             <intent-filter>
                 <action android:name="com.mtkresearch.breezeapp.engine.AI_SERVICE" />
@@ -262,7 +262,7 @@ class AIEngineService : Service() {
 
     <!-- Request permission to bind engine -->
     <uses-permission
-        android:name="com.mtkresearch.breezeapp.engine.permission.BIND_AI_SERVICE" />
+        android:name="com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE" />
 
     <application>
         <!-- Your app components -->

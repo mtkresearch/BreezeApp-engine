@@ -269,7 +269,7 @@ echo "✅ All signatures match!"
 │ T0: Client calls bindService()                             │
 │  ↓                                                          │
 │ T1: Android System checks permission                       │
-│     - Is BIND_AI_SERVICE declared in client manifest?      │
+│     - Is BIND_ENGINE_SERVICE declared in client manifest?      │
 │     - Does client certificate match engine certificate?    │
 │     - If NO → SecurityException, binding fails             │
 │  ↓                                                          │
@@ -299,7 +299,7 @@ echo "✅ All signatures match!"
 **Automatic behavior** - no code needed, enforced by:
 ```xml
 <service
-    android:permission="com.mtkresearch.breezeapp.engine.permission.BIND_AI_SERVICE" />
+    android:permission="com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE" />
 ```
 
 #### Secondary Verification: Service Code (Optional)
@@ -618,10 +618,10 @@ apksigner verify --print-certs engine.apk | grep SHA-256
 apksigner verify --print-certs client.apk | grep SHA-256
 
 # Verify permission in client manifest
-adb shell dumpsys package com.yourapp.client | grep BIND_AI_SERVICE
+adb shell dumpsys package com.yourapp.client | grep BIND_ENGINE_SERVICE
 
 # Check engine permission definition
-adb shell dumpsys package com.mtkresearch.breezeapp.engine | grep BIND_AI_SERVICE
+adb shell dumpsys package com.mtkresearch.breezeapp.engine | grep BIND_ENGINE_SERVICE
 ```
 
 #### Issue 2: Binding works on debug but fails on release

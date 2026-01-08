@@ -406,7 +406,7 @@ Separate AIDL interfaces for different concerns:
 ```
 ┌──────────────────────────────────────────────────────┐
 │  Layer 1: Android Permission System                 │
-│  • Custom permission: BIND_AI_SERVICE               │
+│  • Custom permission: BIND_ENGINE_SERVICE               │
 │  • Protection level: signature                      │
 │  • Enforced by Android OS before binding            │
 └──────────────────┬───────────────────────────────────┘

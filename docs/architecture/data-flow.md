@@ -33,7 +33,7 @@
      ├──────────────────>│                     │                      │
      │                   │                     │                      │
      │                   │ 2. Check permission │                      │
-     │                   │    BIND_AI_SERVICE  │                      │
+     │                   │    BIND_ENGINE_SERVICE  │                      │
      │                   │    (signature level)│                      │
      │                   │                     │                      │
      │                   │ 3. onBind(intent)   │                      │
@@ -91,7 +91,7 @@
    ```
 
 2. **Android system checks permission**:
-   - Verifies client app declared `BIND_AI_SERVICE` in manifest
+   - Verifies client app declared `BIND_ENGINE_SERVICE` in manifest
    - Checks if client signature matches service signature (signature-level)
    - If permission denied → binding fails immediately
 
