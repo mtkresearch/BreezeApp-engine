@@ -20,35 +20,32 @@ The AI inference service that runs as a background Android service. It manages A
 - Configuration UI for settings
 
 ### 2. **EdgeAI SDK** (`android/EdgeAI`)
-The client-side SDK that apps use to communicate with the engine. It provides a clean, type-safe API for AI operations.
+The client-side SDK that provides an effortless, lightweight approach for apps to leverage AI features without embedding the entire engine. Apps simply bind to the engine service via AIDL and get a clean, type-safe API.
 
 **Key Features**:
 - Simple API: `EdgeAI.chat()`, `EdgeAI.asr()`, `EdgeAI.tts()`
 - AIDL-based IPC for cross-process communication
 - Streaming support for real-time responses
 
---- 
+---
 
-## ✨ The Heart of the Project: The AI Engine
-
-The most important part of this project is the **`android/breeze-app-engine`**.
-
-Think of it as a powerful **AI Service** for Android. It runs as a background service that manages, executes, and serves AI capabilities (like text generation, speech recognition, etc.) to any application that needs them. While primarily service-oriented, it includes a minimal configuration UI for settings and model management.
-
-By decoupling the complex AI logic from client apps, we empower app developers to add sophisticated AI features with minimal effort.
-
-## 🔎 The Runtime View: How the Engine Serves Requests
+## 🔎 How the Engine Serves Requests
 
 The engine accepts AIDL connections from client apps and routes requests to appropriate AI runners. Here's how the engine processes incoming requests:
 
 ```mermaid
 %%{init: {'flowchart': {'useMaxWidth': false, 'width': 800}}}%%
 graph TD
-    A["📱 Client App<br/>(via EdgeAI SDK)"]
-    B["🔌 AIDL Service Binder<br/>(EngineServiceBinder)"]
-    C["🎯 Request Router<br/>(AIEngineManager)"]
-    D["🤖 AI Runners<br/>(ExecutorchLLMRunner, SherpaASRRunner, etc.)"]
-    E["📊 Model Manager<br/>(ModelManager)"]
+    subgraph Client["Client App Process"]
+        A["📱 Client App<br/>(via EdgeAI SDK)"]
+    end
+    
+    subgraph Engine["BreezeApp-engine Process"]
+        B["🔌 AIDL Service Binder"]
+        C["🎯 Request Router<br/>(AIEngineManager)"]
+        D["🤖 AI Runners"]
+        E["📊 Model Manager"]
+    end
 
     A -- "1. bindService()" --> B
     B -- "2. Route request" --> C
@@ -61,6 +58,8 @@ graph TD
     style B fill:#FFE0B2,stroke:#FF6F00
     style C fill:#E1BEE7,stroke:#7B1FA2
     style D fill:#B2DFDB,stroke:#00796B
+    style Client fill:#E8F5E9,stroke:#4CAF50,stroke-width:2px
+    style Engine fill:#E3F2FD,stroke:#2196F3,stroke-width:2px
 ```
 
 This architecture allows the engine to manage multiple AI providers and route requests efficiently.
@@ -71,14 +70,13 @@ BreezeApp Engine integrates with multiple AI providers, each bringing unique cap
 
 | Provider | Type | LLM | VLM | ASR | TTS | Guardian | Streaming |
 |----------|------|:---:|:---:|:---:|:---:|:--------:|:---------:|
-| **MediaTek** | Local NPU | ✅ | 🚧 | ❌ | ❌ | ❌ | ✅ |
-| **ExecuTorch** | Local | ✅ | 🚧 | ❌ | ❌ | ❌ | ✅ |
-| **LlamaStack** | Remote | ✅ | ✅ | ❌ | ❌ | ✅ | ❌* |
+| **MediaTek** | Local NPU | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **ExecuTorch** | Local | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **LlamaStack** | Remote | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
 | **OpenRouter** | Remote | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
 | **Sherpa** | Local | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 
 **Legend**: ✅ Supported | 🚧 Experimental | ❌ Not Supported  
-***Note**: LlamaStack streaming is not yet supported by the official SDK. Falls back to non-streaming mode.
 
 *For detailed technical implementation, see [Engine Architecture →](./android/breeze-app-engine/README.md#10-supported-ai-runners)*
 
