@@ -290,3 +290,128 @@ Extend safety pipeline by:
 ✅ **Usability**: Automatic model management, progress feedback <br>
 
 This architecture provides a robust foundation for AI inference on mobile devices while maintaining flexibility for future enhancements and evolving requirements. The focus on stable patterns and interfaces ensures long-term maintainability as the system grows.
+---
+
+## Technology Stack
+
+### Platform
+
+- **OS**: Android 14+ (API 34)
+- **Language**: Kotlin 100% (Java 11 compatibility)
+- **Build System**: Gradle 8.x, Android Gradle Plugin 8.x
+- **Minimum SDK**: 34
+- **Target SDK**: 34
+
+### AI Frameworks
+
+| Framework | Purpose | Version |
+|-----------|---------|---------|
+| **ExecuTorch** | LLM/VLM inference | 0.2.0+ |
+| **Sherpa ONNX** | ASR/TTS | Latest |
+| **MTK NPU SDK** | Hardware acceleration | MediaTek proprietary |
+| **NNAPI** | Fallback acceleration | Android built-in |
+
+### Android Components
+
+- **Service**: Background service with AIDL
+- **AIDL**: 4 interface files (`IAIEngineService.aidl`, callbacks)
+- **Permissions**: 1 custom permission (`BIND_ENGINE_SERVICE`, normal protection)
+- **Process**: Isolated process (`:ai_engine`)
+- **Foreground Service**: Type `dataSync`
+
+### Testing
+
+- **Unit Tests**: JUnit 4, Mockk, Robolectric
+- **Integration Tests**: AndroidJUnit4, Espresso
+- **Coverage**: ~85% for security-critical code
+
+### Build & Release
+
+- **ProGuard/R8**: Code shrinking and obfuscation
+- **Play App Signing**: Google-managed certificate
+- **Versioning**: Semantic versioning (MAJOR.MINOR.PATCH)
+
+---
+
+## Key Design Decisions
+
+### DD1: Why AIDL instead of REST API?
+
+**Decision**: Use AIDL (Android IPC) for service communication.
+
+**Rationale**:
+- ✅ Native Android mechanism (no network overhead)
+- ✅ Type-safe interface generation
+- ✅ Better performance (<1ms overhead vs. HTTP ~50ms)
+- ✅ Automatic marshaling/unmarshaling
+- ✅ Built-in lifecycle management
+- ✅ No need for localhost server (security risk)
+
+**Trade-offs**:
+- ❌ Android-specific (not cross-platform)
+- ❌ Limited to 1MB transaction size (Binder limit)
+- ❌ More complex than REST for developers unfamiliar with Android
+
+**Mitigation**: For large data (images, audio), use `ParcelFileDescriptor` to transfer file handles instead of raw bytes.
+
+### DD2: Why Normal Permission Protection?
+
+**Decision**: Use `normal` protection level for `BIND_ENGINE_SERVICE` permission.
+
+**Rationale**:
+- ✅ Automatic grant (no user prompt needed)
+- ✅ Simpler deployment (no certificate coordination)
+- ✅ Easier for third-party integration
+- ✅ Still requires explicit permission declaration
+
+**Trade-offs**:
+- ❌ Any app can declare the permission and bind
+- ❌ Relies on obscurity (service not publicly documented)
+
+**Note**: Originally designed with `signature` protection, but changed to `normal` for simpler deployment. Service binding is still controlled via permission requirement.
+
+### DD3: Why Separate Process (`:ai_engine`)?
+
+**Decision**: Run service in isolated process.
+
+**Rationale**:
+- ✅ Memory isolation (LLM models use 2-4GB RAM)
+- ✅ Crash isolation (engine crash doesn't crash clients)
+- ✅ Easier to kill/restart for memory management
+- ✅ Better thermal management
+
+**Trade-offs**:
+- ❌ IPC overhead (~0.5ms per call)
+- ❌ More complex debugging (multiple processes)
+
+**Benchmarks**: IPC overhead negligible compared to inference time (100ms-10s).
+
+### DD4: Why Zero Data Collection?
+
+**Decision**: No telemetry, analytics, or user data collection.
+
+**Rationale**:
+- ✅ User privacy (core value proposition)
+- ✅ GDPR/CCPA compliance (no PII collection)
+- ✅ Offline-first design (no dependency on servers)
+- ✅ Trust building (transparent open-source)
+
+**Trade-offs**:
+- ❌ No usage analytics for product improvements
+- ❌ Harder to diagnose issues in the wild
+
+**Mitigation**: Provide opt-in crash reporting via Firebase Crashlytics (future).
+
+### DD5: Why LRU Cache for Signature Verification?
+
+**Decision**: Cache signature verification results (5-minute TTL).
+
+**Rationale**:
+- ✅ Performance target: <10ms per verification
+- ✅ Clients bind/unbind frequently (activity lifecycle)
+- ✅ Signature won't change within session
+
+**Trade-offs**:
+- ❌ Potential security window (5 minutes) if app is reinstalled with different cert
+
+**Mitigation**: 5-minute TTL is short enough; also check cache validity on app update events.

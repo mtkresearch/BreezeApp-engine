@@ -12,7 +12,6 @@ Extending the engine with new AI capabilities:
 
 - **[Runner Development](./guides/runner-development.md)** - Create custom AI runners
 - **[Architecture Overview](./architecture/README.md)** - High-level system design
-- **[System Design](./architecture/system-design.md)** - Component architecture details
 
 ### For Architects & Technical Leads
 
