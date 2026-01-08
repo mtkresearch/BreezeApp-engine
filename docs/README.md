@@ -19,7 +19,6 @@ Extending the engine with new AI capabilities:
 Understanding the system architecture:
 
 - **[Data Flow](./architecture/data-flow.md)** - Request processing flows
-- **[Deployment Model](./architecture/deployment-model.md)** - Physical deployment topology
 - **[Integration Patterns](./architecture/integration-patterns.md)** - AIDL integration patterns
 - **[Security Model](./security/security-model.md)** - Permission-based access control
 
