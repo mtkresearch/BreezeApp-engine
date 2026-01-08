@@ -7,7 +7,7 @@ Quick guide for deploying BreezeApp-engine to Google Play Store using automated 
 ## Prerequisites
 
 - ✅ Google Play Console developer account
-- ✅ Access to BreezeApp organization in Play Console
+- ✅ Access to Mediatek Research organization in Play Console
 - ✅ Android Studio with Android SDK 34+
 - ✅ Git repository access
 
@@ -95,24 +95,6 @@ git push origin main --tags
 
 ---
 
-## Staged Rollout Strategy
-
-Recommended rollout percentages based on version type:
-
-| Version Type | Rollout Schedule | Rationale |
-|--------------|------------------|-----------|
-| **Patch** (1.0.0 → 1.0.1) | 50% → 100% (24 hours) | Low risk, bug fixes only |
-| **Minor** (1.0.0 → 1.1.0) | 10% → 50% → 100% (7 days) | New features, monitor compatibility |
-| **Major** (1.0.0 → 2.0.0) | 5% → 20% → 50% → 100% (14 days) | Breaking changes, careful monitoring |
-
-**How to adjust rollout**:
-1. In Play Console, go to **Release** → **Production** → **Manage**
-2. Click **Update rollout**
-3. Increase percentage
-4. Monitor crash rate and user reviews before increasing further
-
----
-
 ## Troubleshooting
 
 ### Build Fails
@@ -172,4 +154,3 @@ android/breeze-app-engine/release/BreezeApp-engine-vX.Y.Z-N.apk  (versioned copy
 
 - **[Build Scripts Documentation](../../android/scripts/README.md)** - Detailed script usage and examples
 - **[Release Notes Template](./release-notes-template-en.md)** - Template for Play Store release notes
-- **[Security Model](../security/security-model.md)** - Permission-based access control
