@@ -54,23 +54,23 @@ BreezeApp-engine uses Android's signature-level protection mechanism to restrict
 
 **Permission Name**: `com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE`
 
-**Protection Level**: `signature`
+**Protection Level**: `normal`
 
 **Behavior**:
-- Only apps signed with the **same certificate** as BreezeApp-engine can request this permission
-- System automatically grants the permission without user interaction
+- Any app can request this permission
+- System automatically grants the permission at install time
 - No runtime permission prompts shown to users
 - Permission grant is transparent and seamless
 
-### Why Signature Protection?
+### Why Normal Protection?
 
-| Security Goal | How Signature Protection Achieves It |
-|--------------|-------------------------------------|
-| **Prevent unauthorized access** | Only apps we control (signed by us) can bind |
+| Security Goal | How Normal Protection Achieves It |
+|--------------|-----------------------------------|
+| **Easy integration** | Any app can bind without certificate coordination |
 | **No user friction** | No permission dialogs interrupt UX |
-| **Developer control** | We decide which apps get access via certificate management |
-| **Play Store compatible** | Works seamlessly with Play App Signing |
-| **IPC best practice** | Recommended by Android for service-to-service communication |
+| **Developer friendly** | Third-party developers can integrate easily |
+| **Play Store compatible** | Works seamlessly with all apps |
+| **IPC accessibility** | Standard protection for service-to-service communication |
 
 ---
 
@@ -189,10 +189,10 @@ Client App                    Android System               BreezeApp-engine
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.mtkresearch.breezeapp.engine">
 
-    <!-- Define custom permission with signature protection -->
+    <!-- Define custom permission with normal protection -->
     <permission
         android:name="com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE"
-        android:protectionLevel="signature"
+        android:protectionLevel="normal"
         android:label="@string/permission_bind_engine_label"
         android:description="@string/permission_bind_engine_desc" />
 
