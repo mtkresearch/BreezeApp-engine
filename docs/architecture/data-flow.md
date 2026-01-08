@@ -349,4 +349,3 @@ META_TOKEN_COUNT = "tokens"
 
 - [Architecture Overview](./README.md) - High-level system design
 - [System Design](./system-design.md) - Component architecture
-- [Integration Patterns](./integration-patterns.md) - AIDL integration

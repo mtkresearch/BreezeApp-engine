@@ -19,7 +19,6 @@ Extending the engine with new AI capabilities:
 Understanding the system architecture:
 
 - **[Data Flow](./architecture/data-flow.md)** - Request processing flows
-- **[Integration Patterns](./architecture/integration-patterns.md)** - AIDL integration patterns
 - **[Security Model](./security/security-model.md)** - Permission-based access control
 
 ### For Release Managers
