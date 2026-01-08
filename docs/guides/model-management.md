@@ -2,6 +2,21 @@
 
 This guide explains how models are declared, discovered, downloaded, and managed in BreezeApp-engine.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Model Declaration](#model-declaration)
+- [Model Discovery](#model-discovery)
+- [Automatic Model Downloads](#automatic-model-downloads)
+- [Automatic Download During Inference](#automatic-download-during-inference)
+- [Model Storage](#model-storage)
+- [Model Loading (Runtime)](#model-loading-runtime)
+- [Default Model Selection](#default-model-selection)
+- [API Models (No Download)](#api-models-no-download)
+- [Code References](#code-references)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+
 ---
 
 ## Overview
@@ -154,9 +169,21 @@ private fun loadAvailableModels() {
 
 ## Automatic Model Downloads
 
-### When Downloads Happen
+### When Downloads Happen (Priority Order)
 
-**1. Engine First Startup**
+**1. On-Demand During Inference** ⭐ (Most Common)
+
+When an inference request is made with a model that isn't downloaded yet, the engine automatically downloads it:
+
+- **Client apps** make inference request via EdgeAI SDK
+- **Quick Test** runs with undownloaded model in Engine Settings
+- **Any AIDL request** with undownloaded model
+
+The download happens automatically in the background, user sees progress notification, and inference runs after download completes.
+
+**This works for ALL capabilities**: LLM, ASR, TTS
+
+**2. Engine First Startup** (One-time)
 
 When the engine starts for the first time, it automatically downloads default models:
 
@@ -176,52 +203,132 @@ private fun ensureDefaultModelReadyWithLogging() {
 }
 ```
 
-**Default Models** (as of current implementation):
+**Default Models**:
 - **LLM**: `Llama3_2-3b-4096-spin-250605-cpu` (2.1 GB)
 - **ASR**: `Breeze-ASR-25-onnx` (varies)
 - **TTS**: VITS models (varies)
 
-**2. User-Initiated Downloads**
 
-Users can manually download additional models via Engine Settings UI:
-1. Open Engine Settings
-2. Navigate to Model Management
-3. Select a model
-4. Tap "Download"
 
-### Download Process
+---
+
+## Automatic Download During Inference
+
+### The Primary Download Mechanism
+
+**When it happens**: When an inference request is made with a model that isn't downloaded yet.
+
+**Example workflow**:
+1. User runs Quick Test with LLM model "Llama3_2-3b-4096-spin-250605-cpu"
+2. User taps "Run Test"
+3. Engine checks if model is downloaded
+4. **If not downloaded**: Engine automatically downloads it
+5. Download progress shown in notification
+6. After download completes, inference runs automatically
+
+### How It Works (AIEngineManager Workflow)
+
+```mermaid
+sequenceDiagram
+    participant Request as Inference Request
+    participant Manager as AIEngineManager
+    participant Download as Download Scope
+    participant Service as ModelDownloadService
+    participant Storage as File System
+
+    Request->>Manager: processRequest(modelId)
+    Manager->>Manager: Check model status
+    
+    alt Model Not Downloaded
+        Manager->>Download: Launch in independent scope
+        Note over Download: Downloads continue even if request cancelled
+        
+        loop For each file
+            Download->>Service: Download file
+            Service->>Storage: Write file
+            Download->>Download: Wait for size stabilization (2s)
+            Download->>Download: Validate file
+        end
+        
+        Download->>Manager: All files downloaded
+        Manager->>Manager: Mark as DOWNLOADED
+    end
+    
+    Manager->>Manager: Load model into runner
+    Manager->>Manager: Execute inference
+    Manager-->>Request: Return result
+```
+
+### Key Features
+
+1. **Independent Scope**: Downloads continue even if request is cancelled
+2. **Sequential Downloads**: Files downloaded one at a time (prevents corruption)
+3. **Size Stabilization**: Waits 2 seconds for file size to stop changing
+4. **Batch Tracking**: Prevents service from stopping between files
+5. **Download Deduplication**: Prevents duplicate downloads of same model
+6. **Progress Notifications**: Shows download progress in notification bar
+
+### Code Reference
+
+See [`AIEngineManager.kt:499-656`](../../android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engine/core/AIEngineManager.kt#L499-L656) for implementation.
+
+### Download Process (Detailed)
 
 ```
-User/Engine → ModelManager.downloadModel(modelId)
+Inference Request → AIEngineManager.selectAndLoadRunner()
   │
-  ├─> Check if already downloaded
-  │   └─> If yes: Skip
+  ├─> Check if model downloaded
+  │   └─> If yes: Load model directly
   │
-  ├─> For each file in model:
-  │   └─> ModelDownloadService.startDownload(url, fileName)
-  │       │
-  │       ├─> HTTP download with progress tracking
-  │       ├─> Resume support (if interrupted)
-  │       ├─> Checksum validation
-  │       └─> Foreground notification with progress
+  ├─> If no: Start automatic download
+  │   │
+  │   ├─> Check download deduplication
+  │   │   └─> If already downloading: Wait for completion
+  │   │
+  │   ├─> Launch in independent scope (survives cancellation)
+  │   │
+  │   ├─> For each file in model:
+  │   │   ├─> ModelDownloadService.startDownload(url, fileName)
+  │   │   ├─> Wait for file size to stabilize (2 seconds)
+  │   │   └─> Mark file complete in batch
+  │   │
+  │   ├─> Validate all files (existence + size > 1KB)
+  │   │
+  │   └─> Mark model as DOWNLOADED
   │
-  └─> Mark model as DOWNLOADED when complete
+  └─> Load model into runner
+      └─> Execute inference
 ```
+
+**Key Points**:
+- Downloads happen in `downloadScope` (independent coroutine scope)
+- Files downloaded sequentially (not parallel)
+- File stabilization prevents incomplete downloads
+- Batch tracking prevents service stop between files
+- Download continues even if request is cancelled
 
 ### Download Notifications
 
 Users see persistent notifications during downloads:
 - **Title**: "Downloading [Model Name]"
-- **Progress**: "45% - 1.2 GB / 2.6 GB"
+- **Progress**: "Downloading file 1/3: model.pte"
 - **Speed**: "5.2 MB/s"
-- **ETA**: "2 minutes remaining"
-- **Actions**: Pause, Resume, Cancel
+- **Actions**: Shows in notification bar
 
-### Code References
+---
 
-- [`ModelManager.downloadModel()`](../../android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engine/core/ModelManager.kt#L164-L216) - Initiates download
-- [`ModelDownloadService`](../../android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engine/core/download/ModelDownloadService.kt) - Background download service
-- [`ModelDownloadService.performDownload()`](../../android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engine/core/download/ModelDownloadService.kt#L271-L368) - HTTP download logic
+### Quick Test Example
+
+Engine Settings includes a Quick Test feature that triggers the same automatic download:
+
+1. Open Engine Settings → Quick Test tab
+2. Select capability (LLM, ASR, TTS)
+3. Select model
+4. Tap "Run Test"
+5. If model not downloaded: automatic download starts
+6. Test runs after download completes
+
+> **Note**: Quick Test currently has its own download implementation ([`EngineSettingsActivity.kt:1897+`](../../android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engine/ui/EngineSettingsActivity.kt#L1897)) that duplicates AIEngineManager's workflow. This should be refactored to use AIEngineManager directly.
 
 ---
 
@@ -328,33 +435,6 @@ override fun load(modelId: String, settings: EngineSettings, initialParams: Map<
 
 ---
 
-## User-Facing Model Management
-
-### Engine Settings UI
-
-Users manage models through the Engine Settings app:
-
-**Features**:
-1. **Browse Models**: View all available models by category
-2. **Download Models**: Download additional models
-3. **View Status**: See download progress and model status
-4. **Delete Models**: Remove models to free space
-5. **View Storage**: See storage usage by category
-6. **Set Defaults**: Choose default model per category
-
-### Model States
-
-| State | Description | User Action |
-|-------|-------------|-------------|
-| `AVAILABLE` | Model in registry, not downloaded | Can download |
-| `DOWNLOADING` | Download in progress | Can pause/cancel |
-| `PAUSED` | Download paused | Can resume |
-| `DOWNLOADED` | Files downloaded, not loaded | Ready to use |
-| `READY` | Loaded in memory | In use |
-| `ERROR` | Download/load failed | Can retry |
-
----
-
 ## Default Model Selection
 
 ### How Defaults Are Determined
@@ -371,23 +451,6 @@ Default models are specified in runner annotations:
 class ExecutorchLLMRunner : BaseRunner, FlowStreamingRunner {
     // ...
 }
-```
-
-### Changing Defaults
-
-Users can change default models via Engine Settings:
-1. Navigate to Model Management
-2. Select category (LLM, ASR, TTS)
-3. Choose model
-4. Tap "Set as Default"
-
-**Code**:
-```kotlin
-// Engine stores user preference
-settings.setDefaultModel(category, modelId)
-
-// RunnerManager uses this when selecting runner
-val defaultModel = settings.getDefaultModel(ModelCategory.LLM)
 ```
 
 ---
@@ -507,4 +570,4 @@ Some models don't require downloads (API-based):
 
 - [Data Flow](../architecture/data-flow.md) - Request processing flows
 - [Runner Development](./runner-development.md) - Creating custom runners
-- [System Design](../architecture/system-design.md) - Overall architecture
+- [Architecture Overview](../architecture/README.md) - Overall architecture
