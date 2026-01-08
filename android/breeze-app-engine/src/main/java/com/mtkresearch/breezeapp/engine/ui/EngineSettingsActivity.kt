@@ -1870,8 +1870,16 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
             val collector = MetricsCollector()
             
             try {
-                val runner = runnerManager?.getRunner(CapabilityType.LLM)
-                    ?: return@withContext "Error: LLM runner not loaded"
+                // Get runner based on current UI selection, not saved settings
+                // This ensures Quick Test uses the latest UI selection even before saving
+                val selectedRunnerName = getSelectedRunnerName()
+                val runner = if (selectedRunnerName != null) {
+                    runnerManager?.getAllRunners()?.find { it.getRunnerInfo().name == selectedRunnerName }
+                        ?: return@withContext "Error: Selected runner '$selectedRunnerName' not found"
+                } else {
+                    runnerManager?.getRunner(CapabilityType.LLM)
+                        ?: return@withContext "Error: LLM runner not loaded"
+                }
                 
                 // Get model_id from UI parameters (not from saved settings)
                 val modelId = getCurrentRunnerParams()["model_id"]?.toString()
@@ -1885,6 +1893,159 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                 
                 if (needsReload) {
                     Log.d(TAG, "testLLM: Loading model: $modelId (current: ${runner.getLoadedModelId()})")
+                    
+                    // For ExecutorchLLMRunner, check model state and trigger download if needed
+                    if (runner.getRunnerInfo().name == "ExecutorchLLMRunner") {
+                        val modelManager = com.mtkresearch.breezeapp.engine.core.ModelManager.getInstance(this@EngineSettingsActivity)
+                        val modelState = modelManager.getModelState(modelId)
+                        
+                        if (modelState != null && modelState.status !in listOf(
+                                com.mtkresearch.breezeapp.engine.core.ModelManager.ModelState.Status.DOWNLOADED,
+                                com.mtkresearch.breezeapp.engine.core.ModelManager.ModelState.Status.READY
+                            )) {
+                            Log.d(TAG, "testLLM: Model '$modelId' not downloaded. Starting automatic download...")
+                            
+                            // Update UI to show download in progress
+                            runOnUiThread {
+                                tvTestResult.text = "📥 Downloading model files...\n\nThis may take a few minutes."
+                                layoutTestResult.visibility = View.VISIBLE
+                            }
+                            
+                            try {
+                                // Get files to download
+                                val filesToDownload = modelState.modelInfo.files
+                                if (filesToDownload.isEmpty()) {
+                                    return@withContext "⚠️ No files to download for model: $modelId"
+                                }
+                                
+                                Log.d(TAG, "testLLM: Model has ${filesToDownload.size} files to download")
+                                
+                                // Create model directory
+                                val modelDir = java.io.File(filesDir, "models/$modelId")
+                                if (modelDir.exists()) {
+                                    modelDir.deleteRecursively()
+                                    Log.d(TAG, "testLLM: Deleted existing model directory for fresh download")
+                                }
+                                modelDir.mkdirs()
+                                
+                                // Start batch tracking
+                                val batchId = "${modelId}_quicktest_batch"
+                                com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker.startBatch(
+                                    batchId, modelId, filesToDownload.size
+                                )
+                                
+                                // Notify download state
+                                com.mtkresearch.breezeapp.engine.core.download.DownloadEventManager.notifyGlobalDownloadState(
+                                    this@EngineSettingsActivity, isDownloading = true, modelId = modelId
+                                )
+                                
+                                // Download all files sequentially
+                                for ((index, fileInfo) in filesToDownload.withIndex()) {
+                                    val downloadUrl = fileInfo.urls.firstOrNull()
+                                        ?: throw IllegalArgumentException("No download URL for file: ${fileInfo.fileName}")
+                                    val fileName = fileInfo.fileName
+                                    
+                                    Log.d(TAG, "testLLM: Downloading file ${index + 1}/${filesToDownload.size}: $fileName")
+                                    
+                                    // Update UI with progress
+                                    runOnUiThread {
+                                        tvTestResult.text = "📥 Downloading model files...\n\n" +
+                                            "File ${index + 1} of ${filesToDownload.size}: $fileName"
+                                    }
+                                    
+                                    // Notify download started
+                                    com.mtkresearch.breezeapp.engine.core.download.DownloadEventManager.notifyDownloadStarted(
+                                        this@EngineSettingsActivity,
+                                        modelId,
+                                        fileName,
+                                        currentFileIndex = index,
+                                        totalFiles = filesToDownload.size
+                                    )
+                                    
+                                    // Start download
+                                    val downloadId = "${modelId}_file_$index"
+                                    ModelDownloadService.startDownload(
+                                        this@EngineSettingsActivity,
+                                        downloadId,
+                                        downloadUrl,
+                                        fileName
+                                    )
+                                    
+                                    // Wait for file to complete
+                                    val targetFile = java.io.File(modelDir, fileName)
+                                    var fileDownloaded = false
+                                    var attempts = 0
+                                    val maxAttempts = 1800 // 30 minutes
+                                    var lastSize = 0L
+                                    var stableCount = 0
+                                    
+                                    while (!fileDownloaded && attempts < maxAttempts) {
+                                        kotlinx.coroutines.delay(1000)
+                                        if (targetFile.exists()) {
+                                            val currentSize = targetFile.length()
+                                            if (currentSize > 0 && currentSize == lastSize) {
+                                                stableCount++
+                                                // Consider complete if size stable for 2 seconds
+                                                if (stableCount >= 2) {
+                                                    fileDownloaded = true
+                                                    Log.d(TAG, "testLLM: File downloaded: $fileName ($currentSize bytes)")
+                                                }
+                                            } else {
+                                                stableCount = 0
+                                                lastSize = currentSize
+                                            }
+                                        }
+                                        attempts++
+                                    }
+                                    
+                                    if (!fileDownloaded) {
+                                        Log.e(TAG, "testLLM: Failed to download file: $fileName")
+                                        ModelDownloadService.cancelDownload(this@EngineSettingsActivity, downloadId)
+                                        com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker.cancelBatch(batchId)
+                                        return@withContext "⚠️ Download failed\n\nFailed to download: $fileName\n\nPlease check your internet connection and try again."
+                                    }
+                                    
+                                    // Mark file complete
+                                    com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker.markFileComplete(batchId, index)
+                                }
+                                
+                                // Validate all files
+                                Log.d(TAG, "testLLM: Validating ${filesToDownload.size} downloaded files...")
+                                for (fileInfo in filesToDownload) {
+                                    val file = java.io.File(modelDir, fileInfo.fileName)
+                                    if (!file.exists()) {
+                                        com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker.cancelBatch(batchId)
+                                        return@withContext "⚠️ Validation failed\n\nFile missing: ${fileInfo.fileName}"
+                                    }
+                                    if (file.length() < 1024) {
+                                        com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker.cancelBatch(batchId)
+                                        return@withContext "⚠️ Validation failed\n\nFile too small: ${fileInfo.fileName}"
+                                    }
+                                }
+                                
+                                // Complete batch and mark as downloaded
+                                com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker.completeBatch(batchId)
+                                modelManager.markModelAsDownloaded(modelId)
+                                com.mtkresearch.breezeapp.engine.core.download.DownloadEventManager.notifyDownloadCompleted(
+                                    this@EngineSettingsActivity, modelId
+                                )
+                                com.mtkresearch.breezeapp.engine.core.download.DownloadEventManager.notifyGlobalDownloadState(
+                                    this@EngineSettingsActivity, isDownloading = false, modelId = modelId
+                                )
+                                
+                                Log.d(TAG, "testLLM: Model download completed successfully")
+                                
+                                // Update UI
+                                runOnUiThread {
+                                    tvTestResult.text = "✓ Download complete!\n\nLoading model..."
+                                }
+                                
+                            } catch (e: Exception) {
+                                Log.e(TAG, "testLLM: Download failed", e)
+                                return@withContext "⚠️ Download failed\n\n${e.message}\n\nPlease try again or check logs for details."
+                            }
+                        }
+                    }
                     
                     val success = runner.load(
                         modelId = modelId,
