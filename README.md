@@ -4,39 +4,66 @@ English
 
 Ready to build the future of on-device AI on Android? You're in the right place!
 
-BreezeApp Engine is a next-generation framework for creating powerful, modular, and extensible AI-driven experiences. It's built with a focus on type safety, modern Android practices, and a great developer experience.
+BreezeApp Engine is a next-generation framework for creating powerful, modular, and extensible AI-driven experiences.
 
-### 📦 Latest Versions
+## 📦 What's in This Repository
 
-- `BreezeApp-engine`: `v0.1.1`
-- `EdgeAI`: `v0.1.7`
+This repository contains two main components:
+
+### 1. **BreezeApp Engine** (`android/breeze-app-engine`)
+The AI inference service that runs as a background Android service. It manages AI models, routes requests to appropriate runners, and handles the heavy lifting of AI processing.
+
+**Key Features**:
+- Multi-provider AI support (ExecuTorch, Sherpa, OpenRouter, LlamaStack)
+
+- Model management and download
+- Configuration UI for settings
+
+### 2. **EdgeAI SDK** (`android/EdgeAI`)
+The client-side SDK that apps use to communicate with the engine. It provides a clean, type-safe API for AI operations.
+
+**Key Features**:
+- Simple API: `EdgeAI.chat()`, `EdgeAI.asr()`, `EdgeAI.tts()`
+- AIDL-based IPC for cross-process communication
+- Streaming support for real-time responses
+
+--- 
 
 ## ✨ The Heart of the Project: The AI Engine
 
 The most important part of this project is the **`android/breeze-app-engine`**.
 
-Think of it as a powerful, "headless" **AI Brain** for Android. It runs as a background service, completely separate from any user interface. Its sole purpose is to manage, execute, and serve AI capabilities (like text generation, speech recognition, etc.) to any application that needs them.
+Think of it as a powerful **AI Service** for Android. It runs as a background service that manages, executes, and serves AI capabilities (like text generation, speech recognition, etc.) to any application that needs them. While primarily service-oriented, it includes a minimal configuration UI for settings and model management.
 
-By decoupling the complex AI logic from the UI, we empower app developers to add sophisticated AI features with minimal effort.
+By decoupling the complex AI logic from client apps, we empower app developers to add sophisticated AI features with minimal effort.
 
-## 🔎 The Runtime View: How Client Talks to the Engine
+## 🔎 The Runtime View: How the Engine Serves Requests
 
-At runtime, your app (the client) sends an `AIRequest` to the engine. The engine processes it and responds with an `AIResponse`. This interaction is completely decoupled from UI logic.
+The engine accepts AIDL connections from client apps and routes requests to appropriate AI runners. Here's how the engine processes incoming requests:
 
 ```mermaid
 %%{init: {'flowchart': {'useMaxWidth': false, 'width': 800}}}%%
 graph TD
-    A["📱 Client App<br/>(breeze-app-client)"]
-    B["🧠 AI Engine<br/>(breeze-app-engine)"]
+    A["📱 Client App<br/>(via EdgeAI SDK)"]
+    B["🔌 AIDL Service Binder<br/>(EngineServiceBinder)"]
+    C["🎯 Request Router<br/>(AIEngineManager)"]
+    D["🤖 AI Runners<br/>(ExecutorchLLMRunner, SherpaASRRunner, etc.)"]
+    E["📊 Model Manager<br/>(ModelManager)"]
 
-    A -- "Send AIRequest<br>(e.g. EdgeAI.chat/EdgeAI.tts/EdgeAI.asr)" --> B
-    B -- "Return AIResponse" --> A
+    A -- "1. bindService()" --> B
+    B -- "2. Route request" --> C
+    C -- "3. Select runner" --> D
+    C -- "Load model if needed" --> E
+    D -- "4. Return result" --> C
+    C -- "5. Stream/return response" --> B
+    B -- "6. Deliver to client" --> A
 
-    style A fill:#E8F5E9,stroke:#4CAF50
-    style B fill:#E3F2FD,stroke:#2196F3
+    style B fill:#FFE0B2,stroke:#FF6F00
+    style C fill:#E1BEE7,stroke:#7B1FA2
+    style D fill:#B2DFDB,stroke:#00796B
 ```
 
-This clean separation allows the engine to remain UI-agnostic and service-oriented.
+This architecture allows the engine to manage multiple AI providers and route requests efficiently.
 
 ## 🤖 Supported AI Providers
 
