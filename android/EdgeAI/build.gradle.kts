@@ -142,6 +142,41 @@ tasks.named<org.jetbrains.dokka.gradle.DokkaTask>("dokkaHtml") {
     dokkaSourceSets {
         named("main") {
             moduleName.set("EdgeAI SDK")
+            
+            // Include package documentation
+            includes.from("src/main/java/com/mtkresearch/breezeapp/edgeai/package-info.kt")
         }
     }
-} 
+}
+
+// Copy custom CSS to Dokka output after generation
+tasks.named("dokkaHtml") {
+    doLast {
+        val customCss = file("dokka-styles.css")
+        val dokkaOutput = file("$projectDir/build/dokka")
+        
+        if (customCss.exists() && dokkaOutput.exists()) {
+            // Copy custom CSS to styles directory
+            val stylesDir = File(dokkaOutput, "styles")
+            stylesDir.mkdirs()
+            customCss.copyTo(File(stylesDir, "custom.css"), overwrite = true)
+            
+            // Inject custom CSS into all HTML files
+            dokkaOutput.walk()
+                .filter { it.extension == "html" }
+                .forEach { htmlFile ->
+                    val content = htmlFile.readText()
+                    if (!content.contains("custom.css")) {
+                        val modifiedContent = content.replace(
+                            "</head>",
+                            """    <link rel="stylesheet" href="${"../".repeat(htmlFile.relativeTo(dokkaOutput).path.count { it == '/' })}styles/custom.css">
+</head>"""
+                        )
+                        htmlFile.writeText(modifiedContent)
+                    }
+                }
+            
+            println("✓ Custom Dokka styles applied")
+        }
+    }
+}
