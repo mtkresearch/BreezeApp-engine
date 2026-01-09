@@ -137,16 +137,13 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.11.1")
 }
 
-// Dokka configuration for Runner API documentation
-tasks.register("dokkaHtml", org.jetbrains.dokka.gradle.DokkaTask::class) {
+// Dokka configuration for BreezeApp Engine API documentation
+tasks.named<org.jetbrains.dokka.gradle.DokkaTask>("dokkaHtml") {
     outputDirectory.set(file("$projectDir/build/dokka"))
     
     dokkaSourceSets {
         named("main") {
-            moduleName.set("BreezeApp Engine - Runner API")
-            
-            // Include runner package
-            includes.from("src/main/java/com/mtkresearch/breezeapp/engine/runner/package.md")
+            moduleName.set("BreezeApp Engine")
         }
     }
 }
