@@ -16,14 +16,9 @@ Android SDK for on-device AI inference via BreezeApp Engine.
 1. [Quick Start](#quick-start) - 3 steps to get started
 2. [Installation](#installation) - Add to your project
 3. [API Reference](#api-reference) - Available APIs
-4. [Complete Documentation](./docs/client-developers/) - All guides
+4. **[Complete Documentation](./docs/client-developers/)** - All guides
 
-**Quick Links**:
-- [Getting Started](./docs/client-developers/getting-started.md)
-- [API Reference](./docs/client-developers/api-reference.md)
-- [Usage Guide](./docs/client-developers/usage-guide.md)
-- [Error Handling](./docs/client-developers/error-handling.md)
-- [Best Practices](./docs/client-developers/best-practices.md)
+> All documentation available in [docs/client-developers/](./docs/client-developers/)
 
 ---
 
@@ -34,13 +29,9 @@ Android SDK for on-device AI inference via BreezeApp Engine.
 **Start here**:
 1. [SDK Architecture](#sdk-architecture) - Internal design
 2. [Contributing](#contributing) - Development guide
-3. [Complete Documentation](./docs/maintainers/) - All guides
+3. **[Complete Documentation](./docs/maintainers/)** - All guides
 
-**Quick Links**:
-- [Architecture](./docs/maintainers/architecture.md)
-- [Contributing](./docs/maintainers/contributing.md)
-- [Testing](./docs/maintainers/testing.md)
-- [Release Process](./docs/maintainers/release-process.md)
+> All documentation available in [docs/maintainers/](./docs/maintainers/)
 
 ---
 
@@ -147,7 +138,7 @@ override fun onDestroy() {
 
 ### API Documentation
 
-**Detailed API docs**: [docs/API_REFERENCE.md](./docs/API_REFERENCE.md)
+**Detailed API docs**: [docs/client-developers/api-reference.md](./docs/client-developers/api-reference.md)
 - Request/response models
 - All parameters
 - Return types
@@ -160,27 +151,11 @@ override fun onDestroy() {
 
 > **For SDK Maintainers**
 
-
-
 **Architecture**: Standard API → AIDL → Service (2-layer)
 
-**See**: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for details
+**See**: [docs/maintainers/architecture.md](./docs/maintainers/architecture.md) for details
 
-### Package Structure
-
-```
-com.mtkresearch.breezeapp.edgeai/
-├── EdgeAI.kt              # Main SDK entry point
-├── EdgeAIBuilders.kt      # Request builders (chatRequest, etc.)
-├── EdgeAIExceptions.kt    # Exception types
-├── ChatModels.kt          # Chat API data models
-├── ASRModels.kt           # ASR API data models
-├── TTSModels.kt           # TTS API data models
-├── GuardrailModels.kt     # Guardrail API data models
-└── EdgeAIUsageExample.kt  # Usage examples
-```
-
-**See**: [Source code](./src/main/java/com/mtkresearch/breezeapp/edgeai/) for implementation details
+**Package structure**: See [source code](./src/main/java/com/mtkresearch/breezeapp/edgeai/) for implementation details
 
 ---
 
