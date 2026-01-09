@@ -1,82 +1,38 @@
 # Getting Started
 
-[← Back to README](../README.md) | [Usage Guide →](./USAGE_GUIDE.md)
-
-> **Quick start guide for new users**: Install, initialize, make your first API call, and clean up resources.
+Quick start guide for EdgeAI SDK.
 
 ---
 
 ## Installation
 
-### JitPack Dependency
-
-Add EdgeAI SDK to your `build.gradle.kts`:
-
 ```kotlin
+repositories {
+    maven { url = uri("https://jitpack.io") }
+}
+
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
+    implementation("com.github.mtkresearch.BreezeApp-engine:EdgeAI:EdgeAI-v0.2.0")
 }
 ```
 
-### Local Dependency (Development)
-
-If you're developing or modifying EdgeAI SDK:
-
-```kotlin
-dependencies {
-    implementation(project(":EdgeAI"))
-}
-```
-
----
-
-## Prerequisites
-
-Before using EdgeAI SDK, ensure:
-
-1. **BreezeApp Engine is installed** on the target device
-2. **BreezeApp Engine Service is running** (usually auto-starts with the app)
-3. **Your app has the required permissions** (see [Usage Guide](./USAGE_GUIDE.md#permissions))
+**Prerequisites**: BreezeApp Engine installed, Android SDK 34+
 
 ---
 
 ## Quick Start
 
-### 1. Initialize SDK
-
 ```kotlin
-import com.mtkresearch.breezeapp.edgeai.*
-import kotlinx.coroutines.launch
+// 1. Initialize
+EdgeAI.initializeAndWait(context)
 
-// In a CoroutineScope (e.g., lifecycleScope or viewModelScope)
-launch {
-    try {
-        // Initialize and wait for connection to BreezeApp Engine Service
-        EdgeAI.initializeAndWait(context, timeoutMs = 10000)
-        Log.i("EdgeAI", "SDK connected successfully")
-    } catch (e: ServiceConnectionException) {
-        Log.e("EdgeAI", "Connection failed. Is BreezeApp Engine installed?", e)
-        return@launch
-    }
-}
-```
-
-### 2. Make Your First API Call
-
-```kotlin
-// Send a simple chat request
-val request = chatRequest(prompt = "Explain quantum computing in simple terms")
-
+// 2. Use API
+val request = chatRequest(prompt = "Hello")
 EdgeAI.chat(request).collect { response ->
-    val content = response.choices.firstOrNull()?.message?.content
-    Log.d("EdgeAI", "AI Response: $content")
+    println(response.choices.first().message?.content)
 }
-```
 
-### 3. Clean Up Resources
-
-```kotlin
-// In your Application.onTerminate() or when app exits
+// 3. Cleanup
 EdgeAI.shutdown()
 ```
 
@@ -84,6 +40,6 @@ EdgeAI.shutdown()
 
 ## Next Steps
 
-- **[Usage Guide](./USAGE_GUIDE.md)**: Advanced configuration, permissions, error handling, and FAQ
-- **[API Reference](./API_REFERENCE.md)**: Complete API documentation with parameters and examples
-- **[Best Practices](./BEST_PRACTICES.md)**: Lifecycle management and UI integration tips 
+- **[API Reference](../../../build/dokka/)** - Complete API docs (run `./gradlew :EdgeAI:dokkaHtml`)
+- **[Examples](../../src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt)** - Working code examples
+- **[Usage Guide](./usage-guide.md)** - Advanced patterns
