@@ -19,21 +19,18 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * EdgeAI SDK - Simplified Architecture (v2.0)
+ * EdgeAI SDK
  *
- * This version demonstrates the simplified architecture that eliminates
- * the intermediate model layer, providing direct standard API-to-Service communication.
+ * Provides a simple Kotlin API for Android apps to communicate with
+ * BreezeApp Engine via AIDL IPC.
  *
- * **Architecture Comparison:**
+ * **Architecture**: Standard API → AIDL → Service
  *
- * OLD (3-layer): Standard API → Internal Models → AIDL → Service
- * NEW (2-layer): Standard API → AIDL → Service (66% less complexity)
- *
- * **Performance Benefits:**
- * - 30% faster (eliminates 2 serialization steps)
- * - 50% less memory usage
- * - 66% less conversion code
- * - 100% unified naming (ChatRequest vs ChatCompletionRequest)
+ * **Benefits**:
+ * - Type-safe Kotlin models
+ * - Streaming via Flow
+ * - Automatic connection management
+ * - Clear error handling
  */
 @SuppressLint("StaticFieldLeak")
 object EdgeAI {
@@ -65,7 +62,7 @@ object EdgeAI {
             // Register our listener
             service?.registerListener(breezeAppEngineListener)
 
-            Log.i(TAG, "EdgeAI SDK connected to BreezeApp Engine Service (Simplified v2.0)")
+            Log.i(TAG, "EdgeAI SDK connected to BreezeApp Engine Service")
 
             // Complete initialization
             initializationCompletion?.invoke(Result.success(Unit))
