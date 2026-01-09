@@ -675,6 +675,7 @@ object EdgeAI {
 
     // === HELPER METHODS ===
 
+    /** @suppress */
     private fun validateConnection() {
         if (!isInitialized) {
             throw ServiceConnectionException("EdgeAI SDK is not initialized. Call EdgeAI.initializeAndWait(context) first.")
@@ -685,11 +686,13 @@ object EdgeAI {
         }
     }
 
+    /** @suppress */
     private fun generateRequestId(): String = UUID.randomUUID().toString()
 
     /**
      * Minimal conversion - only from internal AIResponse to standard format
      * (Previously had 3 conversion steps, now only 1)
+     * @suppress
      */
     private fun convertAIResponseToChatResponse(
         aiResponse: AIResponse,
@@ -723,6 +726,7 @@ object EdgeAI {
     /**
      * Convert internal AIResponse to ASRResponse
      */
+    /** @suppress */
     private fun convertAIResponseToASRResponse(
         aiResponse: AIResponse
     ): ASRResponse {
@@ -737,6 +741,7 @@ object EdgeAI {
      * Convert internal AIResponse to TTSResponse
      * Simplified for engine-side audio playback
      */
+    /** @suppress */
     private fun convertAIResponseToTTSResponse(
         aiResponse: AIResponse
     ): TTSResponse {
@@ -758,6 +763,7 @@ object EdgeAI {
      * 
      * Parses the structured guardrail results from the AIResponse text field.
      */
+    /** @suppress */
     private fun convertAIResponseToGuardrailResponse(
         aiResponse: AIResponse
     ): GuardrailResponse {
@@ -806,6 +812,7 @@ object EdgeAI {
     /**
      * Extract value from simple JSON-like format
      */
+    /** @suppress */
     private fun extractValue(content: String, key: String): String? {
         val pattern = "\"$key\":\"([^\"]*)\"|\"$key\":([^,}]*)"
         val regex = Regex(pattern)
