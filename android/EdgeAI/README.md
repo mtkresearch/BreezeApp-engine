@@ -4,18 +4,43 @@ Android SDK for on-device AI inference via BreezeApp Engine.
 
 [![JitPack](https://jitpack.io/v/mtkresearch/BreezeApp-engine.svg)](https://jitpack.io/#mtkresearch/BreezeApp-engine)
 
-## Quick Links
+---
 
-**For Client App Developers**:
-- [Installation](#installation) - Add to your project
-- [Quick Start](#quick-start) - 3 steps to get started
-- [API Reference](#api-reference) - Available APIs
-- [Documentation](#documentation) - Detailed guides
+## 👥 Choose Your Path
 
-**For SDK Maintainers**:
-- [SDK Architecture](#sdk-architecture) - Internal design
-- [Contributing](#contributing) - Development guide
-- [Testing](#testing) - Unit tests & examples
+### 📱 I'm a Client App Developer
+
+**You want to**: Integrate EdgeAI SDK into your Android app
+
+**Start here**:
+1. [Quick Start](#quick-start) - 3 steps to get started
+2. [Installation](#installation) - Add to your project
+3. [API Reference](#api-reference) - Available APIs
+4. [Complete Documentation](./docs/client-developers/) - All guides
+
+**Quick Links**:
+- [Getting Started](./docs/client-developers/getting-started.md)
+- [API Reference](./docs/client-developers/api-reference.md)
+- [Usage Guide](./docs/client-developers/usage-guide.md)
+- [Error Handling](./docs/client-developers/error-handling.md)
+- [Best Practices](./docs/client-developers/best-practices.md)
+
+---
+
+### 🔧 I'm an SDK Maintainer
+
+**You want to**: Contribute to EdgeAI SDK or understand its internals
+
+**Start here**:
+1. [SDK Architecture](#sdk-architecture) - Internal design
+2. [Contributing](#contributing) - Development guide
+3. [Complete Documentation](./docs/maintainers/) - All guides
+
+**Quick Links**:
+- [Architecture](./docs/maintainers/architecture.md)
+- [Contributing](./docs/maintainers/contributing.md)
+- [Testing](./docs/maintainers/testing.md)
+- [Release Process](./docs/maintainers/release-process.md)
 
 ---
 
@@ -55,7 +80,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-v0.1.7")
+    implementation("com.github.mtkresearch:BreezeApp-engine:EdgeAI-vX.X.X")
 }
 ```
 
@@ -131,18 +156,24 @@ override fun onDestroy() {
 
 ## Documentation
 
-### For Client Developers
+### 📱 For Client App Developers
 
-- **[Getting Started](./docs/GETTING_STARTED.md)** - Installation & first API call
-- **[API Reference](./docs/API_REFERENCE.md)** - Complete API documentation
-- **[Usage Guide](./docs/USAGE_GUIDE.md)** - Advanced usage & configuration
-- **[Error Handling](./docs/ERROR_HANDLING.md)** - Exception types & handling
-- **[Best Practices](./docs/BEST_PRACTICES.md)** - Lifecycle & UI integration
+**Complete guides**: [docs/client-developers/](./docs/client-developers/)
 
-### For SDK Maintainers
+- **[Getting Started](./docs/client-developers/getting-started.md)** - Installation & first API call
+- **[API Reference](./docs/client-developers/api-reference.md)** - Complete API documentation
+- **[Usage Guide](./docs/client-developers/usage-guide.md)** - Advanced usage & configuration
+- **[Error Handling](./docs/client-developers/error-handling.md)** - Exception types & handling
+- **[Best Practices](./docs/client-developers/best-practices.md)** - Lifecycle & UI integration
 
-- **[Architecture](./docs/ARCHITECTURE.md)** - SDK design & AIDL communication
-- **[JitPack Release SOP](./docs/JitPack_Release_SOP.md)** - Release process
+### 🔧 For SDK Maintainers
+
+**Complete guides**: [docs/maintainers/](./docs/maintainers/)
+
+- **[Architecture](./docs/maintainers/architecture.md)** - SDK design & AIDL communication
+- **[Contributing](./docs/maintainers/contributing.md)** - Development workflow
+- **[Testing](./docs/maintainers/testing.md)** - Unit tests & integration tests
+- **[Release Process](./docs/maintainers/release-process.md)** - Publishing to JitPack
 
 ### Related Documentation
 
@@ -155,14 +186,9 @@ override fun onDestroy() {
 
 > **For SDK Maintainers**
 
-### Simplified v2.0 Design
+
 
 **Architecture**: Standard API → AIDL → Service (2-layer)
-
-**Benefits**:
-- 30% faster (eliminates serialization)
-- 50% less memory
-- 66% less code
 
 **See**: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for details
 
@@ -192,7 +218,7 @@ com.mtkresearch.breezeapp.edgeai/
 2. Open in Android Studio
 3. Build: `./gradlew :EdgeAI:build`
 
-**See**: [docs/JitPack_Release_SOP.md](./docs/JitPack_Release_SOP.md) for contribution guidelines
+**See**: [docs/maintainers/contributing.md](./docs/maintainers/contributing.md) for complete contribution guidelines
 
 ---
 
@@ -213,3 +239,5 @@ com.mtkresearch.breezeapp.edgeai/
 **Unit tests serve as usage examples**:
 - [`EdgeAITest.kt`](./src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAITest.kt) - All API tests
 - [`EdgeAIUsageExample.kt`](./src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt) - Usage patterns
+
+**See**: [docs/maintainers/testing.md](./docs/maintainers/testing.md) for complete testing guide
