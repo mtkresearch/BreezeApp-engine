@@ -27,8 +27,8 @@ Integration tests require BreezeApp Engine installed on device/emulator:
 ## Example Code
 
 **Unit tests serve as usage examples**:
-- [`EdgeAITest.kt`](../../src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAITest.kt) - All API tests
-- [`EdgeAIUsageExample.kt`](../../src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt) - Usage patterns
+- [`EdgeAIContractTest.kt`](../../src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAIContractTest.kt) - API contracts
+- [All tests](../../src/test/java/com/mtkresearch/breezeapp/edgeai/) - Complete test suite
 
 ## Writing Tests
 

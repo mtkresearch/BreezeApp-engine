@@ -1,34 +1,38 @@
-# EdgeAI SDK - Client Developer Documentation
+# Client Developer Documentation
 
 Complete guides for integrating EdgeAI SDK into your Android app.
 
-## Getting Started
+---
 
-New to EdgeAI? Start here:
+## Quick Start
 
-1. **[Getting Started](./getting-started.md)** - Install, initialize, make your first API call
-2. **[API Reference](#api-reference)** - Auto-generated API documentation
-3. **[Usage Guide](./usage-guide.md)** - Advanced usage & configuration
+**New to EdgeAI?** → [Getting Started](./getting-started.md) (5 minutes)
+
+---
+
+## Documentation
+
+- **[Getting Started](./getting-started.md)** - Install and first API call
+- **[Usage Guide](./usage-guide.md)** - Advanced patterns
+- **[Error Handling](./error-handling.md)** - Exception strategies
+- **[Best Practices](./best-practices.md)** - Production tips
+
+---
 
 ## API Reference
 
-**Auto-generated API documentation** (comprehensive, always up-to-date):
-
-- **[Dokka HTML Docs](../../build/dokka/)** - Complete API reference with examples
-- **Generate**: Run `./gradlew :EdgeAI:dokkaHtml` from `android/` directory
+**→ [EdgeAI API Documentation](https://mtkresearch.github.io/BreezeApp-engine/EdgeAI/)** (auto-generated, always up-to-date)
 
 **Working code examples**:
-- [`EdgeAIContractTest.kt`](../../src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAIContractTest.kt) - API contracts and examples
+- [`EdgeAIContractTest.kt`](../../src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAIContractTest.kt) - API contracts
+- [All tests](../../src/test/java/com/mtkresearch/breezeapp/edgeai/) - Complete examples
 
-## Documentation Guides
+> **Local generation**: Run `./gradlew :EdgeAI:dokkaHtml` from `android/` directory
 
-- **[Getting Started](./getting-started.md)** - Quick start guide
-- **[Usage Guide](./usage-guide.md)** - Advanced usage and configuration
-- **[Error Handling](./error-handling.md)** - Exception handling strategies
-- **[Best Practices](./best-practices.md)** - Lifecycle & UI integration
+---
 
-## Related Documentation
+## Need Help?
 
-- **[Main README](../../README.md)** - SDK overview & quick start
-- **[Maintainer Docs](../maintainers/)** - For SDK contributors
-- **[BreezeApp Engine](../../../breeze-app-engine/README.md)** - Engine architecture
+- **Issues**: [GitHub Issues](https://github.com/mtkresearch/BreezeApp-engine/issues)
+- **Contributing**: See [Maintainer Docs](../maintainers/)
+- **Architecture**: See [How EdgeAI Works](../maintainers/architecture.md)
