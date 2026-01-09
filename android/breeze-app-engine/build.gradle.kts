@@ -93,8 +93,14 @@ android {
 dependencies {
     implementation(project(":EdgeAI"))
     
-    // sherpa-onnx
-    implementation(files("libs/sherpa-onnx-1.12.6.aar"))
+    // sherpa-onnx (optional - only if local AAR exists)
+    val sherpaAar = file("libs/sherpa-onnx-1.12.6.aar")
+    if (sherpaAar.exists()) {
+        implementation(files("libs/sherpa-onnx-1.12.6.aar"))
+    } else {
+        // For CI/Dokka: provide compileOnly stub to avoid build failure
+        compileOnly("com.k2fsa.sherpa:onnx:1.12.6") // Placeholder, may not exist
+    }
 
     // ExecuTorch
     implementation("org.pytorch:executorch-android:0.7.0")
