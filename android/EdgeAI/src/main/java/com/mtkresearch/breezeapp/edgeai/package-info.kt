@@ -1,9 +1,9 @@
 /**
- * # EdgeAI SDK
+ * EdgeAI SDK - Client library for accessing AI capabilities via BreezeApp Engine.
  *
  * Type-safe Kotlin API for Android apps to access on-device AI capabilities.
  *
- * ## Quick Start
+ * Quick Start:
  *
  * ```kotlin
  * // 1. Initialize
@@ -19,26 +19,26 @@
  * EdgeAI.shutdown()
  * ```
  *
- * ## Core APIs
+ * Core APIs:
  *
- * ### Initialization
+ * Initialization:
  * - [EdgeAI.initialize] - Initialize SDK (returns Result)
  * - [EdgeAI.initializeAndWait] - Initialize and wait (throws exception)
  * - [EdgeAI.shutdown] - Release resources
  *
- * ### AI Capabilities
+ * AI Capabilities:
  * - [EdgeAI.chat] - LLM chat completion (streaming & non-streaming)
  * - [EdgeAI.tts] - Text-to-speech conversion
  * - [EdgeAI.asr] - Speech-to-text transcription
  *
- * ### Helper Functions
+ * Helper Functions:
  * - [chatRequest] - Build simple chat request
  * - [chatRequestWithHistory] - Build chat with conversation history
  * - [ttsRequest] - Build TTS request
  * - [asrRequest] - Build ASR request
  * - [conversation] - DSL for building message history
  *
- * ## Architecture
+ * Architecture:
  *
  * ```
  * Your App → EdgeAI SDK → AIDL IPC → BreezeApp Engine → AI Models
@@ -51,7 +51,7 @@
  * - Streaming via Kotlin Flow
  * - Error handling
  *
- * ## Examples
+ * Examples:
  *
  * See [EdgeAIContractTest] for comprehensive usage examples covering:
  * - Basic chat completion
@@ -60,7 +60,7 @@
  * - Error handling
  * - Cancellation
  *
- * ## Error Handling
+ * Error Handling:
  *
  * All API calls may throw [EdgeAIException] or its subclasses:
  * - [ServiceConnectionException] - BreezeApp Engine unavailable
@@ -68,7 +68,7 @@
  * - [TimeoutException] - Request timeout
  * - [NetworkException] - Network issues
  *
- * ## Prerequisites
+ * Prerequisites:
  *
  * - BreezeApp Engine must be installed on the device
  * - Minimum Android SDK: 34
