@@ -50,7 +50,7 @@ suspend fun retryWithBackoff(request: ChatRequest, maxRetries: Int = 3) {
 }
 ```
 
-**See**: [`EdgeAIUsageExample.kt`](../../src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt) for complete examples
+**See**: [Unit tests](../../src/test/java/com/mtkresearch/breezeapp/edgeai/) for complete examples
 
 ---
 

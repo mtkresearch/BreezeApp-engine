@@ -32,7 +32,7 @@ sealed class ChatState {
 }
 ```
 
-**See**: [`EdgeAIUsageExample.kt`](../../src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt) for implementation
+**See**: [Unit tests](../../src/test/java/com/mtkresearch/breezeapp/edgeai/) for implementation
 
 ---
 
@@ -78,7 +78,7 @@ catch (e: EdgeAIException) {
 
 **Unit tests**: See [`EdgeAIContractTest.kt`](../../src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAIContractTest.kt)
 
-**Integration tests**: See [`EdgeAIUsageExample.kt`](../../src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt)
+**All tests**: See [test directory](../../src/test/java/com/mtkresearch/breezeapp/edgeai/)
 
 ---
 
@@ -92,4 +92,4 @@ catch (e: EdgeAIException) {
 6. Cancel requests appropriately
 7. Test thoroughly
 
-**Complete examples**: See unit tests and usage examples in source code.
+**Complete examples**: See unit tests in source code.

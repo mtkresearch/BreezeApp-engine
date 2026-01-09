@@ -40,6 +40,6 @@ EdgeAI.shutdown()
 
 ## Next Steps
 
-- **[API Reference](../../../build/dokka/)** - Complete API docs (run `./gradlew :EdgeAI:dokkaHtml`)
-- **[Examples](../../src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt)** - Working code examples
+- **[API Reference](../../build/dokka/)** - Complete API docs (run `./gradlew :EdgeAI:dokkaHtml`)
+- **[Unit Tests](../../src/test/java/com/mtkresearch/breezeapp/edgeai/)** - Working code examples
 - **[Usage Guide](./usage-guide.md)** - Advanced patterns

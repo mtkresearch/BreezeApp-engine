@@ -17,13 +17,13 @@ EdgeAI and BreezeApp Engine communicate across process boundaries using Android'
 ```mermaid
 graph TD
     subgraph "Your App Process"
-        A["Your App"] --> B["EdgeAI SDK"];
-        B --> C["Binder"];
+        A["Your App (UI/ViewModel)"] -- "Calls Kotlin methods" --> B["EdgeAI SDK"];
+        B -- "Translates to AIDL calls" --> C["Android Binder Framework"];
     end
     
-    subgraph "Engine Process"
-        D["Binder"] --> E["Engine Service"];
-        E --> F["AI Inference"];
+    subgraph "BreezeApp Engine Process"
+        E["BreezeApp Engine Service"] -- "Listens for AIDL calls" --> F["AI Inference Engine"];
+        D["Android Binder Framework"] -- "Delivers AIDL calls" --> E;
     end
     
     C -- "IPC" --> D;

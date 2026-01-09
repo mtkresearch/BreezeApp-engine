@@ -1,0 +1,104 @@
+apply plugin: 'jacoco'
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+// Configure JaCoCo for unit tests
+tasks.withType(Test) {
+    jacoco {
+        includeNoLocationClasses = true
+        excludes = ['jdk.internal.*']
+    }
+}
+
+// Generate JaCoCo coverage report
+task jacocoTestReport(type: JacocoReport, dependsOn: ['testDebugUnitTest']) {
+    group = "Reporting"
+    description = "Generate Jacoco coverage reports for EdgeAI SDK"
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+
+    def fileFilter = [
+        '**/R.class',
+        '**/R$*.class',
+        '**/BuildConfig.*',
+        '**/Manifest*.*',
+        '**/*Test*.*',
+        'android/**/*.*',
+        '**/*$ViewInjector*.*',
+        '**/*$ViewBinder*.*',
+        '**/Lambda$*.class',
+        '**/Lambda.class',
+        '**/*Lambda.class',
+        '**/*Lambda*.class',
+        '**/*_MembersInjector.class',
+        '**/Dagger*Component*.*',
+        '**/*Module_*Factory.class',
+        '**/di/module/*',
+        '**/*_Factory*.*',
+        '**/*Module*.*',
+        '**/*Dagger*.*',
+        '**/*Hilt*.*',
+        // Exclude AIDL generated files
+        '**/IBreezeAppEngineService*.*',
+        '**/IBreezeAppEngineListener*.*',
+        '**/RunnerInfoParcel*.*'
+    ]
+
+    def debugTree = fileTree(dir: "$buildDir/intermediates/javac/debug/classes", excludes: fileFilter)
+    def mainSrc = "$projectDir/src/main/java"
+
+    sourceDirectories.setFrom(files([mainSrc]))
+    classDirectories.setFrom(files([debugTree]))
+    executionData.setFrom(fileTree(dir: buildDir, includes: [
+        'jacoco/testDebugUnitTest.exec',
+        'outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec'
+    ]))
+}
+
+// Coverage verification task
+task jacocoTestCoverageVerification(type: JacocoCoverageVerification, dependsOn: 'jacocoTestReport') {
+    group = "Verification"
+    description = "Verify EdgeAI SDK test coverage meets minimum thresholds"
+
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.85 // 85% coverage for critical paths
+                counter = 'LINE'
+            }
+        }
+
+        rule {
+            limit {
+                minimum = 0.75 // 75% branch coverage
+                counter = 'BRANCH'
+            }
+        }
+    }
+
+    def fileFilter = [
+        '**/R.class',
+        '**/R$*.class',
+        '**/BuildConfig.*',
+        '**/Manifest*.*',
+        '**/*Test*.*',
+        'android/**/*.*',
+        '**/IBreezeAppEngineService*.*',
+        '**/IBreezeAppEngineListener*.*',
+        '**/RunnerInfoParcel*.*'
+    ]
+
+    def debugTree = fileTree(dir: "$buildDir/intermediates/javac/debug/classes", excludes: fileFilter)
+    
+    classDirectories.setFrom(files([debugTree]))
+    executionData.setFrom(fileTree(dir: buildDir, includes: [
+        'jacoco/testDebugUnitTest.exec',
+        'outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec'
+    ]))
+}

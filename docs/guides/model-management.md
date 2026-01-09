@@ -1,8 +1,6 @@
 # Model Management Guide
 
-This guide explains how models are declared, discovered, downloaded, and managed in BreezeApp-engine.
 
-## Table of Contents
 
 - [Overview](#overview)
 - [Model Declaration](#model-declaration)

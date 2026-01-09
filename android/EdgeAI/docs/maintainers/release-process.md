@@ -24,26 +24,6 @@ cd android/scripts
 
 ---
 
-## Manual Release (Not Recommended)
-
-If you need to release manually:
-
-1. Update version in `android/EdgeAI/build.gradle.kts`:
-   ```kotlin
-   version = "EdgeAI-v0.2.0"
-   ```
-
-2. Commit and tag:
-   ```bash
-   git commit -am "chore: bump EdgeAI version to 0.2.0"
-   git tag EdgeAI-v0.2.0
-   git push origin main --tags
-   ```
-
-3. JitPack builds automatically from tag
-
----
-
 ## Verify Release
 
 **Check JitPack build status**:

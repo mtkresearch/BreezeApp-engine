@@ -137,18 +137,11 @@ apply(from = "jacoco.gradle")
 
 // Dokka configuration for API documentation
 tasks.named<org.jetbrains.dokka.gradle.DokkaTask>("dokkaHtml") {
-    outputDirectory.set(file("$buildDir/dokka"))
+    outputDirectory.set(file("$projectDir/build/dokka"))
     
     dokkaSourceSets {
         named("main") {
             moduleName.set("EdgeAI SDK")
-            includes.from("README.md")
-            
-            sourceLink {
-                localDirectory.set(file("src/main/java"))
-                remoteUrl.set(uri("https://github.com/mtkresearch/BreezeApp-engine/tree/main/android/EdgeAI/src/main/java").toURL())
-                remoteLineSuffix.set("#L")
-            }
         }
     }
 } 

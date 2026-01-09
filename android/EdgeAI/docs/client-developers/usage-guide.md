@@ -62,7 +62,7 @@ ChatRequest(
 
 ## Examples
 
-**All patterns**: See [`EdgeAIUsageExample.kt`](../../src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt)
+**All patterns**: See [unit tests](../../src/test/java/com/mtkresearch/breezeapp/edgeai/)
 
 **Topics covered**:
 - Multi-turn conversations

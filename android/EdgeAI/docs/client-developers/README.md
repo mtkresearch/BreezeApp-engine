@@ -14,12 +14,11 @@ New to EdgeAI? Start here:
 
 **Auto-generated API documentation** (comprehensive, always up-to-date):
 
-- **[Dokka HTML Docs](../../../build/dokka/)** - Complete API reference with examples
+- **[Dokka HTML Docs](../../build/dokka/)** - Complete API reference with examples
 - **Generate**: Run `./gradlew :EdgeAI:dokkaHtml` from `android/` directory
 
 **Working code examples**:
-- [`EdgeAIUsageExample.kt`](../../src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt) - All API usage patterns
-- [`EdgeAIContractTest.kt`](../../src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAIContractTest.kt) - API contracts and tests
+- [`EdgeAIContractTest.kt`](../../src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAIContractTest.kt) - API contracts and examples
 
 ## Documentation Guides
 
