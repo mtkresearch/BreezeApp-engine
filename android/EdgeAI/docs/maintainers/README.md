@@ -57,7 +57,7 @@ git checkout -b feature/your-feature
 
 ### Fixing Bugs
 
-1. Write failing test
+1. Write test that reproduces the bug
 2. Fix bug
 3. Verify: `./gradlew :EdgeAI:test`
 4. Submit PR
