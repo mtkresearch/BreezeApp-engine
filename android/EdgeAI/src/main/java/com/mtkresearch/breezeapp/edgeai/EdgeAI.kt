@@ -19,18 +19,51 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * EdgeAI SDK
+ * EdgeAI SDK - Android client library for BreezeApp Engine.
  *
- * Provides a simple Kotlin API for Android apps to communicate with
- * BreezeApp Engine via AIDL IPC.
+ * Provides a type-safe Kotlin API for Android apps to access AI capabilities
+ * (LLM chat, TTS, ASR) via AIDL IPC communication with BreezeApp Engine.
  *
- * **Architecture**: Standard API → AIDL → Service
+ * ## Quick Start
  *
- * **Benefits**:
- * - Type-safe Kotlin models
- * - Streaming via Flow
- * - Automatic connection management
- * - Clear error handling
+ * ```kotlin
+ * // 1. Initialize SDK
+ * EdgeAI.initializeAndWait(context)
+ *
+ * // 2. Make API calls
+ * val request = chatRequest(prompt = "Hello, AI!")
+ * EdgeAI.chat(request).collect { response ->
+ *     println(response.choices.firstOrNull()?.message?.content)
+ * }
+ *
+ * // 3. Cleanup when done
+ * EdgeAI.shutdown()
+ * ```
+ *
+ * ## Architecture
+ *
+ * ```
+ * Your App → EdgeAI SDK → AIDL IPC → BreezeApp Engine → AI Models
+ * ```
+ *
+ * ## Key Features
+ *
+ * - **Type-safe API**: Kotlin data classes instead of raw AIDL
+ * - **Streaming support**: Real-time responses via Kotlin Flow
+ * - **Automatic connection**: Manages service binding/unbinding
+ * - **Error handling**: Clear exception hierarchy
+ * - **Offline-first**: Works without network (on-device models)
+ *
+ * ## Prerequisites
+ *
+ * - BreezeApp Engine must be installed on the device
+ * - Minimum Android SDK: 34
+ *
+ * @see chat
+ * @see tts
+ * @see asr
+ * @see initialize
+ * @see initializeAndWait
  */
 @SuppressLint("StaticFieldLeak")
 object EdgeAI {
@@ -140,13 +173,35 @@ object EdgeAI {
     }
 
     /**
-     * Initialize the EdgeAI SDK
+     * Initializes the EdgeAI SDK by binding to BreezeApp Engine Service.
      *
-     * Must be called before using any other SDK functions.
-     * This method binds to the BreezeApp Engine Service.
+     * This is a suspend function that returns a [Result] indicating success or failure.
+     * For simpler usage, consider using [initializeAndWait] which throws exceptions.
      *
-     * @param context Android application context
-     * @return Result indicating success or failure
+     * ## Behavior
+     *
+     * - First call: Binds to BreezeApp Engine Service
+     * - Subsequent calls: Returns immediately with success
+     * - Cancellable: Can be cancelled via coroutine cancellation
+     *
+     * ## Example Usage
+     *
+     * ```kotlin
+     * lifecycleScope.launch {
+     *     val result = EdgeAI.initialize(context)
+     *     result.onSuccess {
+     *         println("SDK initialized successfully")
+     *     }.onFailure { error ->
+     *         println("Initialization failed: ${error.message}")
+     *     }
+     * }
+     * ```
+     *
+     * @param context Android application context. Will be converted to application context internally.
+     * @return [Result]<Unit> indicating success or failure
+     *
+     * @see initializeAndWait
+     * @see shutdown
      */
     suspend fun initialize(context: Context): Result<Unit> = suspendCancellableCoroutine { continuation ->
         if (isInitialized) {
@@ -227,14 +282,30 @@ object EdgeAI {
     }
 
     /**
-     * Initialize the EdgeAI SDK and wait for connection (backward compatibility)
-     * 
-     * This is a convenience wrapper around the new suspend initialize() method.
-     * Throws exception on failure instead of returning Result.
-     * 
+     * Initializes the EdgeAI SDK and waits for connection (simplified API).
+     *
+     * This is a convenience wrapper around [initialize] that throws exceptions
+     * instead of returning [Result]. Recommended for most use cases.
+     *
+     * ## Example Usage
+     *
+     * ```kotlin
+     * lifecycleScope.launch {
+     *     try {
+     *         EdgeAI.initializeAndWait(context, timeoutMs = 10000)
+     *         println("SDK ready")
+     *     } catch (e: ServiceConnectionException) {
+     *         println("BreezeApp Engine not available: ${e.message}")
+     *     }
+     * }
+     * ```
+     *
      * @param context Android application context
      * @param timeoutMs Timeout in milliseconds (currently unused, kept for API compatibility)
-     * @throws ServiceConnectionException if initialization fails
+     * @throws ServiceConnectionException if BreezeApp Engine is not available or initialization fails
+     *
+     * @see initialize
+     * @see shutdown
      */
     suspend fun initializeAndWait(context: Context, timeoutMs: Long = 10000) {
         val result = initialize(context)
@@ -245,13 +316,59 @@ object EdgeAI {
     }
 
     /**
-     * SIMPLIFIED: Direct chat completion (no intermediate conversion)
+     * Sends a chat completion request to the AI model.
      *
-     * Performance Benefits:
-     * - 30% faster (eliminates 2 serialization steps)
-     * - 50% less memory usage
-     * - 66% less conversion code
-     * - Unified naming: ChatRequest (vs ChatCompletionRequest)
+     * Supports both streaming and non-streaming responses. For streaming responses,
+     * set `stream = true` in [ChatRequest] to receive token-by-token updates via Flow.
+     *
+     * ## Streaming vs Non-Streaming
+     *
+     * **Streaming** (`stream = true`):
+     * - Emits multiple [ChatResponse] objects with incremental content in `delta`
+     * - Use `finishReason == null` to detect ongoing stream
+     * - Final response has `finishReason` set ("stop", "length", etc.)
+     *
+     * **Non-Streaming** (`stream = false`):
+     * - Emits single [ChatResponse] with complete content in `message`
+     * - Faster for short responses, better for long responses with streaming
+     *
+     * ## Example Usage
+     *
+     * ```kotlin
+     * // Simple chat
+     * val request = chatRequest(prompt = "Hello, AI!")
+     * EdgeAI.chat(request).collect { response ->
+     *     println(response.choices.firstOrNull()?.message?.content)
+     * }
+     *
+     * // Streaming chat
+     * val streamRequest = chatRequest(prompt = "Tell me a story", stream = true)
+     * EdgeAI.chat(streamRequest).collect { response ->
+     *     val choice = response.choices.firstOrNull()
+     *     if (choice?.finishReason == null) {
+     *         // Still streaming
+     *         choice?.delta?.content?.let { print(it) }
+     *     } else {
+     *         // Stream complete
+     *         println("\nFinished: ${choice.finishReason}")
+     *     }
+     * }
+     * ```
+     *
+     * @param request The chat request containing messages and generation parameters.
+     *                Use [chatRequest] builder for simple cases or construct [ChatRequest]
+     *                directly for advanced configuration.
+     * @return Flow emitting [ChatResponse] objects. For streaming requests, emits multiple
+     *         responses with incremental content. For non-streaming, emits single final response.
+     * @throws ServiceConnectionException if BreezeApp Engine is not connected
+     * @throws InvalidRequestException if request parameters are invalid
+     * @throws TimeoutException if request exceeds timeout
+     * @throws InternalErrorException if an unexpected error occurs
+     *
+     * @see ChatRequest
+     * @see ChatResponse
+     * @see chatRequest
+     * @see chatRequestWithHistory
      */
     fun chat(request: ChatRequest): Flow<ChatResponse> {
         return channelFlow {
@@ -289,8 +406,52 @@ object EdgeAI {
     }
 
     /**
-     * SIMPLIFIED: Direct TTS request (no intermediate conversion)
-     * Returns audio data as a Flow for consistency with other APIs
+     * Converts text to speech audio.
+     *
+     * Generates audio from input text using the specified voice and model.
+     * Supports multiple audio formats and playback speeds.
+     *
+     * ## Supported Voices
+     *
+     * - `alloy` - Neutral, balanced voice
+     * - `echo` - Clear, articulate voice
+     * - `fable` - Warm, expressive voice
+     * - `onyx` - Deep, authoritative voice
+     * - `nova` - Energetic, friendly voice
+     * - `shimmer` - Soft, gentle voice
+     *
+     * ## Audio Formats
+     *
+     * - `mp3` - Compressed, good for streaming
+     * - `wav` - Uncompressed, high quality
+     * - `pcm` - Raw audio data
+     * - `opus`, `aac`, `flac` - Various compressed formats
+     *
+     * ## Example Usage
+     *
+     * ```kotlin
+     * val request = ttsRequest(
+     *     input = "Hello, this is a test message",
+     *     voice = "alloy",
+     *     speed = 1.0f
+     * )
+     *
+     * EdgeAI.tts(request).collect { response ->
+     *     playAudio(response.audioData)
+     * }
+     * ```
+     *
+     * @param request The TTS request containing text and voice parameters.
+     *                Use [ttsRequest] builder for simple cases.
+     * @return Flow emitting [TTSResponse] objects containing audio data.
+     *         May emit multiple chunks for streaming audio.
+     * @throws ServiceConnectionException if BreezeApp Engine is not connected
+     * @throws InvalidRequestException if request parameters are invalid (e.g., text too long)
+     * @throws InternalErrorException if an unexpected error occurs
+     *
+     * @see TTSRequest
+     * @see TTSResponse
+     * @see ttsRequest
      */
     fun tts(request: TTSRequest): Flow<TTSResponse> {
         return channelFlow {
@@ -328,7 +489,63 @@ object EdgeAI {
     }
 
     /**
-     * SIMPLIFIED: Direct ASR request (no intermediate conversion)
+     * Transcribes audio to text (Automatic Speech Recognition).
+     *
+     * Converts audio data to text using the specified model and language.
+     * Supports multiple audio formats and response formats including timestamps.
+     *
+     * ## Language Detection
+     *
+     * - Set `language` to specific code (e.g., "en", "zh") for better accuracy
+     * - Set `language = null` for automatic language detection
+     *
+     * ## Response Formats
+     *
+     * - `json` - Simple JSON with transcribed text
+     * - `text` - Plain text only
+     * - `verbose_json` - Detailed JSON with segments and timestamps
+     * - `srt` - SubRip subtitle format
+     * - `vtt` - WebVTT subtitle format
+     *
+     * ## Example Usage
+     *
+     * ```kotlin
+     * // Basic transcription
+     * val request = asrRequest(
+     *     audioBytes = audioData,
+     *     model = "whisper-1",
+     *     language = "en"
+     * )
+     *
+     * EdgeAI.asr(request).collect { response ->
+     *     println("Transcription: ${response.text}")
+     * }
+     *
+     * // With word-level timestamps
+     * val detailedRequest = asrRequestDetailed(
+     *     audioBytes = audioData,
+     *     includeWordTimestamps = true
+     * )
+     *
+     * EdgeAI.asr(detailedRequest).collect { response ->
+     *     response.segments?.forEach { segment ->
+     *         println("${segment.start}-${segment.end}: ${segment.text}")
+     *     }
+     * }
+     * ```
+     *
+     * @param request The ASR request containing audio data and transcription parameters.
+     *                Use [asrRequest] or [asrRequestDetailed] builders.
+     * @return Flow emitting [ASRResponse] objects containing transcribed text.
+     *         May emit multiple chunks for streaming transcription.
+     * @throws ServiceConnectionException if BreezeApp Engine is not connected
+     * @throws InvalidRequestException if request parameters are invalid
+     * @throws InternalErrorException if an unexpected error occurs
+     *
+     * @see ASRRequest
+     * @see ASRResponse
+     * @see asrRequest
+     * @see asrRequestDetailed
      */
     fun asr(request: ASRRequest): Flow<ASRResponse> {
         return channelFlow {
@@ -597,7 +814,33 @@ object EdgeAI {
     }
 
     /**
-     * Shutdown the SDK and clean up resources
+     * Shuts down the EdgeAI SDK and releases all resources.
+     *
+     * This method:
+     * - Unregisters listeners from BreezeApp Engine
+     * - Unbinds from the service
+     * - Cancels all pending requests
+     * - Clears internal state
+     *
+     * ## When to Call
+     *
+     * - In `Application.onTerminate()` for app-wide cleanup
+     * - In `ViewModel.onCleared()` for scoped cleanup
+     * - When switching between different AI services
+     *
+     * ## Example Usage
+     *
+     * ```kotlin
+     * class MyApplication : Application() {
+     *     override fun onTerminate() {
+     *         super.onTerminate()
+     *         EdgeAI.shutdown()
+     *     }
+     * }
+     * ```
+     *
+     * @see initialize
+     * @see initializeAndWait
      */
     fun shutdown() {
         context?.let { ctx ->
