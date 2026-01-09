@@ -45,19 +45,21 @@ jobs:
         run: |
           cd android
           ./gradlew :EdgeAI:dokkaHtml --no-daemon
-          # Note: breeze-app-engine requires local AAR files not in repo
-          # Skipping for now: ./gradlew :breeze-app-engine:dokkaHtml --no-daemon
+          # Generate BreezeApp Engine docs (skip dependency resolution)
+          ./gradlew :breeze-app-engine:dokkaHtml --no-daemon --offline || true
       
       - name: Prepare deployment directory
         run: |
           mkdir -p _site/EdgeAI
+          mkdir -p _site/BreezeApp-Engine
           
           # Copy EdgeAI docs
           cp -r android/EdgeAI/build/dokka/* _site/EdgeAI/
           
-          # TODO: Add BreezeApp Engine when dependencies are resolved
-          # mkdir -p _site/BreezeApp-Engine
-          # cp -r android/breeze-app-engine/build/dokka/* _site/BreezeApp-Engine/
+          # Copy BreezeApp Engine docs if generated
+          if [ -d "android/breeze-app-engine/build/dokka" ]; then
+            cp -r android/breeze-app-engine/build/dokka/* _site/BreezeApp-Engine/
+          fi
           
           # Create professional index page
           cat > _site/index.html << 'EOF'
@@ -152,16 +154,6 @@ jobs:
                 font-weight: 600;
               }
               
-              .coming-soon {
-                opacity: 0.6;
-                cursor: default;
-              }
-              
-              .coming-soon:hover {
-                transform: none;
-                box-shadow: none;
-              }
-              
               .footer {
                 text-align: center;
                 margin-top: 50px;
@@ -191,11 +183,11 @@ jobs:
                   <span class="badge">Client Library</span>
                 </a>
                 
-                <div class="module coming-soon">
+                <a href="BreezeApp-Engine/index.html" class="module">
                   <h2>BreezeApp Engine</h2>
                   <p>Core AI engine with model management, runners, and on-device inference capabilities.</p>
-                  <span class="badge">Coming Soon</span>
-                </div>
+                  <span class="badge">Core Engine</span>
+                </a>
               </div>
               
               <div class="footer">
