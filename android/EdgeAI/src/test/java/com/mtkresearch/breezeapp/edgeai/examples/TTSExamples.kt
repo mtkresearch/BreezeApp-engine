@@ -2,6 +2,7 @@ package com.mtkresearch.breezeapp.edgeai.examples
 
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.Assert.*
@@ -76,10 +77,11 @@ class TTSExamples : EdgeAITestBase() {
         // Get audio response
         val response = EdgeAI.tts(request).first()
 
-        // Verify audio data
-        assertNotNull("Should have audio data", response.audio)
-        assertTrue("Audio should not be empty", response.audio.isNotEmpty())
-        println("Generated ${response.audio.size} bytes of audio")
+        // Verify
+        assertNotNull("Should have audio data", response.audioData)
+        assertTrue("Audio should not be empty", response.audioData.isNotEmpty())
+        assertEquals("Format should be mp3", "mp3", response.format)
+        println("Generated ${response.audioData.size} bytes of audio")
     }
 
     /**
@@ -107,18 +109,20 @@ class TTSExamples : EdgeAITestBase() {
         val text = "This is a voice test."
         val voices = listOf("alloy", "echo", "fable", "onyx", "nova", "shimmer")
 
-        voices.forEach { voice ->
+        val responses = voices.associateWith { voice ->
             val request = ttsRequest(
                 input = text,
                 voice = voice,
                 format = "mp3"
             )
+            EdgeAI.tts(request).first()
+        }
 
-            val response = EdgeAI.tts(request).first()
-
-            assertNotNull("$voice should generate audio", response.audio)
-            assertTrue("$voice audio should not be empty", response.audio.isNotEmpty())
-            println("$voice: ${response.audio.size} bytes")
+        // Verify different voices produce audio
+        responses.forEach { (voice, response) ->
+            assertNotNull("$voice should produce audio", response.audioData)
+            assertTrue("$voice audio should not be empty", response.audioData.isNotEmpty())
+            println("✓ Voice '$voice': ${response.audioData.size} bytes")
         }
     }
 
@@ -146,18 +150,20 @@ class TTSExamples : EdgeAITestBase() {
         val text = "Testing audio formats."
         val formats = listOf("mp3", "opus", "aac", "flac", "wav", "pcm")
 
-        formats.forEach { format ->
+        val responses = formats.associateWith { format ->
             val request = ttsRequest(
                 input = text,
                 voice = "alloy",
                 format = format
             )
+            EdgeAI.tts(request).first()
+        }
 
-            val response = EdgeAI.tts(request).first()
-
-            assertNotNull("$format should generate audio", response.audio)
-            assertTrue("$format audio should not be empty", response.audio.isNotEmpty())
-            println("$format: ${response.audio.size} bytes")
+        // Verify different formats
+        responses.forEach { (format, response) ->
+            assertNotNull("$format should produce audio", response.audioData)
+            assertTrue("$format audio should not be empty", response.audioData.isNotEmpty())
+            println("✓ Format '$format': ${response.audioData.size} bytes")
         }
     }
 
@@ -182,18 +188,20 @@ class TTSExamples : EdgeAITestBase() {
         val text = "This is a speed test."
         val speeds = listOf(0.5f, 1.0f, 1.5f, 2.0f)
 
-        speeds.forEach { speed ->
+        val responses = speeds.associateWith { speed ->
             val request = ttsRequest(
                 input = text,
                 voice = "alloy",
                 speed = speed,
                 format = "mp3"
             )
+            EdgeAI.tts(request).first()
+        }
 
-            val response = EdgeAI.tts(request).first()
-
-            assertNotNull("Speed $speed should generate audio", response.audio)
-            println("Speed $speed: ${response.audio.size} bytes")
+        // Verify speed variations
+        responses.forEach { (speed, response) ->
+            assertNotNull("Speed $speed should produce audio", response.audioData)
+            println("✓ Speed $speed: ${response.audioData.size} bytes")
         }
     }
 

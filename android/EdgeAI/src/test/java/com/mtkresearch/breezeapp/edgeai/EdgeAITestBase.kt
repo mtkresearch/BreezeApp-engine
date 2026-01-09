@@ -59,4 +59,35 @@ abstract class EdgeAITestBase {
         // Cleanup after each test
         EdgeAI.shutdown()
     }
+    
+    // === Parameter Reading Helpers ===
+    
+    /**
+     * Read test parameter from system properties.
+     * 
+     * Usage in terminal:
+     * ```bash
+     * ./gradlew :EdgeAI:test -Dtest.prompt="Hello" --tests MyTest
+     * ```
+     * 
+     * Usage in test:
+     * ```kotlin
+     * val prompt = getTestParam("prompt", "default value")
+     * ```
+     */
+    protected fun getTestParam(key: String, default: String = ""): String {
+        return System.getProperty("test.$key") ?: default
+    }
+    
+    protected fun getTestParamFloat(key: String, default: Float): Float {
+        return System.getProperty("test.$key")?.toFloatOrNull() ?: default
+    }
+    
+    protected fun getTestParamInt(key: String, default: Int): Int {
+        return System.getProperty("test.$key")?.toIntOrNull() ?: default
+    }
+    
+    protected fun getTestParamBoolean(key: String, default: Boolean): Boolean {
+        return System.getProperty("test.$key")?.toBooleanStrictOrNull() ?: default
+    }
 }

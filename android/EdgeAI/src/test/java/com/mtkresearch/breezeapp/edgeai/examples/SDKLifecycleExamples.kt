@@ -1,6 +1,8 @@
 package com.mtkresearch.breezeapp.edgeai.examples
 
 import com.mtkresearch.breezeapp.edgeai.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.Assert.*
@@ -92,23 +94,12 @@ class SDKLifecycleExamples : EdgeAITestBase() {
      */
     @Test
     fun `02 - initialize and wait`() = runTest {
-        try {
-            EdgeAI.initializeAndWait(
-                context = mockContext(),
-                timeoutMs = 10000
-            )
+        // Initialize with timeout
+        EdgeAI.initializeAndWait(mockContext())
 
-            println("✓ SDK initialized successfully")
-            assertTrue("Should be initialized", EdgeAI.isInitialized())
-            assertTrue("Should be ready", EdgeAI.isReady())
-
-        } catch (e: ServiceConnectionException) {
-            println("✗ BreezeApp Engine not available")
-            // Show installation dialog
-        } catch (e: TimeoutException) {
-            println("✗ Initialization timeout")
-            // Retry or show error
-        }
+        println("✓ SDK initialized successfully")
+        assertTrue("Should be initialized", EdgeAI.isInitialized())
+        assertTrue("Should be ready", EdgeAI.isReady())
     }
 
     /**
@@ -184,95 +175,53 @@ class SDKLifecycleExamples : EdgeAITestBase() {
     }
 
     /**
-     * Example 05: ViewModel integration
+     * Example 05: Application-wide initialization
      *
-     * Shows recommended pattern for ViewModel integration.
-     *
-     * ## Pattern
-     * - Initialize in `init {}` block
-     * - Cleanup in `onCleared()`
-     * - Use StateFlow for reactive UI
-     *
-     * ## Benefits
-     * - Lifecycle-aware
-     * - Automatic cleanup
-     * - Reactive UI updates
-     *
-     */
-    @Test
-    fun `05 - ViewModel integration pattern`() = runTest {
-        class ChatViewModel : androidx.lifecycle.ViewModel() {
-            private val _isReady = kotlinx.coroutines.flow.MutableStateFlow(false)
-            val isReady = _isReady
-
-            init {
-                // Initialize SDK
-                kotlinx.coroutines.CoroutineScope(
-                    kotlinx.coroutines.Dispatchers.Main
-                ).launch {
-                    try {
-                        EdgeAI.initializeAndWait(mockContext())
-                        _isReady.value = true
-                    } catch (e: EdgeAIException) {
-                        _isReady.value = false
-                    }
-                }
-            }
-
-            override fun onCleared() {
-                super.onCleared()
-                EdgeAI.shutdown()
-            }
-        }
-
-        // Test ViewModel
-        val viewModel = ChatViewModel()
-        // In real app, observe viewModel.isReady in UI
-        println("ViewModel created, SDK initializing...")
-    }
-
-    /**
-     * Example 06: Application-wide initialization
-     *
-     * Shows pattern for app-wide SDK availability.
+     * Shows how to initialize EdgeAI once for the entire application.
      *
      * ## When to use
-     * - SDK needed throughout app
-     * - Multiple activities use AI
-     * - Background AI processing
+     * - Initialize in Application.onCreate()
+     * - Single initialization for all activities
+     * - Shared across app lifecycle
      *
-     * ## Pattern
-     * - Initialize in `Application.onCreate()`
-     * - SDK available to all components
-     * - Cleanup in `Application.onTerminate()` (rarely called)
-     *
+     * ## Best practices
+     * - Initialize early (Application.onCreate)
+     * - Handle initialization errors
+     * - Cleanup in Application.onTerminate() (rarely called)
      */
     @Test
-    fun `06 - Application wide initialization`() = runTest {
-        class MyApplication : android.app.Application() {
-            override fun onCreate() {
-                super.onCreate()
+    fun `05 - application-wide initialization`() = runTest {
+        val context = mockContext()
 
-                // Initialize SDK for entire app
-                kotlinx.coroutines.CoroutineScope(
-                    kotlinx.coroutines.Dispatchers.Main
-                ).launch {
+        // Simulate Application.onCreate()
+        class MyApplication {
+            fun onCreate() {
+                launch {
                     try {
-                        EdgeAI.initializeAndWait(this@MyApplication)
-                        println("✓ SDK ready for entire app")
-                    } catch (e: EdgeAIException) {
-                        println("✗ SDK initialization failed")
+                        EdgeAI.initializeAndWait(context)
+                        println("✓ EdgeAI initialized for app")
+                    } catch (e: Exception) {
+                        println("✗ Failed to initialize: ${e.message}")
                     }
                 }
             }
 
-            override fun onTerminate() {
-                super.onTerminate()
+            fun onTerminate() {
                 EdgeAI.shutdown()
+                println("✓ EdgeAI cleaned up")
             }
         }
 
-        println("Application-wide initialization pattern demonstrated")
+        val app = MyApplication()
+        app.onCreate()
+
+        // Wait for initialization
+        while (!EdgeAI.isReady()) {
+            delay(100)
+        }
+
+        assertTrue("Should be initialized", EdgeAI.isInitialized())
+        assertTrue("Should be ready", EdgeAI.isReady())
     }
 
     // === HELPER FUNCTIONS ===

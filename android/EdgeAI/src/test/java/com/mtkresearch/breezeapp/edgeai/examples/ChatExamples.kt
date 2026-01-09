@@ -3,6 +3,9 @@ package com.mtkresearch.breezeapp.edgeai.examples
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.Assert.*
@@ -318,6 +321,134 @@ class ChatExamples : EdgeAITestBase() {
 
         job.join()
         assertEquals("Should receive exactly 3 chunks", 3, chunkCount)
+    }
+
+    /**
+     * Parameterized test that accepts parameters from terminal.
+     * 
+     * ## Usage
+     * ```bash
+     * # Basic usage
+     * ./gradlew :EdgeAI:test \
+     *   -Dtest.prompt="你好" \
+     *   --tests "ChatExamples.parameterized chat test"
+     * 
+     * # With all parameters
+     * ./gradlew :EdgeAI:test \
+     *   -Dtest.prompt="解釋量子力學" \
+     *   -Dtest.model=llama-3.2-1b \
+     *   -Dtest.temperature=0.8 \
+     *   -Dtest.max_tokens=200 \
+     *   -Dtest.stream=true \
+     *   --tests "ChatExamples.parameterized chat test"
+     * ```
+     * 
+     * @see getTestParam for parameter reading
+     */
+    @Test
+    fun `parameterized chat test`() = runTest {
+        // Read parameters from system properties (or use defaults)
+        val prompt = getTestParam("prompt", "Hello, how are you?")
+        val model = getTestParam("model", "llama-3.2-1b")
+        val temperature = getTestParamFloat("temperature", 0.7f)
+        val maxTokens = getTestParamInt("max_tokens", 100)
+        val stream = getTestParamBoolean("stream", true)
+        
+        println("=== Parameterized Chat Test ===")
+        println("Prompt: $prompt")
+        println("Model: $model")
+        println("Temperature: $temperature")
+        println("Max Tokens: $maxTokens")
+        println("Stream: $stream")
+        println()
+        
+        val request = ChatRequest(
+            model = model,
+            messages = listOf(ChatMessage(role = "user", content = prompt)),
+            temperature = temperature,
+            maxCompletionTokens = maxTokens,
+            stream = stream
+        )
+        
+        val startTime = System.currentTimeMillis()
+        var tokenCount = 0
+        
+        if (stream) {
+            println("Response (streaming):")
+            println("---")
+            EdgeAI.chat(request).collect { response ->
+                response.choices.firstOrNull()?.delta?.content?.let { token ->
+                    print(token)
+                    tokenCount++
+                }
+            }
+            println()
+        } else {
+            println("Response (non-streaming):")
+            println("---")
+            val response = EdgeAI.chat(request).first()
+            val content = response.choices.first().message?.content
+            println(content)
+        }
+        
+        val duration = System.currentTimeMillis() - startTime
+        
+        println("---")
+        println("\n=== Metrics ===")
+        println("Duration: ${duration}ms")
+        if (stream) {
+            println("Tokens: $tokenCount")
+            println("Tokens/sec: ${tokenCount * 1000f / duration}")
+        }
+    }
+
+    /**
+     * Compare different runners with same prompt.
+     * 
+     * ## Usage
+     * ```bash
+     * ./gradlew :EdgeAI:test \
+     *   -Dtest.prompt="What is AI?" \
+     *   --tests "ChatExamples.compare runners test"
+     * ```
+     */
+    @Test
+    fun `compare runners test`() = runTest {
+        val prompt = getTestParam("prompt", "What is AI?")
+        
+        val models = listOf(
+            "llama-3.2-1b" to "ExecutorchLLMRunner",
+            "mock-llm" to "MockLLMRunner"
+        )
+        
+        println("=== Comparing Runners ===")
+        println("Prompt: $prompt")
+        println()
+        
+        models.forEach { (model, runnerName) ->
+            println("--- Testing $runnerName (model: $model) ---")
+            
+            val request = ChatRequest(
+                model = model,
+                messages = listOf(ChatMessage(role = "user", content = prompt)),
+                stream = false
+            )
+            
+            val startTime = System.currentTimeMillis()
+            
+            try {
+                val response = EdgeAI.chat(request).first()
+                val duration = System.currentTimeMillis() - startTime
+                val content = response.choices.first().message?.content
+                
+                println("Duration: ${duration}ms")
+                println("Response: ${content?.take(100)}...")
+                println()
+            } catch (e: Exception) {
+                println("Error: ${e.message}")
+                println()
+            }
+        }
     }
 
 }

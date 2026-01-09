@@ -2,6 +2,7 @@ package com.mtkresearch.breezeapp.edgeai.examples
 
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.Assert.*
@@ -118,6 +119,15 @@ class ASRExamples : EdgeAITestBase() {
         assertNotNull("Should detect language", response.language)
         println("Detected language: ${response.language}")
         println("Transcription: ${response.text}")
+
+        // Verify verbose response has segments
+        assertNotNull("Should have segments", response.segments)
+        assertTrue("Should have at least one segment", response.segments!!.isNotEmpty())
+        
+        // Print segment details
+        response.segments!!.forEach { segment ->
+            println("Segment: ${segment.text}")
+        }
     }
 
     /**
@@ -234,6 +244,16 @@ class ASRExamples : EdgeAITestBase() {
         )
 
         val response = EdgeAI.asr(request).first()
+
+        // Verify segments
+        val segments = response.segments
+        assertNotNull("Should have segments", segments)
+        assertTrue("Should have multiple segments", segments!!.size > 1)
+        
+        println("Total segments: ${segments.size}")
+        segments.forEach { segment ->
+            println("  - ${segment.text}")
+        }
 
         // Process word-level timestamps
         response.words?.forEachIndexed { index, word ->
