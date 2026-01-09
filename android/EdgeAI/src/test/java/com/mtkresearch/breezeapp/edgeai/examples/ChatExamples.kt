@@ -4,10 +4,10 @@ import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import org.junit.After
-import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * Chat API examples for EdgeAI SDK.
@@ -38,17 +38,9 @@ import org.junit.Assert.*
  * @see TTSExamples for text-to-speech
  * @see ASRExamples for speech-to-text
  */
-class ChatExamples {
-
-    @Before
-    fun setUp() {
-        EdgeAI.shutdown()
-    }
-
-    @After
-    fun tearDown() {
-        EdgeAI.shutdown()
-    }
+@RunWith(RobolectricTestRunner::class)
+class ChatExamples : EdgeAITestBase() {
+    // setUp/tearDown inherited from EdgeAITestBase
 
     /**
      * Example 01: Basic chat completion (non-streaming)
@@ -328,9 +320,4 @@ class ChatExamples {
         assertEquals("Should receive exactly 3 chunks", 3, chunkCount)
     }
 
-    // === HELPER FUNCTIONS ===
-
-    private fun mockContext(): android.content.Context {
-        return org.mockito.Mockito.mock(android.content.Context::class.java)
-    }
 }

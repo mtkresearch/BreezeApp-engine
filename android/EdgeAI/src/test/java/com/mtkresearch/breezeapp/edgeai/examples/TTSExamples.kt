@@ -3,10 +3,10 @@ package com.mtkresearch.breezeapp.edgeai.examples
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import org.junit.After
-import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * TTS (Text-to-Speech) API examples for EdgeAI SDK.
@@ -35,17 +35,9 @@ import org.junit.Assert.*
  * @see ChatExamples for chat API
  * @see ASRExamples for speech-to-text
  */
-class TTSExamples {
-
-    @Before
-    fun setUp() {
-        EdgeAI.shutdown()
-    }
-
-    @After
-    fun tearDown() {
-        EdgeAI.shutdown()
-    }
+@RunWith(RobolectricTestRunner::class)
+class TTSExamples : EdgeAITestBase() {
+    // setUp/tearDown inherited from EdgeAITestBase
 
     /**
      * Example 01: Basic text-to-speech

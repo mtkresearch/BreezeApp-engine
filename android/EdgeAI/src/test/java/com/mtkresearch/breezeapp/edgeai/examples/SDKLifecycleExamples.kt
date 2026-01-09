@@ -2,10 +2,10 @@ package com.mtkresearch.breezeapp.edgeai.examples
 
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.test.runTest
-import org.junit.After
-import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * SDK Lifecycle examples for EdgeAI SDK.
@@ -34,17 +34,9 @@ import org.junit.Assert.*
  * @see TTSExamples for text-to-speech
  * @see ASRExamples for speech-to-text
  */
-class SDKLifecycleExamples {
-
-    @Before
-    fun setUp() {
-        EdgeAI.shutdown()
-    }
-
-    @After
-    fun tearDown() {
-        EdgeAI.shutdown()
-    }
+@RunWith(RobolectricTestRunner::class)
+class SDKLifecycleExamples : EdgeAITestBase() {
+    // setUp/tearDown inherited from EdgeAITestBase
 
     /**
      * Example 01: Initialize with Result (no exceptions)
