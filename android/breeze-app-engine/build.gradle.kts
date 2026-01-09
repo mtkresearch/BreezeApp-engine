@@ -113,13 +113,6 @@ dependencies {
     
     // Annotation-based runner discovery
     implementation("io.github.classgraph:classgraph:4.8.165")
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.20")
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.10")
