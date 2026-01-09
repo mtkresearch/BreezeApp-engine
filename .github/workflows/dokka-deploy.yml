@@ -45,16 +45,19 @@ jobs:
         run: |
           cd android
           ./gradlew :EdgeAI:dokkaHtml --no-daemon
-          ./gradlew :breeze-app-engine:dokkaHtml --no-daemon
+          # Note: breeze-app-engine requires local AAR files not in repo
+          # Skipping for now: ./gradlew :breeze-app-engine:dokkaHtml --no-daemon
       
       - name: Prepare deployment directory
         run: |
           mkdir -p _site/EdgeAI
-          mkdir -p _site/BreezeApp-Engine
           
-          # Copy generated docs
+          # Copy EdgeAI docs
           cp -r android/EdgeAI/build/dokka/* _site/EdgeAI/
-          cp -r android/breeze-app-engine/build/dokka/* _site/BreezeApp-Engine/
+          
+          # TODO: Add BreezeApp Engine when dependencies are resolved
+          # mkdir -p _site/BreezeApp-Engine
+          # cp -r android/breeze-app-engine/build/dokka/* _site/BreezeApp-Engine/
           
           # Create professional index page
           cat > _site/index.html << 'EOF'
@@ -149,6 +152,16 @@ jobs:
                 font-weight: 600;
               }
               
+              .coming-soon {
+                opacity: 0.6;
+                cursor: default;
+              }
+              
+              .coming-soon:hover {
+                transform: none;
+                box-shadow: none;
+              }
+              
               .footer {
                 text-align: center;
                 margin-top: 50px;
@@ -178,11 +191,11 @@ jobs:
                   <span class="badge">Client Library</span>
                 </a>
                 
-                <a href="BreezeApp-Engine/index.html" class="module">
+                <div class="module coming-soon">
                   <h2>BreezeApp Engine</h2>
                   <p>Core AI engine with model management, runners, and on-device inference capabilities.</p>
-                  <span class="badge">Core Engine</span>
-                </a>
+                  <span class="badge">Coming Soon</span>
+                </div>
               </div>
               
               <div class="footer">
