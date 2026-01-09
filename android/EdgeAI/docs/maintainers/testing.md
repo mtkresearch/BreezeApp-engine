@@ -30,6 +30,18 @@ Integration tests require BreezeApp Engine installed on device/emulator:
 - [`EdgeAITest.kt`](../../src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAITest.kt) - All API tests
 - [`EdgeAIUsageExample.kt`](../../src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt) - Usage patterns
 
+## Writing Tests
+
+**Unit tests**:
+- Test individual functions
+- Mock dependencies
+- Fast execution
+
+**Integration tests**:
+- Test with real BreezeApp Engine
+- Test AIDL communication
+- Test end-to-end flows
+
 ## Test Coverage
 
 Ensure your changes maintain or improve test coverage:

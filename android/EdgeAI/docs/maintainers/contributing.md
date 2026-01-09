@@ -39,6 +39,23 @@ When adding or changing APIs:
 2. Add examples to unit tests
 3. Update this README if needed
 
+## Pull Request Process
+
+1. Ensure tests pass: `./gradlew :EdgeAI:test`
+2. Update documentation if API changes
+3. Request review from maintainers
+4. Address review feedback
+5. Maintainer will merge when approved
+
+## Commit Messages
+
+Follow conventional commits:
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation
+- `test:` - Tests
+- `chore:` - Maintenance
+
 ## Related Documentation
 
 - **[Testing](./testing.md)** - How to test your changes
