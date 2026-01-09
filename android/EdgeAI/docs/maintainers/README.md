@@ -50,8 +50,9 @@ git checkout -b feature/your-feature
 2. Add data models (`*Models.kt`)
 3. Add SDK method (`EdgeAI.kt`)
 4. Add builder (`EdgeAIBuilders.kt`)
-5. Add tests
-6. Update `../client-developers/api-reference.md`
+5. Add KDoc comments with examples
+6. Add tests (`EdgeAIUsageExample.kt`)
+7. Run `./gradlew :EdgeAI:dokkaHtml` to update docs
 
 **Example**: See `chat()` implementation
 

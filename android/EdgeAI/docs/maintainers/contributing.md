@@ -35,8 +35,8 @@
 
 When adding or changing APIs:
 
-1. Update [`api-reference.md`](../client-developers/api-reference.md)
-2. Add examples to unit tests
+1. Add KDoc comments to the function in `EdgeAI.kt`
+2. Add examples to unit tests (`EdgeAIUsageExample.kt`)
 3. Update this README if needed
 
 ## Pull Request Process
