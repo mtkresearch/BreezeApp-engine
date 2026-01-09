@@ -6,6 +6,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("kotlin-parcelize")
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.23"
+    id("org.jetbrains.dokka") version "1.9.10"
 }
 
 android {
@@ -107,12 +108,18 @@ dependencies {
     implementation("com.squareup.okio:okio:3.6.0")
 
     implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     
     // Annotation-based runner discovery
     implementation("io.github.classgraph:classgraph:4.8.165")
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.20")
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.10")
@@ -135,4 +142,18 @@ dependencies {
     testImplementation("org.mockito:mockito-inline:4.11.0")
     testImplementation("org.mockito.kotlin:mockito-kotlin:4.1.0")
     testImplementation("org.robolectric:robolectric:4.11.1")
+}
+
+// Dokka configuration for Runner API documentation
+tasks.register("dokkaHtml", org.jetbrains.dokka.gradle.DokkaTask::class) {
+    outputDirectory.set(file("$projectDir/build/dokka"))
+    
+    dokkaSourceSets {
+        named("main") {
+            moduleName.set("BreezeApp Engine - Runner API")
+            
+            // Include runner package
+            includes.from("src/main/java/com/mtkresearch/breezeapp/engine/runner/package.md")
+        }
+    }
 }
