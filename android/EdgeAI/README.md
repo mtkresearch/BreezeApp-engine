@@ -154,32 +154,6 @@ override fun onDestroy() {
 
 ---
 
-## Documentation
-
-### 📱 For Client App Developers
-
-**Complete guides**: [docs/client-developers/](./docs/client-developers/)
-
-- **[Getting Started](./docs/client-developers/getting-started.md)** - Installation & first API call
-- **[API Reference](./docs/client-developers/api-reference.md)** - Complete API documentation
-- **[Usage Guide](./docs/client-developers/usage-guide.md)** - Advanced usage & configuration
-- **[Error Handling](./docs/client-developers/error-handling.md)** - Exception types & handling
-- **[Best Practices](./docs/client-developers/best-practices.md)** - Lifecycle & UI integration
-
-### 🔧 For SDK Maintainers
-
-**Complete guides**: [docs/maintainers/](./docs/maintainers/)
-
-- **[Architecture](./docs/maintainers/architecture.md)** - SDK design & AIDL communication
-- **[Contributing](./docs/maintainers/contributing.md)** - Development workflow
-- **[Testing](./docs/maintainers/testing.md)** - Unit tests & integration tests
-- **[Release Process](./docs/maintainers/release-process.md)** - Publishing to JitPack
-
-### Related Documentation
-
-- **[BreezeApp Engine](../breeze-app-engine/README.md)** - Engine architecture
-- **[Model Management](../../docs/guides/model-management.md)** - Model lifecycle
-
 ---
 
 ## SDK Architecture
