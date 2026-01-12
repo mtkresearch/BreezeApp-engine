@@ -60,8 +60,7 @@ class SDKLifecycleExamples : EdgeAITestBase() {
     @Test
     fun `01 - initialize with Result`() = runTest {
         val result = EdgeAI.initialize(
-            context = mockContext(),
-            timeoutMs = 10000
+            context = mockContext()
         )
 
         result.onSuccess {
@@ -95,8 +94,7 @@ class SDKLifecycleExamples : EdgeAITestBase() {
     fun `02 - initialize and wait`() = runTest {
         try {
             EdgeAI.initializeAndWait(
-                context = mockContext(),
-                timeoutMs = 10000
+                context = mockContext()
             )
 
             println("✓ SDK initialized successfully")

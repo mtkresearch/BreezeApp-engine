@@ -111,7 +111,7 @@ class ASRExamples : EdgeAITestBase() {
 
         // Don't specify language - let API detect
         val request = ASRRequest(
-            file = audioData,
+            _file = audioBytes,
             model = "whisper-1",
             responseFormat = "verbose_json"  // Get language info
         )
@@ -207,8 +207,7 @@ class ASRExamples : EdgeAITestBase() {
         println("Verbose JSON format:")
         println("  Text: ${verboseResponse.text}")
         println("  Language: ${verboseResponse.language}")
-        println("  Duration: ${verboseResponse.duration}")
-        println("  Words: ${verboseResponse.words?.size ?: 0}")
+        println("  Segments: ${verboseResponse.segments?.size ?: 0}")
     }
 
     /**
@@ -239,12 +238,12 @@ class ASRExamples : EdgeAITestBase() {
 
         val response = EdgeAI.asr(request).first()
 
-        // Process word-level timestamps
-        response.segments?.forEachIndexed { index, word ->
-            println("Word ${index + 1}: '${word.word}' at ${word.start}s - ${word.end}s")
+        // Process segment timestamps
+        response.segments?.forEachIndexed { index, segment ->
+            println("Segment ${index + 1}: '${segment.text}'")
         }
 
-        assertNotNull("Should have words", response.segments)
+        assertNotNull("Should have segments", response.segments)
     }
 
     /**
