@@ -2,6 +2,10 @@ package com.mtkresearch.breezeapp.edgeai.examples
 
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.Assert.*
@@ -77,9 +81,9 @@ class TTSExamples : EdgeAITestBase() {
         val response = EdgeAI.tts(request).first()
 
         // Verify audio data
-        assertNotNull("Should have audio data", response.audio)
-        assertTrue("Audio should not be empty", response.audio.isNotEmpty())
-        println("Generated ${response.audio.size} bytes of audio")
+        assertNotNull("Should have audio data", response.audioData)
+        assertTrue("Audio should not be empty", response.audioData.isNotEmpty())
+        println("Generated ${response.audioData.size} bytes of audio")
     }
 
     /**
@@ -116,9 +120,9 @@ class TTSExamples : EdgeAITestBase() {
 
             val response = EdgeAI.tts(request).first()
 
-            assertNotNull("$voice should generate audio", response.audio)
-            assertTrue("$voice audio should not be empty", response.audio.isNotEmpty())
-            println("$voice: ${response.audio.size} bytes")
+            assertNotNull("$voice should generate audio", response.audioData)
+            assertTrue("$voice audio should not be empty", response.audioData.isNotEmpty())
+            println("$voice: ${response.audioData.size} bytes")
         }
     }
 
@@ -155,9 +159,9 @@ class TTSExamples : EdgeAITestBase() {
 
             val response = EdgeAI.tts(request).first()
 
-            assertNotNull("$format should generate audio", response.audio)
-            assertTrue("$format audio should not be empty", response.audio.isNotEmpty())
-            println("$format: ${response.audio.size} bytes")
+            assertNotNull("$format should generate audio", response.audioData)
+            assertTrue("$format audio should not be empty", response.audioData.isNotEmpty())
+            println("$format: ${response.audioData.size} bytes")
         }
     }
 
@@ -192,8 +196,8 @@ class TTSExamples : EdgeAITestBase() {
 
             val response = EdgeAI.tts(request).first()
 
-            assertNotNull("Speed $speed should generate audio", response.audio)
-            println("Speed $speed: ${response.audio.size} bytes")
+            assertNotNull("Speed $speed should generate audio", response.audioData)
+            println("Speed $speed: ${response.audioData.size} bytes")
         }
     }
 
@@ -204,7 +208,7 @@ class TTSExamples : EdgeAITestBase() {
      *
      * ## Common errors
      * - `ServiceConnectionException`: BreezeApp Engine unavailable
-     * - `InvalidRequestException`: Invalid parameters (empty input, invalid voice)
+     * - `InvalidInputException`: Invalid parameters (empty input, invalid voice)
      * - `TimeoutException`: Audio generation took too long
      *
      * ## Recovery strategies
@@ -227,7 +231,7 @@ class TTSExamples : EdgeAITestBase() {
                         println("⚠ Service unavailable")
                         // Show installation dialog
                     }
-                    is InvalidRequestException -> {
+                    is InvalidInputException -> {
                         println("⚠ Invalid input: ${error.message}")
                         // Validate and retry
                     }
@@ -241,7 +245,7 @@ class TTSExamples : EdgeAITestBase() {
                 }
             }
             .collect { response ->
-                println("✓ Success: ${response.audio.size} bytes")
+                println("✓ Success: ${response.audioData.size} bytes")
             }
     }
 
@@ -283,9 +287,9 @@ class TTSExamples : EdgeAITestBase() {
             )
 
             val response = EdgeAI.tts(request).first()
-            audioChunks.add(response.audio)
+            audioChunks.add(response.audioData)
 
-            println("Chunk ${index + 1}/${chunks.size}: ${response.audio.size} bytes")
+            println("Chunk ${index + 1}/${chunks.size}: ${response.audioData.size} bytes")
         }
 
         // Verify all chunks generated

@@ -3,6 +3,10 @@ package com.mtkresearch.breezeapp.edgeai.examples
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.Assert.*
@@ -238,7 +242,7 @@ class ChatExamples : EdgeAITestBase() {
      *
      * ## Common errors
      * - `ServiceConnectionException`: BreezeApp Engine unavailable
-     * - `InvalidRequestException`: Bad parameters (empty prompt, invalid temperature)
+     * - `InvalidInputException`: Bad parameters (empty prompt, invalid temperature)
      * - `TimeoutException`: Request took too long
      *
      * ## Recovery strategies
@@ -259,7 +263,7 @@ class ChatExamples : EdgeAITestBase() {
                         println("⚠ Service unavailable")
                         // Show installation dialog
                     }
-                    is InvalidRequestException -> {
+                    is InvalidInputException -> {
                         println("⚠ Invalid input: ${error.message}")
                         // Validate and retry
                     }

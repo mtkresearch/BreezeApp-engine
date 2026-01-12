@@ -131,15 +131,18 @@ class ConversationBuilder {
  * @param voice Voice to use (alloy, echo, fable, onyx, nova, shimmer)
  * @param speed Speech speed (0.25-4.0, default 1.0)
  * @param format Audio format (mp3, opus, aac, flac, wav, pcm)
+ * @param model TTS model (default: tts-1)
  */
 fun ttsRequest(
     input: String,
     voice: String = "alloy",
     speed: Float = 1.0f,
-    format: String = "mp3"
+    format: String = "mp3",
+    model: String = "tts-1"
 ): TTSRequest {
     return TTSRequest(
         input = input,
+        model = model,
         voice = voice,
         speed = speed,
         responseFormat = format
@@ -159,15 +162,17 @@ fun ttsRequest(
  * @param audioData The audio file as bytes
  * @param language Language code (null = auto-detect)
  * @param responseFormat "json" (simple) or "verbose_json" (detailed)
+ * @param model ASR model (default: whisper-1)
  */
 fun asrRequest(
     audioData: ByteArray,
     language: String? = null,
-    responseFormat: String = "json"
+    responseFormat: String = "json",
+    model: String = "whisper-1"
 ): ASRRequest {
     return ASRRequest(
-        file = audioData,
-        model = "whisper-1",
+        _file = audioData,
+        model = model,
         language = language,
         responseFormat = responseFormat
     )

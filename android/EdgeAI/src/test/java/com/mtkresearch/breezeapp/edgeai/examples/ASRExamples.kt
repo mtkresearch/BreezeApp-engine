@@ -2,6 +2,10 @@ package com.mtkresearch.breezeapp.edgeai.examples
 
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.Assert.*
@@ -107,7 +111,7 @@ class ASRExamples : EdgeAITestBase() {
 
         // Don't specify language - let API detect
         val request = ASRRequest(
-            file = audioBytes,
+            file = audioData,
             model = "whisper-1",
             responseFormat = "verbose_json"  // Get language info
         )
@@ -220,7 +224,7 @@ class ASRExamples : EdgeAITestBase() {
      *
      * ## How to get timestamps
      * - Use `responseFormat = "verbose_json"`
-     * - Access `response.words` array
+     * - Access `response.segments` array
      * - Each word has `word`, `start`, `end` fields
      *
      */
@@ -236,11 +240,11 @@ class ASRExamples : EdgeAITestBase() {
         val response = EdgeAI.asr(request).first()
 
         // Process word-level timestamps
-        response.words?.forEachIndexed { index, word ->
+        response.segments?.forEachIndexed { index, word ->
             println("Word ${index + 1}: '${word.word}' at ${word.start}s - ${word.end}s")
         }
 
-        assertNotNull("Should have words", response.words)
+        assertNotNull("Should have words", response.segments)
     }
 
     /**
@@ -250,7 +254,7 @@ class ASRExamples : EdgeAITestBase() {
      *
      * ## Common errors
      * - `ServiceConnectionException`: BreezeApp Engine unavailable
-     * - `InvalidRequestException`: Invalid audio format, empty audio
+     * - `InvalidInputException`: Invalid audio format, empty audio
      * - `TimeoutException`: Transcription took too long
      *
      * ## Recovery strategies
@@ -272,7 +276,7 @@ class ASRExamples : EdgeAITestBase() {
                         println("⚠ Service unavailable")
                         // Show installation dialog
                     }
-                    is InvalidRequestException -> {
+                    is InvalidInputException -> {
                         println("⚠ Invalid audio: ${error.message}")
                         // Validate audio format
                     }

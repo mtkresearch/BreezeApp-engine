@@ -2,6 +2,7 @@ package com.mtkresearch.breezeapp.edgeai.examples
 
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.launch
 import org.junit.Test
 import org.junit.Assert.*
 import org.junit.runner.RunWith
