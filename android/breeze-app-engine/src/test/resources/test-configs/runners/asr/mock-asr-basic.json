@@ -1,0 +1,69 @@
+{
+    "runnerClass": "com.mtkresearch.breezeapp.engine.runner.mock.MockASRRunner",
+    "modelId": "mock-asr-basic",
+    "description": "MockASRRunner 基本功能測試配置",
+    "tags": [
+        "mock",
+        "asr",
+        "basic",
+        "ci-required"
+    ],
+    "parameters": {
+        "sample_rate": "16000",
+        "language": "zh-TW",
+        "enable_punctuation": "true"
+    },
+    "testCases": [
+        {
+            "name": "基本音訊轉錄",
+            "description": "驗證基本音訊輸入能產生文字輸出",
+            "input": {
+                "audio_duration_ms": "1000",
+                "sample_rate": "16000"
+            },
+            "assertions": [
+                {
+                    "type": "NO_ERROR",
+                    "field": ""
+                },
+                {
+                    "type": "OUTPUT_NOT_EMPTY",
+                    "field": "text"
+                }
+            ]
+        },
+        {
+            "name": "長音訊處理",
+            "description": "驗證長音訊輸入的處理能力",
+            "input": {
+                "audio_duration_ms": "5000",
+                "sample_rate": "16000"
+            },
+            "assertions": [
+                {
+                    "type": "NO_ERROR",
+                    "field": ""
+                }
+            ]
+        },
+        {
+            "name": "靜音處理",
+            "description": "驗證靜音音訊的處理",
+            "input": {
+                "audio_type": "silent",
+                "audio_duration_ms": "500"
+            },
+            "assertions": [
+                {
+                    "type": "NO_ERROR",
+                    "field": ""
+                }
+            ]
+        }
+    ],
+    "expectedBehavior": {
+        "shouldSucceed": true,
+        "maxResponseTimeMs": 5000
+    },
+    "timeoutMs": 30000
+}

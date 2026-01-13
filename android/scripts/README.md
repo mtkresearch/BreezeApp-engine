@@ -1,10 +1,70 @@
 # BreezeApp-engine Scripts
 
-Automated scripts for building, releasing, and configuring BreezeApp-engine.
+Automated scripts for building, releasing, testing and configuring BreezeApp-engine.
 
 ---
 
 ## 📜 Available Scripts
+
+### 0. `runner-test.sh` (NEW)
+
+**Location**: `android/scripts/runner-test.sh`
+
+**Purpose**: Terminal-based testing tool for AI Runners. Allows developers to verify Runner compliance and test with dynamic parameters.
+
+**Usage**:
+```bash
+cd android/scripts
+./runner-test.sh [OPTIONS] <COMMAND> [RUNNER_TYPE]
+```
+
+**Commands**:
+- `test` - Execute Runner tests
+- `quick-test` - Run rapid single-input tests (CLI optimized)
+- `verify` - Verify Runner contract compliance
+- `list` - List all available Runners
+- `help` - Show help message
+
+**Examples**:
+```bash
+# Test all LLM Runners
+./runner-test.sh test llm
+
+# Test specific Runner with custom parameters
+./runner-test.sh --runner=MockLLMRunner \
+  --param:temperature=0.7 \
+  --param:max_tokens=1024 \
+  test llm
+
+# Use config file for testing
+./runner-test.sh --config=test-configs/runners/llm/mock-llm-basic.json test
+
+# CI mode with JUnit output
+./runner-test.sh --ci --output=junit test all
+
+# Quick Test (Rapid Feedback)
+./runner-test.sh --runner=MockLLMRunner \
+  --input="Hello World" \
+  --expect-contains="Hello" \
+  quick-test
+```
+
+**Options**:
+- `--runner=<CLASS>` - Specify Runner class name
+- `--config=<FILE>` - Load test configuration from JSON
+- `--param:<KEY>=<VAL>` - Override specific parameters
+- `--model=<ID>` - Specify model ID
+- `--input=<TEXT>` - Input text for quick-test
+- `--expect=<TEXT>` - Expected exact output for quick-test
+- `--expect-contains=<TEXT>` - Expected partial output for quick-test
+- `--output=<FORMAT>` - Output format (console/json/junit)
+- `--ci` - CI mode: strict execution
+- `--mock-only` - Only run Mock tests
+- `--verbose` - Detailed output
+
+For detailed documentation, see [Testing Guide](../docs/guides/testing-guide.md).
+
+---
 
 ### 1. `setup-keystore.sh`
 

@@ -82,6 +82,22 @@ android {
             excludes += "META-INF/DEPENDENCIES"
         }
     }
+    
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all { test ->
+                // Forward system properties prefixed with "test." to the test JVM
+                // This is required for CommandLineQuickTest to receive CLI arguments
+                System.getProperties().forEach { (k, v) ->
+                    if (k.toString().startsWith("test.")) {
+                        test.systemProperty(k.toString(), v)
+                    }
+                }
+            }
+        }
+    }
+
     sourceSets {
         getByName("main") {
             java.srcDirs("src/main/java")
