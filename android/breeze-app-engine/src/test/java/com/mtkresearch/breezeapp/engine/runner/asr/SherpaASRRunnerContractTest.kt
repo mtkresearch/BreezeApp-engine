@@ -3,15 +3,17 @@ package com.mtkresearch.breezeapp.engine.runner.asr
 import android.content.Context
 import com.mtkresearch.breezeapp.engine.runner.llm.RunnerContractTest
 import com.mtkresearch.breezeapp.engine.runner.sherpa.SherpaASRRunner
+import com.mtkresearch.breezeapp.engine.test.TestPrerequisites
 import io.mockk.every
 import io.mockk.mockk
+import org.junit.Before
 import org.junit.experimental.categories.Category
 import java.io.File
 
 /**
  * SherpaASRRunnerContractTest - Sherpa ONNX Streaming ASR Runner 合規性測試
  * 
- * 注意：這個 Runner 需要 Android Context，使用 MockK 模擬
+ * Requires: Sherpa ONNX model files and native libraries
  */
 @Category(RunnerContractTest::class)
 class SherpaASRRunnerContractTest : ASRRunnerContractTest<SherpaASRRunner>() {
@@ -22,7 +24,13 @@ class SherpaASRRunnerContractTest : ASRRunnerContractTest<SherpaASRRunner>() {
         every { applicationContext } returns this
     }
     
+    @Before
+    fun checkPrerequisites() {
+        TestPrerequisites.requireNativeLibrary("sherpa-onnx")
+    }
+    
     override fun createRunner(): SherpaASRRunner = SherpaASRRunner(mockContext)
     
     override val defaultModelId: String = "sherpa-asr-streaming"
 }
+
