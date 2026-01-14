@@ -75,6 +75,60 @@ For more detailed streaming patterns and best practices, refer to: [Streaming Im
 - `MEDIATEK` - NPU acceleration
 - `UNKNOWN` - Custom/unspecified
 
+## Step 4: Create Tests for Your Runner
+
+Every new Runner should have corresponding contract tests to ensure compliance with the interface.
+
+### Create Contract Test Class
+
+```kotlin
+// For LLM Runners - inherit from LLMRunnerContractTest
+class MyLLMRunnerContractTest : LLMRunnerContractTest<MyLLMRunner>() {
+    override fun createRunner() = MyLLMRunner()
+    override val defaultModelId = "my-model-id"
+}
+
+// For ASR Runners - inherit from ASRRunnerContractTest
+class MyASRRunnerContractTest : ASRRunnerContractTest<MyASRRunner>() {
+    override fun createRunner() = MyASRRunner()
+    override val defaultModelId = "my-asr-model"
+}
+
+// For TTS Runners - inherit from TTSRunnerContractTest
+class MyTTSRunnerContractTest : TTSRunnerContractTest<MyTTSRunner>() {
+    override fun createRunner() = MyTTSRunner()
+    override val defaultModelId = "my-tts-model"
+}
+```
+
+### Run Your Tests
+
+```bash
+# Via CLI tool
+cd android/scripts
+./runner-test.sh --runner=MyLLMRunner verify llm
+
+# Via Gradle
+./gradlew :breeze-app-engine:testDebugUnitTest --tests "*MyLLMRunnerContractTest*"
+```
+
+### Test Coverage
+
+Your Runner will automatically be tested for:
+
+| Category | Tests |
+|----------|-------|
+| **Lifecycle** | load, unload, isLoaded, idempotency |
+| **Run** | valid input, empty input, not-loaded error |
+| **Info** | getRunnerInfo, getCapabilities, isSupported |
+| **Parameters** | getParameterSchema, validateParameters |
+| **Errors** | error codes, error messages |
+
+For LLM Runners with streaming:
+- `runAsFlow` emission, partial results, cancellation handling
+
+For detailed testing documentation, see [Testing Guide](testing-guide.md).
+
 ## Examples
 
 ### LLM Runner Example
@@ -129,6 +183,40 @@ class MyTTSRunner : BaseRunner {
         }
     }
 }
+```
+
+### Enabling CLI Verification (Zero-Code Testing)
+
+To test your new Runner immediately using the `quick-test` CLI (without writing any extra test code), ensure your `load()` method reads parameters from `EngineSettings`.
+
+**Implementation Pattern:**
+
+```kotlin
+override fun load(modelId: String, settings: EngineSettings, context: Context?): Boolean {
+    // 1. Get parameters injected from CLI (--param:key=value) or App Settings
+    // The 'name' property is automatically derived from @AIRunner or class name
+    val runnerParams = settings.getRunnerParameters(this.getRunnerInfo().name)
+    
+    // 2. Read specific keys
+    val apiKey = runnerParams["api_key"] as? String
+    
+    // 3. Initialize your client
+    if (apiKey.isNullOrBlank()) {
+         return false // Load failure
+    }
+    
+    this.apiClient = MyApiClient(apiKey)
+    return true
+}
+```
+
+**Verify Immediately:**
+
+```bash
+./runner-test.sh --runner=MyNewRunner \
+  --param:api_key=your_key \
+  --input="Test" \
+  quick-test
 ```
 
 ## Error Handling

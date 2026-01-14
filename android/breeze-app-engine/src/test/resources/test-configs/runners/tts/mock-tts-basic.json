@@ -1,0 +1,84 @@
+{
+    "runnerClass": "com.mtkresearch.breezeapp.engine.runner.mock.MockTTSRunner",
+    "modelId": "mock-tts-basic",
+    "description": "MockTTSRunner 基本功能測試配置",
+    "tags": [
+        "mock",
+        "tts",
+        "basic",
+        "ci-required"
+    ],
+    "parameters": {
+        "voice": "default",
+        "speed": "1.0",
+        "sample_rate": "22050"
+    },
+    "testCases": [
+        {
+            "name": "基本文字合成",
+            "description": "驗證基本文字輸入能產生音訊輸出",
+            "input": {
+                "text": "Hello, world!"
+            },
+            "assertions": [
+                {
+                    "type": "NO_ERROR",
+                    "field": ""
+                },
+                {
+                    "type": "OUTPUT_NOT_EMPTY",
+                    "field": "audio_data"
+                }
+            ]
+        },
+        {
+            "name": "中文文字合成",
+            "description": "驗證中文文字的語音合成",
+            "input": {
+                "text": "你好，世界！這是一個測試。"
+            },
+            "assertions": [
+                {
+                    "type": "NO_ERROR",
+                    "field": ""
+                }
+            ]
+        },
+        {
+            "name": "長文本合成",
+            "description": "驗證長文本的語音合成能力",
+            "input": {
+                "text": "這是一段較長的測試文本，用於驗證 TTS Runner 處理較長文字時的表現。系統應該能夠正確地將這段文字轉換為語音輸出。"
+            },
+            "assertions": [
+                {
+                    "type": "NO_ERROR",
+                    "field": ""
+                },
+                {
+                    "type": "RESPONSE_TIME_UNDER",
+                    "field": "processingTimeMs",
+                    "expected": "10000"
+                }
+            ]
+        },
+        {
+            "name": "標點符號處理",
+            "description": "驗證包含標點符號的文字處理",
+            "input": {
+                "text": "Hello! How are you? I'm fine, thanks."
+            },
+            "assertions": [
+                {
+                    "type": "NO_ERROR",
+                    "field": ""
+                }
+            ]
+        }
+    ],
+    "expectedBehavior": {
+        "shouldSucceed": true,
+        "maxResponseTimeMs": 15000
+    },
+    "timeoutMs": 30000
+}

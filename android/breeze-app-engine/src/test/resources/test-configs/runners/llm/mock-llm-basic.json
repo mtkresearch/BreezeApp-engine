@@ -1,0 +1,74 @@
+{
+  "runnerClass": "com.mtkresearch.breezeapp.engine.runner.mock.MockLLMRunner",
+  "modelId": "mock-llm-basic",
+  "description": "MockLLMRunner 基本功能測試配置",
+  "tags": ["mock", "llm", "basic", "ci-required"],
+  "parameters": {
+    "response_delay_ms": "100",
+    "stream_chunk_delay_ms": "50",
+    "response_style": "formal",
+    "simulate_errors": "false"
+  },
+  "testCases": [
+    {
+      "name": "基本文字回應",
+      "description": "驗證基本文字輸入能產生有效回應",
+      "input": {
+        "text": "Hello, world!"
+      },
+      "assertions": [
+        { "type": "OUTPUT_NOT_EMPTY", "field": "text" },
+        { "type": "NO_ERROR", "field": "" },
+        { "type": "RESPONSE_TIME_UNDER", "field": "processingTimeMs", "expected": "5000" }
+      ]
+    },
+    {
+      "name": "中文輸入處理",
+      "description": "驗證中文輸入能正確處理",
+      "input": {
+        "text": "你好，世界！請用中文回答我的問題。"
+      },
+      "assertions": [
+        { "type": "OUTPUT_NOT_EMPTY", "field": "text" },
+        { "type": "NO_ERROR", "field": "" }
+      ]
+    },
+    {
+      "name": "空輸入處理",
+      "description": "驗證空輸入不會導致崩潰",
+      "input": {
+        "text": ""
+      },
+      "expectedBehavior": {
+        "shouldSucceed": true
+      },
+      "assertions": []
+    },
+    {
+      "name": "長文本處理",
+      "description": "驗證長文本輸入的處理能力",
+      "input": {
+        "text": "這是一段較長的測試文本。我們需要確保系統能夠正確處理較長的輸入內容。這個測試案例會驗證 Runner 在接收到較大量文字時的表現。包含標點符號！問號？以及其他各種字元。"
+      },
+      "assertions": [
+        { "type": "OUTPUT_NOT_EMPTY", "field": "text" },
+        { "type": "NO_ERROR", "field": "" }
+      ]
+    },
+    {
+      "name": "特殊字元處理",
+      "description": "驗證特殊字元的處理",
+      "input": {
+        "text": "Test with special chars: @#$%^&*()[]{}|\\;':\",./<>?"
+      },
+      "assertions": [
+        { "type": "NO_ERROR", "field": "" }
+      ]
+    }
+  ],
+  "expectedBehavior": {
+    "shouldSucceed": true,
+    "maxResponseTimeMs": 10000
+  },
+  "timeoutMs": 30000
+}
