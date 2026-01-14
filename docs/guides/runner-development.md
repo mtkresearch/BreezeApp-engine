@@ -185,6 +185,40 @@ class MyTTSRunner : BaseRunner {
 }
 ```
 
+### Enabling CLI Verification (Zero-Code Testing)
+
+To test your new Runner immediately using the `quick-test` CLI (without writing any extra test code), ensure your `load()` method reads parameters from `EngineSettings`.
+
+**Implementation Pattern:**
+
+```kotlin
+override fun load(modelId: String, settings: EngineSettings, context: Context?): Boolean {
+    // 1. Get parameters injected from CLI (--param:key=value) or App Settings
+    // The 'name' property is automatically derived from @AIRunner or class name
+    val runnerParams = settings.getRunnerParameters(this.getRunnerInfo().name)
+    
+    // 2. Read specific keys
+    val apiKey = runnerParams["api_key"] as? String
+    
+    // 3. Initialize your client
+    if (apiKey.isNullOrBlank()) {
+         return false // Load failure
+    }
+    
+    this.apiClient = MyApiClient(apiKey)
+    return true
+}
+```
+
+**Verify Immediately:**
+
+```bash
+./runner-test.sh --runner=MyNewRunner \
+  --param:api_key=your_key \
+  --input="Test" \
+  quick-test
+```
+
 ## Error Handling
 
 Always return structured errors using the `RunnerError` factory methods for consistency.
