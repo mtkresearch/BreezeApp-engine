@@ -210,6 +210,17 @@ override fun load(modelId: String, settings: EngineSettings, context: Context?):
 }
 ```
 
+**Register the Runner in CommandLineQuickTest**
+
+Path: `src/test/java/com/mtkresearch/breezeapp/engine/runner/cli/CommandLineQuickTest.kt`
+
+```kotlint
+private val knownPackages = listOf(
+        ...,
+        "com.mtkresearch.breezeapp.engine.runner.MyNewRunner"
+    )
+```
+
 **Verify Immediately:**
 
 ```bash
