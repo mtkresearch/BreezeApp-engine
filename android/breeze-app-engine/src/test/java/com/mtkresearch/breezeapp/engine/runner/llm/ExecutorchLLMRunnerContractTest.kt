@@ -2,15 +2,18 @@ package com.mtkresearch.breezeapp.engine.runner.llm
 
 import android.content.Context
 import com.mtkresearch.breezeapp.engine.runner.executorch.ExecutorchLLMRunner
+import com.mtkresearch.breezeapp.engine.test.TestPrerequisites
 import io.mockk.every
 import io.mockk.mockk
+import org.junit.Before
 import org.junit.experimental.categories.Category
 import java.io.File
 
 /**
  * ExecutorchLLMRunnerContractTest - Executorch LLM Runner 合規性測試
  * 
- * 注意：這個 Runner 需要 Android Context，使用 MockK 模擬
+ * Requires: Executorch model files (.pte) and native libraries
+ * Run with: Model files in place + ./gradlew test --tests "*ExecutorchLLMRunnerContractTest*"
  */
 @Category(RunnerContractTest::class)
 class ExecutorchLLMRunnerContractTest : LLMRunnerContractTest<ExecutorchLLMRunner>() {
@@ -21,7 +24,13 @@ class ExecutorchLLMRunnerContractTest : LLMRunnerContractTest<ExecutorchLLMRunne
         every { applicationContext } returns this
     }
     
+    @Before
+    fun checkPrerequisites() {
+        TestPrerequisites.requireNativeLibrary("executorch_jni")
+    }
+    
     override fun createRunner(): ExecutorchLLMRunner = ExecutorchLLMRunner(mockContext)
     
     override val defaultModelId: String = "llama-3.2-1b"
 }
+
