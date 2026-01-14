@@ -82,8 +82,17 @@ class CommandLineQuickTest {
         // 4. 執行測試
         println("[QuickTest] Input: $input")
         
+        // Create settings with injected parameters (e.g. for OpenRouterLLMRunner api_key)
+        val runnerName = runner.getRunnerInfo().name
+        val params = config.toParameterMap()
+        println("[QuickTest] Runner Name: $runnerName")
+        println("[QuickTest] Injected Parameters Keys: ${params.keys}")
+        
+        val settings = com.mtkresearch.breezeapp.engine.model.EngineSettings()
+            .withRunnerParameters(runnerName, params)
+
         // Settings for mocking if needed
-        val testRunner = QuickTestRunner(runner, config.modelId)
+        val testRunner = QuickTestRunner(runner, config.modelId, settings)
         
         try {
             val result = if (input.endsWith(".wav", ignoreCase = true)) {
@@ -105,6 +114,8 @@ class CommandLineQuickTest {
             // 5. 驗證結果
             if (result.error != null) {
                 System.err.println("[QuickTest] Execution Error: ${result.error}")
+                println("[QuickTest] Error Details/Stack Trace:")
+                result.raw.error?.cause?.printStackTrace()
                 throw AssertionError("Runner execution failed with error: ${result.error}")
             }
 

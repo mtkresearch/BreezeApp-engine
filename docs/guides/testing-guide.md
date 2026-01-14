@@ -195,6 +195,45 @@ src/test/java/com/mtkresearch/breezeapp/engine/runner/
 
 ---
 
+## Quick Test Examples (Real-world Usage)
+
+### Testing OpenRouter Cloud API
+You can verify the integration with OpenRouter by providing your API key directly via the CLI.
+
+```bash
+# Basic test with API Key injection
+./runner-test.sh --runner=OpenRouterLLMRunner \
+  --param:api_key=sk-or-YOUR_REAL_KEY \
+  --input="Hello, who are you?" \
+  quick-test
+
+# Specifying a different model
+./runner-test.sh --runner=OpenRouterLLMRunner \
+  --param:api_key=sk-or-YOUR_REAL_KEY \
+  --model=openai/gpt-3.5-turbo \
+  --input="Tell me a joke" \
+  quick-test
+```
+
+**Expected Output:**
+
+```text
+[QuickTest] Initializing runner: OpenRouterLLMRunner
+[QuickTest] Input: Hello
+[QuickTest] Runner Name: OpenRouterLLMRunner
+[QuickTest] Injected Parameters Keys: [api_key]
+─────────────────────────────────────
+Input:  Hello
+Output: Hello! How can I assist you today?
+Time:   2276ms
+─────────────────────────────────────
+```
+
+> [!NOTE]
+> Ensure you have an active internet connection. Do NOT commit your real API key to version control.
+
+---
+
 ## CI/CD 整合
 
 ### GitHub Actions 範例

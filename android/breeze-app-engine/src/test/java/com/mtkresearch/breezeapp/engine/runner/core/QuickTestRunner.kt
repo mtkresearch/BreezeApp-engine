@@ -55,8 +55,11 @@ class QuickTestRunner<T : BaseRunner>(
      */
     private fun ensureLoaded() {
         if (!isLoaded) {
-            runner.load(modelId, settings)
-            isLoaded = true
+            if (runner.load(modelId, settings)) {
+                isLoaded = true
+            } else {
+                throw IllegalStateException("Failed to load runner '$modelId'. Check logs for details.")
+            }
         }
     }
     
