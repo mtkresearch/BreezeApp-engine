@@ -97,8 +97,12 @@ android {
                 
                 // Show standard output in console (critical for QuickTest CLI)
                 test.testLogging {
-                    events("passed", "skipped", "failed")
+                    events("passed", "skipped", "failed", "standardOut", "standardError")
+                    showExceptions = true
+                    showCauses = true
+                    showStackTraces = true
                     showStandardStreams = true
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
                 }
             }
         }
@@ -162,7 +166,7 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.2.0")
     testImplementation("org.mockito:mockito-inline:4.11.0")
     testImplementation("org.mockito.kotlin:mockito-kotlin:4.1.0")
-    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.robolectric:robolectric:4.14.1") // Supports SDK 34
     testImplementation("org.json:json:20231013") // Fix "Method put in JSONObject not mocked"
 }
 
