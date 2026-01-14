@@ -287,6 +287,87 @@ Time:   2276ms
 
 ---
 
+## Test Prerequisites (外部資源測試)
+
+某些測試需要外部資源（API Key、模型檔案、硬體）。這些測試會**自動跳過**並顯示清楚的訊息告訴您如何啟用。
+
+### 跳過訊息範例
+
+當您執行測試時，可能會看到：
+
+```text
+✓ openRouter_returnsValidResponse (SKIPPED)
+  Set OPENROUTER_API_KEY environment variable to run this test.
+  Example: OPENROUTER_API_KEY=sk-xxx ./gradlew test --tests "*YourTest*"
+```
+
+### 啟用需要 API Key 的測試
+
+```bash
+# OpenRouter 測試
+OPENROUTER_API_KEY=sk-or-xxx ./gradlew :breeze-app-engine:test \
+  --tests "*OpenRouterLLMRunnerContractTest*"
+
+# LlamaStack 測試 (需要先啟動 LlamaStack 伺服器)
+./gradlew :breeze-app-engine:test \
+  --tests "*LlamaStackRunnerContractTest*"
+```
+
+### 啟用需要模型檔案的測試
+
+1. 下載所需模型到 `models/` 目錄
+2. 執行測試：
+
+```bash
+./gradlew :breeze-app-engine:test \
+  --tests "*ExecutorchLLMRunnerContractTest*"
+```
+
+### 啟用需要硬體的測試
+
+```bash
+# 在 MTK 裝置上執行
+./gradlew :breeze-app-engine:connectedAndroidTest \
+  --tests "*MTKLLMRunnerContractTest*"
+```
+
+### 在測試中使用 TestPrerequisites
+
+如果您要開發需要外部資源的測試，使用 `TestPrerequisites`：
+
+```kotlin
+import com.mtkresearch.breezeapp.engine.test.TestPrerequisites
+
+class MyNewRunnerContractTest : LLMRunnerContractTest<MyRunner>() {
+    
+    override fun setUp() {
+        super.setUp()
+        // 測試會自動跳過並顯示如何啟用的訊息
+        TestPrerequisites.requireApiKey("MY_API_KEY")
+    }
+    
+    // 或在個別測試方法中
+    @Test
+    fun cloudAPI_works() {
+        TestPrerequisites.requireNetwork()
+        // ...
+    }
+}
+```
+
+### 可用的 Prerequisites 檢查
+
+| 方法 | 說明 |
+|------|------|
+| `requireApiKey("ENV_VAR")` | 需要環境變數 |
+| `requireFile("path")` | 需要檔案存在 |
+| `requireModel("path", "url")` | 需要模型檔案 |
+| `requireNativeLibrary("name")` | 需要 native library |
+| `requireNetwork()` | 需要網路連線 |
+| `requireMTKNPU()` | 需要 MTK NPU 硬體 |
+
+---
+
 ## 相關資源
 
 - [Runner Development Guide](runner-development.md) - 如何開發新的 Runner
