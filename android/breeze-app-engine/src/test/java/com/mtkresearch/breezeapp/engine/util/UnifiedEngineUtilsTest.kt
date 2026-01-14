@@ -19,7 +19,7 @@ import java.io.File
  * the same functionality as the separate utility classes.
  */
 @RunWith(AndroidJUnit4::class)
-@Config(sdk = [28]) // Use SDK 28 for better Robolectric support
+@Config(sdk = [34]) // Must match minSdk=34 in build.gradle.kts
 class UnifiedEngineUtilsTest {
     
     private lateinit var context: Context
