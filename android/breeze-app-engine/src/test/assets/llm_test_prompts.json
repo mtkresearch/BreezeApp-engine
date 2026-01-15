@@ -1,0 +1,19 @@
+{
+    "translation_tests": [
+        {
+            "input": "@ai translate: 你好",
+            "expected_contains": "Hello"
+        },
+        {
+            "input": "@ai translate: 謝謝",
+            "expected_contains": "Thank"
+        }
+    ],
+    "draft_tests": [
+        {
+            "input": "@ai tell Alice hi",
+            "expected_type": "draft",
+            "expected_recipient": "Alice"
+        }
+    ]
+}
