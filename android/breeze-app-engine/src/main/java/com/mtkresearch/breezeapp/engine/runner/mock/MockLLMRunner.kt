@@ -273,26 +273,35 @@ class MockLLMRunner : BaseRunner, FlowStreamingRunner {
     }
     
     /**
-     * 根據輸入選擇適當的回應
+     * 根據輸入選擇適當的回應，並封裝為 JSON 格式以符合 API Contract
+     */
+    // Callback for injecting dynamic response logic during tests
+    private var responseStrategy: ((String) -> String)? = null
+
+    /**
+     * Set a custom response strategy for testing.
+     * This allows tests to define how the runner should respond to specific prompts.
+     */
+    fun setResponseStrategy(strategy: (String) -> String) {
+        this.responseStrategy = strategy
+    }
+
+    /**
+     * 根據輸入選擇適當的回應，並封裝為 JSON 格式以符合 API Contract
      */
     private fun selectResponseFor(prompt: String): String {
-        return when {
-            prompt.contains("測試", ignoreCase = true) -> 
-                "這是一個測試回應，用於驗證 Mock Runner 的功能。測試進行中..."
-            
-            prompt.contains("錯誤", ignoreCase = true) -> 
-                throw RuntimeException("模擬錯誤：這是一個測試用的錯誤情況，用於驗證錯誤處理機制。")
-            
-            prompt.contains("串流", ignoreCase = true) || prompt.contains("stream", ignoreCase = true) -> 
-                "這是串流模式的測試回應。每個詞語都會逐步發送，模擬真實的 Language Model Runner推論過程。"
-            
-            prompt.contains("BreezeApp", ignoreCase = true) -> 
-                "此APP是一個先進的 A I 應用程式，使用模組化的 Engine 架構來管理不同的 A I 引擎。"
-            
-            prompt.isEmpty() -> 
-                "您好！我是 A I 助手。請問有什麼我可以協助您的嗎？"
-            
-            else -> predefinedResponses.random()
+        // 1. If a custom strategy is set, use it
+        responseStrategy?.let { return it(prompt) }
+
+        // 2. Default fallback behavior (Echo/Random)
+        // 簡單的 JSON 建構 helper
+        fun jsonResponse(text: String): String = 
+            """{"type": "response", "text": "$text"}"""
+
+        return if (prompt.isEmpty()) {
+             jsonResponse("Mock Runner Ready")
+        } else {
+             jsonResponse(predefinedResponses.random())
         }
     }
 }
