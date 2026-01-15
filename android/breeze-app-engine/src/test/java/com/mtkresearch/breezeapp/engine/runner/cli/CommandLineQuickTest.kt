@@ -32,7 +32,9 @@ class CommandLineQuickTest {
         "com.mtkresearch.breezeapp.engine.runner.mtk",
         "com.mtkresearch.breezeapp.engine.runner.llamastack",
         "com.mtkresearch.breezeapp.engine.runner.sherpa",
-        "com.mtkresearch.breezeapp.engine.runner.core"
+        "com.mtkresearch.breezeapp.engine.runner.core",
+        "com.mtkresearch.breezeapp.engine.runner.huggingface",
+        "com.mtkresearch.breezeapp.engine.runner.elevenlabs",
     )
 
     @Before
