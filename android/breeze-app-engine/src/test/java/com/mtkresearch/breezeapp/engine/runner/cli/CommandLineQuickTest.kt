@@ -37,6 +37,8 @@ class CommandLineQuickTest {
         "com.mtkresearch.breezeapp.engine.runner.elevenlabs",
     )
 
+    private val DEFAULT_AUDIO_PATH = "src/main/assets/test_asr.wav"
+
     @Before
     fun setUp() {
         // Mock android.util.Log to avoid "Method d in android.util.Log not mocked"
@@ -62,8 +64,8 @@ class CommandLineQuickTest {
         val runnerClassName = config.runnerClass
         
         if (runnerClassName.isEmpty()) {
-            println("[QuickTest] No runner class specified via system property 'test.runner.class'. Skipping.")
-            return
+            System.err.println("[QuickTest] No runner class specified via system property 'test.runner.class'.")
+            throw AssertionError("QuickTest Failed: Missing required system property 'test.runner.class'")
         }
 
         println("[QuickTest] Initializing runner: $runnerClassName")
@@ -72,13 +74,24 @@ class CommandLineQuickTest {
         val runner = instantiateRunner(runnerClassName)
         
         // 3. 讀取輸入與期望
-        val input = System.getProperty("test.quick.input")
+        var input = System.getProperty("test.quick.input")
         val expectEquals = System.getProperty("test.expect.equals")
         val expectContains = System.getProperty("test.expect.contains")
 
         if (input.isNullOrEmpty()) {
-            println("[QuickTest] No input specified via 'test.quick.input'. Skipping.")
-            return
+            if (isASRRunner(runner)) {
+                println("[QuickTest] Detected ASR Runner. Checking for default audio file...")
+                input = DEFAULT_AUDIO_PATH
+
+                if (!File(input).exists()) {
+                    System.err.println("[QuickTest] Default audio file '$input' not found. Please place a .wav file there or specify 'test.quick.input'.")
+                } else {
+                    println("[QuickTest] using default audio: $input")
+                }
+            } else {
+                input = "Hello, this is a default test input for Breeze App"
+                println("[QuickTest] No input specified via 'test.quick.input'. Using default: \"$input\"")
+            }
         }
 
         // 4. 執行測試
@@ -142,6 +155,11 @@ class CommandLineQuickTest {
         } finally {
             testRunner.close()
         }
+    }
+
+    private fun isASRRunner(runner: BaseRunner): Boolean {
+        val name = runner.javaClass.simpleName.lowercase()
+        return name.contains("asr")
     }
 
     private fun resolveAudioFile(path: String): File {
