@@ -41,7 +41,7 @@ class MockASRRunner : BaseRunner, FlowStreamingRunner {
     
     private val isLoaded = AtomicBoolean(false)
     private var processingDelay = DEFAULT_PROCESSING_DELAY
-    private val mockTranscriptions = mapOf(
+    private val mockTranscriptions = mutableMapOf(
         "test_audio_1" to "你好，這是一個測試音檔。",
         "test_audio_2" to "BreezeApp Engine 語音識別功能測試。",
         "test_audio_3" to "BreezeApp 語音轉文字功能運作正常。",
@@ -58,6 +58,13 @@ class MockASRRunner : BaseRunner, FlowStreamingRunner {
     
     override fun load(modelId: String, settings: EngineSettings, initialParams: Map<String, Any>): Boolean {
         Log.d(TAG, "Loading MockASRRunner with model: $modelId")
+        
+        // Load custom transcriptions from settings or initialParams for testing
+        val customTranscriptions = initialParams["mock_transcriptions"] as? Map<String, String>
+        if (customTranscriptions != null) {
+            mockTranscriptions.putAll(customTranscriptions)
+        }
+        
         isLoaded.set(true)
         Log.d(TAG, "MockASRRunner loaded successfully")
         return true

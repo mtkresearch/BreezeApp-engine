@@ -119,6 +119,14 @@ class ExecutorchLLMRunner(
             return@callbackFlow
         }
 
+        // Check if client provided a system prompt - prepend it to user input for on-device models
+        val systemPrompt = input.params[InferenceRequest.PARAM_SYSTEM_PROMPT] as? String
+        val fullPrompt = if (!systemPrompt.isNullOrBlank()) {
+            "$systemPrompt\n\nUser: $prompt"
+        } else {
+            prompt
+        }
+
         val requestedTemperature = when (val temp = input.params["temperature"]) {
             is Number -> temp.toFloat()
             is String -> temp.toFloatOrNull()
@@ -145,7 +153,7 @@ class ExecutorchLLMRunner(
             currentTemperature = requestedTemperature
         }
 
-        val formattedPrompt = ExecutorchPromptFormatter.formatPrompt(modelType, prompt)
+        val formattedPrompt = ExecutorchPromptFormatter.formatPrompt(modelType, fullPrompt)
         val modelOutputBuffer = StringBuilder()
         var promptEchoFullyReceived = false
 

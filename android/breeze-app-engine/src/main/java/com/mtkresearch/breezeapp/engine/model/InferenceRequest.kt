@@ -75,5 +75,8 @@ data class InferenceRequest(
         
         /** Model ID to use for inference (String) */
         const val PARAM_MODEL = "model"
+        
+        /** System prompt to inject for LLM inference (String, optional) */
+        const val PARAM_SYSTEM_PROMPT = "system_prompt"
     }
 } 
