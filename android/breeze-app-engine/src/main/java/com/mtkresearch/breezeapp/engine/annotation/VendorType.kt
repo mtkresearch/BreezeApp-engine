@@ -118,6 +118,21 @@ enum class VendorType(
         requiresSpecialHardware = false,
         requiresInternet = false
     ),
+
+
+    HF(
+        displayName = "HuggingFace",
+        description = "HuggingFace AI Inference Framework",
+        requiresSpecialHardware = false,
+        requiresInternet = true
+    ),
+
+    ELEVENLABS(
+        displayName = "ElevenLabs",
+        description = "ElevenLabs Inference Framework",
+        requiresSpecialHardware = false,
+        requiresInternet = true
+    ),
     
     /**
      * Unknown or unspecified vendor.
