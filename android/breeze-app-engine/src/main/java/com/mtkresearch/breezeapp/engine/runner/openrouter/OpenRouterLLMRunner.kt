@@ -557,8 +557,17 @@ class OpenRouterLLMRunner(
             put("model", requestModel)
             put("stream", stream)
 
-            // Build messages array
+            // Build messages array - optionally inject system prompt if provided
             val messages = JSONArray().apply {
+                // Check if client provided a system prompt via params
+                val systemPrompt = input.params[InferenceRequest.PARAM_SYSTEM_PROMPT] as? String
+                if (!systemPrompt.isNullOrBlank()) {
+                    put(JSONObject().apply {
+                        put("role", "system")
+                        put("content", systemPrompt)
+                    })
+                }
+                // User message
                 put(JSONObject().apply {
                     put("role", "user")
                     put("content", prompt)

@@ -161,8 +161,16 @@ class MTKLLMRunner(
     override fun run(input: InferenceRequest, stream: Boolean): InferenceResult {
         if (!isLoaded.get()) return InferenceResult.error(RunnerError.resourceUnavailable())
         return try {
-            val inputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String
+            val rawInputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String
                 ?: return InferenceResult.error(RunnerError.invalidInput("Missing text input"))
+
+            // Check if client provided a system prompt - prepend it to user input for on-device models
+            val systemPrompt = input.params[InferenceRequest.PARAM_SYSTEM_PROMPT] as? String
+            val inputText = if (!systemPrompt.isNullOrBlank()) {
+                "$systemPrompt\n\nUser: $rawInputText"
+            } else {
+                rawInputText
+            }
 
             val params = parseInferenceParameters(input)
 
@@ -203,11 +211,19 @@ class MTKLLMRunner(
             return@callbackFlow
         }
         try {
-            val inputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String
-            if (inputText == null) {
+            val rawInputText = input.inputs[InferenceRequest.INPUT_TEXT] as? String
+            if (rawInputText == null) {
                 trySend(InferenceResult.error(RunnerError.invalidInput("Missing text input")))
                 close()
                 return@callbackFlow
+            }
+
+            // Check if client provided a system prompt - prepend it to user input for on-device models
+            val systemPrompt = input.params[InferenceRequest.PARAM_SYSTEM_PROMPT] as? String
+            val inputText = if (!systemPrompt.isNullOrBlank()) {
+                "$systemPrompt\n\nUser: $rawInputText"
+            } else {
+                rawInputText
             }
 
             val params = parseInferenceParameters(input)

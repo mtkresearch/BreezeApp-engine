@@ -256,9 +256,16 @@ class LlamaStackRunner(
             Log.d(TAG, "Client endpoint: ${runtimeConfig.endpoint}")
             Log.d(TAG, "Request text length: ${text.length}")
             
+            val systemPrompt = input.params[InferenceRequest.PARAM_SYSTEM_PROMPT] as? String
+            val fullText = if (!systemPrompt.isNullOrBlank()) {
+                "$systemPrompt\n\nUser: $text"
+            } else {
+                text
+            }
+            
             // Create messages using official SDK - following documentation pattern
             val userMessage = UserMessage.builder()
-                .content(InterleavedContent.ofString(text))
+                .content(InterleavedContent.ofString(fullText))
                 .build()
             val messages = listOf(Message.ofUser(userMessage))
 
@@ -421,9 +428,16 @@ class LlamaStackRunner(
         try {
             Log.d(TAG, "Starting streaming LLM request: model=${runtimeConfig.modelId}")
 
+            val systemPrompt = input.params[InferenceRequest.PARAM_SYSTEM_PROMPT] as? String
+            val fullText = if (!systemPrompt.isNullOrBlank()) {
+                "$systemPrompt\n\nUser: $text"
+            } else {
+                text
+            }
+
             // Create messages using same pattern as non-streaming
             val userMessage = UserMessage.builder()
-                .content(InterleavedContent.ofString(text))
+                .content(InterleavedContent.ofString(fullText))
                 .build()
             val messages = listOf(Message.ofUser(userMessage))
 
