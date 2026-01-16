@@ -89,7 +89,7 @@ class MessengerLLMComplianceTest {
                 val systemPrompt =
                         com.mtkresearch.breezeapp.engine.prompts.BreezeSystemPrompt.FULL_PROMPT
 
-                val userPrompt = "@ai translate to Chinese: Hello World"
+                val userPrompt = "@ai translate: 你好"
 
                 // Combine them (OpenRouter runner usually handles chat history, but here we
                 // simulate raw
@@ -112,11 +112,14 @@ class MessengerLLMComplianceTest {
                 assertNotNull("Runner output was null", rawOutput)
 
                 // Log full output to terminal for debugging
-                System.out.println("========== MODEL OUTPUT ==========")
+                System.out.println("========================================")
+                System.out.println("Test 1.1: JSON Response Format Validation")
+                System.out.println("========================================")
                 System.out.println("Model: $openRouterModel")
+                System.out.println("Input: @ai translate: 你好")
                 System.out.println("Raw Output:")
                 System.out.println(rawOutput)
-                System.out.println("==================================")
+                System.out.println("========================================")
 
                 // Parse JSON directly - NO workarounds for markdown wrapping.
                 // If the model wraps output in ```json blocks, the test SHOULD fail.
@@ -126,15 +129,9 @@ class MessengerLLMComplianceTest {
                         val json = JSONObject(rawOutput!!)
                         val validator = MessengerPayloadValidator.fromJSON(json)
 
-                        // Assertions
+                        // Assertions (as per TDD Plan - only schema validation)
                         assertEquals("Expected type 'response'", "response", validator.type)
                         assertNotNull("Expected 'text' field", validator.text)
-
-                        // 驗證內容包含中文字 (因為我們要求翻譯)
-                        assertTrue(
-                                "Response should contain Chinese characters for translation request",
-                                validator.text!!.any { it.code in 0x4e00..0x9fff }
-                        )
 
                         System.out.println(
                                 "✅ Model output is compliant with MessengerPayloadValidator schema"
@@ -174,7 +171,7 @@ class MessengerLLMComplianceTest {
                 // 3. Construct Draft Request
                 val systemPrompt =
                         com.mtkresearch.breezeapp.engine.prompts.BreezeSystemPrompt.FULL_PROMPT
-                val userPrompt = "@ai tell Alice the meeting is at 3pm"
+                val userPrompt = "@ai tell Alice meeting is at 3pm"
                 val fullInfo = "$systemPrompt\n\nUser: $userPrompt"
 
                 val request =
@@ -193,8 +190,11 @@ class MessengerLLMComplianceTest {
                 assertNotNull("Runner output was null", rawOutput)
 
                 // Log output
-                System.out.println("========== DRAFT TEST OUTPUT ==========")
+                System.out.println("========================================")
+                System.out.println("Test 1.2: Draft Response Format Validation")
+                System.out.println("========================================")
                 System.out.println("Model: $openRouterModel")
+                System.out.println("Input: @ai tell Alice meeting is at 3pm")
                 System.out.println("Raw Output:")
                 System.out.println(rawOutput)
                 System.out.println("========================================")
@@ -214,9 +214,16 @@ class MessengerLLMComplianceTest {
                         )
 
                         // Validate recipient is Alice
-                        assertTrue(
+                        assertEquals(
                                 "Recipient should be 'Alice'",
-                                validator.recipient?.contains("Alice", ignoreCase = true) == true
+                                "Alice",
+                                validator.recipient
+                        )
+                        
+                        // Validate draft_message is not empty
+                        assertFalse(
+                                "draft_message should not be empty",
+                                validator.draftMessage.isNullOrEmpty()
                         )
 
                         System.out.println("✅ Draft response is compliant")
@@ -257,13 +264,15 @@ class MessengerLLMComplianceTest {
                 // 3. Test multiple scenarios
                 val testCases =
                         listOf(
-                                "@ai translate to Chinese: Good morning" to "response",
-                                "@ai help me with this" to "response",
-                                "@ai tell Bob I'll be late" to "draft",
-                                "@ai summarize the conversation" to "response"
+                                "@ai translate: 你好" to "response",
+                                "@ai help" to "response",
+                                "@ai tell Alice hi" to "draft",
+                                "@ai summarize last 5 messages" to "response"
                         )
 
-                System.out.println("========== MULTIPLE SCENARIOS TEST ==========")
+                System.out.println("========================================")
+                System.out.println("Test 1.3: Response Completeness")
+                System.out.println("========================================")
                 System.out.println("Model: $openRouterModel")
                 System.out.println("Testing ${testCases.size} scenarios...")
 
