@@ -25,7 +25,7 @@ class QuickTestRunner<T : BaseRunner>(
     private val runner: T,
     private val modelId: String = "default",
     private val settings: EngineSettings = EngineSettings(),
-    private val outputDir: File = File("/home/mediatek/cw/test_outputs")
+    private val outputDir: File = File("src/main/assets")
 ) {
     
     private var isLoaded = false
@@ -86,7 +86,7 @@ class QuickTestRunner<T : BaseRunner>(
         val audioOutput = result.outputs[InferenceResult.OUTPUT_AUDIO] as? ByteArray
 
         if (audioOutput != null && audioOutput.isNotEmpty()) {
-            val filename = "audio_${System.currentTimeMillis()}.wav"
+            val filename = "tts_output_test.wav"
             val savedFile = File(outputDir, filename)
 
             try {
