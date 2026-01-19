@@ -32,18 +32,6 @@ cd EdgeAI/scripts
 open ../sdk_test_report.html
 ```
 
-### Test Coverage
-
-**Category 1: API Contract Validation** (`MessengerSDKComplianceTest`)
-- Test 1.1: JSON response format
-- Test 1.2: Draft response format  
-- Test 1.3: Response completeness
-
-**Category 2: LLM Behavior** (`MessengerSDKBehaviorTest`)
-- Test 2.1: Response type classification (8 scenarios)
-- Test 2.2: Translation accuracy (4 translations)
-- Test 2.3: Draft message quality
-
 ### Prerequisites
 
 1. Android device connected: `adb devices`
