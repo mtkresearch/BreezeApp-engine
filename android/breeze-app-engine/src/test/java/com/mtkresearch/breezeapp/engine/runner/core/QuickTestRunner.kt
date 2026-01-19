@@ -4,6 +4,9 @@ import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
 
+import java.io.File
+import java.io.FileOutputStream
+
 /**
  * QuickTestRunner - 快速測試單一 Runner 的輸入/輸出
  * 
@@ -21,7 +24,8 @@ import com.mtkresearch.breezeapp.engine.model.InferenceResult
 class QuickTestRunner<T : BaseRunner>(
     private val runner: T,
     private val modelId: String = "default",
-    private val settings: EngineSettings = EngineSettings()
+    private val settings: EngineSettings = EngineSettings(),
+    private val outputDir: File = File("src/main/assets")
 ) {
     
     private var isLoaded = false
@@ -79,6 +83,22 @@ class QuickTestRunner<T : BaseRunner>(
         val duration = System.currentTimeMillis() - startTime
         
         val textOutput = result.outputs[InferenceResult.OUTPUT_TEXT] as? String
+        val audioOutput = result.outputs[InferenceResult.OUTPUT_AUDIO] as? ByteArray
+
+        if (audioOutput != null && audioOutput.isNotEmpty()) {
+            val filename = "tts_output_test.wav"
+            val savedFile = File(outputDir, filename)
+
+            try {
+                FileOutputStream(savedFile).use{ fos ->
+                    fos.write(audioOutput)
+                }
+                println("Audio saved: ${savedFile.absolutePath}")
+            } catch (e: Exception) {
+                println("Failed to write audio File: ${e.message}")
+            }
+
+        }
         
         return QuickTestResult(
             input = input,
