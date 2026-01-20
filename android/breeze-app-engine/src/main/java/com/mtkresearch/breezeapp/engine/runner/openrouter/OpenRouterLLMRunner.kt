@@ -567,11 +567,31 @@ class OpenRouterLLMRunner(
                         put("content", systemPrompt)
                     })
                 }
-                // User message
-                put(JSONObject().apply {
-                    put("role", "user")
-                    put("content", prompt)
-                })
+                // Add messages from history if available, otherwise just use prompt
+                val history = input.inputs["conversation_history"] as? List<*>
+                
+                if (history != null && history.isNotEmpty()) {
+                    // Iterate through history and consume generic Map structure
+                    history.forEach { item ->
+                        if (item is Map<*, *>) {
+                             val role = item["role"] as? String
+                             val content = item["content"] as? String
+                             
+                             if (role != null && content != null) {
+                                 put(JSONObject().apply {
+                                    put("role", role)
+                                    put("content", content)
+                                 })
+                             }
+                        }
+                    }
+                } else {
+                    // Fallback to single user prompt if no history provided
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", prompt)
+                    })
+                }
             }
             put("messages", messages)
 

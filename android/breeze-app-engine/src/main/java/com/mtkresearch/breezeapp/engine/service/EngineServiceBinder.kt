@@ -604,7 +604,7 @@ class EngineServiceBinder(
         
         // Extract the last user message as the main input text
         val inputText = userMessages.lastOrNull()?.content ?: ""
-        
+
         // Detect actual capability (LLM vs VLM) based on model and content
         val detectedCapability = detectVLMCapability(request)
         
@@ -632,7 +632,10 @@ class EngineServiceBinder(
         
         // Add full conversation history if multiple user messages
         if (userMessages.size > 1) {
-            inputs["conversation_history"] = userMessages.toList()
+            val historyData = userMessages.map { 
+                mapOf("role" to it.role, "content" to it.content) 
+            }
+            inputs["conversation_history"] = historyData
         }
         
         return InferenceRequest(
