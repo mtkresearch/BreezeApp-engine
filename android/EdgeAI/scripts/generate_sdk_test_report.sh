@@ -54,6 +54,12 @@ categories=$(cut -d' ' -f2 /tmp/edgeai_test_markers.txt | cut -d'.' -f1 | sort -
                echo "Test Class: MessengerSDKComplianceTest" ;;
             2) echo "Category 2: SDK LLM Behavior Tests"
                echo "Test Class: MessengerSDKBehaviorTest" ;;
+            3) echo "Category 3: ASR Accuracy Integration Tests"
+               echo "Test Class: MessengerSDKASRTest" ;;
+            4) echo "Category 4: Multi-turn Context Tests"
+               echo "Test Class: MessengerSDKContextTest" ;;
+            5) echo "Category 5: Integration Readiness Tests"
+               echo "Test Class: MessengerSDKIntegrationTest" ;;
             *) echo "Category $category: SDK Tests" ;;
         esac
         echo "=========================================="
@@ -66,22 +72,15 @@ categories=$(cut -d' ' -f2 /tmp/edgeai_test_markers.txt | cut -d'.' -f1 | sort -
             next_line=$(awk -v current="$line_num" '$1 > current {print $1; exit}' /tmp/edgeai_test_markers.txt)
             
             # 提取內容並過濾掉 setup 相關的行
+            # Allowlist approach: specific tag only
             if [ -n "$next_line" ]; then
                 sed -n "${line_num},$((next_line-1))p" /tmp/edgeai_full_logcat.txt | \
-                    grep -v "EdgeAI SDK Test Setup" | \
-                    grep -v "Attempting to start BreezeApp Engine" | \
-                    grep -v "Engine start command sent" | \
-                    grep -v "Waiting for Engine Service to start" | \
-                    grep -v "Initialization attempt" | \
-                    grep -v "EdgeAI SDK initialized successfully"
+                grep "\[TEST_REPORT\]" | \
+                sed 's/.*\[TEST_REPORT\] //'
             else
                 sed -n "${line_num},\$p" /tmp/edgeai_full_logcat.txt | \
-                    grep -v "EdgeAI SDK Test Setup" | \
-                    grep -v "Attempting to start BreezeApp Engine" | \
-                    grep -v "Engine start command sent" | \
-                    grep -v "Waiting for Engine Service to start" | \
-                    grep -v "Initialization attempt" | \
-                    grep -v "EdgeAI SDK initialized successfully"
+                grep "\[TEST_REPORT\]" | \
+                sed 's/.*\[TEST_REPORT\] //'
             fi
             echo ""
         done

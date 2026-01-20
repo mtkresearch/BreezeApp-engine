@@ -26,7 +26,7 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
 
     @Test
     fun integration_simulateSignalAppWorkflow() = runBlocking {
-        System.out.println("Test 5.1: Signal App Workflow Simulation")
+        logReport("Test 5.1: Signal App Workflow Simulation")
         // This test simulates the EXACT workflow Signal app will use
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
         
@@ -36,14 +36,14 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
         val input1 = "@ai translate: 明天見"
         history1.add(ChatMessage(role = "user", content = input1))
         
-        System.out.println("Input: $input1")
+        logReport("Input: $input1")
         
         val request1 = chatRequestWithHistory(messages = history1)
         val responses1 = EdgeAI.chat(request1).toList()
         assertTrue("Translation response should be complete", responses1.isNotEmpty())
         
         val output1 = responses1.last().choices.first().message!!.content
-        System.out.println("Output: $output1")
+        logReport("Output: $output1")
         val json1 = JSONObject(output1)
         assertEquals("Should be response type", "response", json1.optString("type"))
 
@@ -54,13 +54,13 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
         val input2 = "@ai tell Alice meeting is at 3pm"
         history2.add(ChatMessage(role = "user", content = input2))
         
-        System.out.println("Input: $input2")
+        logReport("Input: $input2")
 
         val request2 = chatRequestWithHistory(messages = history2)
         val responses2 = EdgeAI.chat(request2).toList()
         val output2 = responses2.last().choices.first().message!!.content
         
-        System.out.println("Output: $output2")
+        logReport("Output: $output2")
         val json2 = JSONObject(output2)
         
         assertEquals("Should be draft type", "draft", json2.optString("type"))
@@ -72,15 +72,15 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
         assertFalse("Draft message should not be empty", draftMessage.isEmpty())
         
         // Step 4: Signal app would now display this to user (Implicit pass)
-        System.out.println("✅ Integration simulation passed!")
-        System.out.println("   Translation response: ${json1.optString("text")}")
-        System.out.println("   Draft message: $draftMessage")
-        System.out.println("   Recipient: ${json2.optString("recipient")}")
+        logReport("✅ Integration simulation passed!")
+        logReport("   Translation response: ${json1.optString("text")}")
+        logReport("   Draft message: $draftMessage")
+        logReport("   Recipient: ${json2.optString("recipient")}")
     }
 
     @Test
     fun integration_meetsResponseTimeRequirement() = runBlocking {
-        System.out.println("Test 5.2: Response Time Requirement")
+        logReport("Test 5.2: Response Time Requirement")
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
         val testCommands = listOf(
             "@ai translate: 你好",
@@ -106,10 +106,10 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
         val avgResponseTime = responseTimes.average()
         val maxResponseTime = responseTimes.maxOrNull() ?: 0L
         
-        System.out.println("End-to-End Response Time Results:")
-        System.out.println("Average: ${avgResponseTime}ms")
-        System.out.println("Max: ${maxResponseTime}ms")
-        System.out.println("Individual times: $responseTimes")
+        logReport("End-to-End Response Time Results:")
+        logReport("Average: ${avgResponseTime}ms")
+        logReport("Max: ${maxResponseTime}ms")
+        logReport("Individual times: $responseTimes")
         
         // Assertions (relaxed for OpenRouter vs Local Engine, but structurally identical)
         // TDD Plan says < 3000ms. We warn if higher.
@@ -122,7 +122,7 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
     
     @Test
     fun integration_apiCompatibleWithSignalApp() = runBlocking {
-        System.out.println("Test 5.3: API Compatibility")
+        logReport("Test 5.3: API Compatibility")
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
         
         // Test 1: Translate
@@ -130,12 +130,12 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
              ChatMessage(role = "system", content = systemPrompt),
              ChatMessage(role = "user", content = "@ai translate: 謝謝")
         )
-        System.out.println("Input: @ai translate: 謝謝")
+        logReport("Input: @ai translate: 謝謝")
         
         val request1 = chatRequestWithHistory(messages = history1)
         val responses1 = EdgeAI.chat(request1).toList()
         val engineResponseText = responses1.last().choices.first().message!!.content
-        System.out.println("Output: $engineResponseText")
+        logReport("Output: $engineResponseText")
         
         // Use Signal app's parser
         val signalParsedResponse = SignalAppBreezeResponseParser.parse(engineResponseText)
@@ -149,12 +149,12 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
              ChatMessage(role = "system", content = systemPrompt),
              ChatMessage(role = "user", content = "@ai tell Alice hi")
         )
-        System.out.println("Input: @ai tell Alice hi")
+        logReport("Input: @ai tell Alice hi")
         
         val request2 = chatRequestWithHistory(messages = history2)
         val responses2 = EdgeAI.chat(request2).toList()
         val draftEngineResponseText = responses2.last().choices.first().message!!.content
-        System.out.println("Output: $draftEngineResponseText")
+        logReport("Output: $draftEngineResponseText")
         
         val signalParsedDraft = SignalAppBreezeResponseParser.parse(draftEngineResponseText)
         

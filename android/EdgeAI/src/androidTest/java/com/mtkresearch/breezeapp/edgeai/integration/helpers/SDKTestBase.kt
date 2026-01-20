@@ -10,6 +10,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Before
+import org.junit.Rule
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 
 /**
  * Base class for EdgeAI SDK integration tests.
@@ -25,8 +28,25 @@ abstract class SDKTestBase {
     
     protected lateinit var context: Context
     
+    protected fun logReport(message: String) {
+        message.lines().forEach { line ->
+            System.out.println("[TEST_REPORT] $line")
+        }
+    }
+
+    @get:Rule
+    val watchman = object : TestWatcher() {
+        override fun failed(e: Throwable?, description: Description?) {
+            logReport("❌ [FAIL] Test ${description?.methodName} failed: ${e?.message}")
+        }
+
+        override fun succeeded(description: Description?) {
+            logReport("✅ [PASS] Test ${description?.methodName} passed")
+        }
+    }
+
     @Before
-    fun setUp() {
+    fun setup() = runBlocking {
         context = ApplicationProvider.getApplicationContext()
         
         System.out.println("========================================")

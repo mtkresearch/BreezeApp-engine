@@ -53,21 +53,21 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
             "@ai translate and send: 謝謝" to "draft"
         )
 
-        System.out.println("========================================")
-        System.out.println("Test 2.1: Response Type Classification")
-        System.out.println("========================================")
-        System.out.println("Testing ${testCases.size} scenarios...")
+        logReport("========================================")
+        logReport("Test 2.1: Response Type Classification")
+        logReport("========================================")
+        logReport("Testing ${testCases.size} scenarios...")
 
         val failures = mutableListOf<String>()
         var passedCount = 0
 
         testCases.forEachIndexed { index, (userPrompt, expectedType) ->
-            System.out.println("\n========================================")
-            System.out.println("Scenario ${index + 1}/${testCases.size}")
-            System.out.println("========================================")
-            System.out.println("Input Prompt: $userPrompt")
-            System.out.println("Expected Type: $expectedType")
-            System.out.println("----------------------------------------")
+            logReport("\n========================================")
+            logReport("Scenario ${index + 1}/${testCases.size}")
+            logReport("========================================")
+            logReport("Input Prompt: $userPrompt")
+            logReport("Expected Type: $expectedType")
+            logReport("----------------------------------------")
 
             try {
                 val request = chatRequest(
@@ -80,10 +80,10 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
 
                 val rawOutput = responses.last().choices.first().message!!.content
                 assertNotNull("Scenario ${index + 1} output should not be null", rawOutput)
-
-                System.out.println("Model Raw Output:")
-                System.out.println(rawOutput)
-                System.out.println("----------------------------------------")
+                
+                logReport("Model Raw Output:")
+                logReport(rawOutput)
+                logReport("----------------------------------------")
 
                 val json = JSONObject(rawOutput)
                 val validator = MessengerPayloadValidator.fromJSON(json)
@@ -98,18 +98,18 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
                     validator.type
                 )
                 passedCount++
-                System.out.println("✅ Scenario ${index + 1} passed")
+                logReport("✅ Scenario ${index + 1} passed")
             } catch (e: Exception) {
                 val errorMsg = "Scenario ${index + 1} ($userPrompt) failed: ${e.message}"
                 failures.add(errorMsg)
-                System.out.println("❌ $errorMsg")
+                logReport("❌ $errorMsg")
             }
         }
 
         val accuracy = (passedCount.toDouble() / testCases.size) * 100
-        System.out.println("\n========================================")
-        System.out.println("Classification Accuracy: $passedCount/${testCases.size} (${accuracy}%)")
-        System.out.println("Success Criteria: ≥95%")
+        logReport("\n========================================")
+        logReport("Classification Accuracy: $passedCount/${testCases.size} (${accuracy}%)")
+        logReport("Success Criteria: ≥95%")
 
         if (failures.isNotEmpty()) {
             fail("${failures.size}/${testCases.size} scenarios failed:\n" + 
@@ -142,21 +142,21 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
             "我餓了" to listOf("i'm hungry")
         )
 
-        System.out.println("========================================")
-        System.out.println("Test 2.2: Translation Accuracy")
-        System.out.println("========================================")
-        System.out.println("Testing ${translationTests.size} translations...")
+        logReport("========================================")
+        logReport("Test 2.2: Translation Accuracy")
+        logReport("========================================")
+        logReport("Testing ${translationTests.size} translations...")
 
         val failures = mutableListOf<String>()
         var correctCount = 0
 
         translationTests.toList().forEachIndexed { index, (chinese, expectedPhrases) ->
-            System.out.println("\n========================================")
-            System.out.println("Translation ${index + 1}/${translationTests.size}")
-            System.out.println("========================================")
-            System.out.println("Chinese Input: $chinese")
-            System.out.println("Expected Phrases: $expectedPhrases")
-            System.out.println("----------------------------------------")
+            logReport("\n========================================")
+            logReport("Translation ${index + 1}/${translationTests.size}")
+            logReport("========================================")
+            logReport("Chinese Input: $chinese")
+            logReport("Expected Phrases: $expectedPhrases")
+            logReport("----------------------------------------")
 
             try {
                 val userPrompt = "@ai translate: $chinese"
@@ -170,10 +170,10 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
 
                 val rawOutput = responses.last().choices.first().message!!.content
                 assertNotNull("Translation output should not be null", rawOutput)
-
-                System.out.println("Model Raw Output:")
-                System.out.println(rawOutput)
-                System.out.println("----------------------------------------")
+                
+                logReport("Model Raw Output:")
+                logReport(rawOutput)
+                logReport("----------------------------------------")
 
                 val json = JSONObject(rawOutput)
                 val validator = MessengerPayloadValidator.fromJSON(json)
@@ -195,23 +195,23 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
 
                 if (containsExpected) {
                     correctCount++
-                    System.out.println("✅ Translation correct")
+                    logReport("✅ Translation correct")
                 } else {
                     val errorMsg = "Translation of '$chinese' missing expected phrases. Got: $responseText"
                     failures.add(errorMsg)
-                    System.out.println("❌ $errorMsg")
+                    logReport("❌ $errorMsg")
                 }
             } catch (e: Exception) {
                 val errorMsg = "Translation of '$chinese' failed: ${e.message}"
                 failures.add(errorMsg)
-                System.out.println("❌ $errorMsg")
+                logReport("❌ $errorMsg")
             }
         }
 
         val accuracy = (correctCount.toDouble() / translationTests.size) * 100
-        System.out.println("\n========================================")
-        System.out.println("Translation Accuracy: $correctCount/${translationTests.size} (${accuracy}%)")
-        System.out.println("Success Criteria: ≥90%")
+        logReport("\n========================================")
+        logReport("Translation Accuracy: $correctCount/${translationTests.size} (${accuracy}%)")
+        logReport("Success Criteria: ≥90%")
 
         if (failures.isNotEmpty()) {
             fail("${failures.size}/${translationTests.size} translations failed:\n" + 
@@ -236,14 +236,14 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
     fun llm_generatesSensibleDrafts() = runBlocking {
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
 
-        System.out.println("========================================")
-        System.out.println("Test 2.3: Draft Message Quality")
-        System.out.println("========================================")
-        System.out.println("")
+        logReport("========================================")
+        logReport("Test 2.3: Draft Message Quality")
+        logReport("========================================")
+        logReport("")
 
         val userPrompt = "@ai tell Alice the meeting is at 3pm tomorrow"
-        System.out.println("Input Prompt: $userPrompt")
-        System.out.println("----------------------------------------")
+        logReport("Input Prompt: $userPrompt")
+        logReport("----------------------------------------")
         
         val request = chatRequest(
             prompt = userPrompt,
@@ -255,10 +255,10 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
 
         val rawOutput = responses.last().choices.first().message!!.content
         assertNotNull("Draft output should not be null", rawOutput)
-
-        System.out.println("Model Raw Output:")
-        System.out.println(rawOutput)
-        System.out.println("----------------------------------------")
+        
+        logReport("Model Raw Output:")
+        logReport(rawOutput)
+        logReport("----------------------------------------")
 
         try {
             val json = JSONObject(rawOutput)
@@ -268,7 +268,7 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
             assertNotNull("Draft message should exist", validator.draftMessage)
 
             val draftMessage = validator.draftMessage!!
-            System.out.println("Draft message: $draftMessage")
+            logReport("Draft message: $draftMessage")
 
             // Check draft contains key information
             assertTrue(
@@ -297,9 +297,9 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
                 draftMessage.contains("@ai")
             )
 
-            System.out.println("✅ Draft message quality passed all checks")
+            logReport("✅ Draft message quality passed all checks")
         } catch (e: Exception) {
-            System.out.println("❌ Draft quality test FAILED!")
+            logReport("❌ Draft quality test FAILED!")
             fail(
                 "Draft quality test failed.\n" +
                         "Raw output: $rawOutput\n" +

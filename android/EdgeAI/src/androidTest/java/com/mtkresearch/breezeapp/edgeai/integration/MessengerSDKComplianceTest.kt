@@ -60,13 +60,13 @@ class MessengerSDKComplianceTest : SDKTestBase() {
         assertNotNull("Response content should not be null", rawOutput)
         
         // Log output
-        System.out.println("========================================")
-        System.out.println("Test 1.1: JSON Response Format Validation")
-        System.out.println("========================================")
-        System.out.println("Input: @ai translate: 你好")
-        System.out.println("Raw Output:")
-        System.out.println(rawOutput)
-        System.out.println("========================================")
+        logReport("========================================")
+        logReport("Test 1.1: JSON Response Format Validation")
+        logReport("========================================")
+        logReport("Input: @ai translate: 你好")
+        logReport("Raw Output:")
+        logReport(rawOutput)
+        logReport("========================================")
         
         // Parse JSON directly - NO workarounds for markdown wrapping
         try {
@@ -77,9 +77,9 @@ class MessengerSDKComplianceTest : SDKTestBase() {
             assertEquals("Expected type 'response'", "response", validator.type)
             assertNotNull("Expected 'text' field", validator.text)
             
-            System.out.println("✅ Model output is compliant with MessengerPayloadValidator schema")
+            logReport("✅ Model output is compliant with MessengerPayloadValidator schema")
         } catch (e: Exception) {
-            System.out.println("❌ Model output is NOT compliant!")
+            logReport("❌ Model output is NOT compliant!")
             fail(
                 "Model failed to produce valid JSON.\n" +
                 "This means the model did not follow BreezeSystemPrompt instructions.\n" +
@@ -115,13 +115,13 @@ class MessengerSDKComplianceTest : SDKTestBase() {
         assertNotNull("Response content should not be null", rawOutput)
         
         // Log output
-        System.out.println("========================================")
-        System.out.println("Test 1.2: Draft Response Format Validation")
-        System.out.println("========================================")
-        System.out.println("Input: @ai tell Alice meeting is at 3pm")
-        System.out.println("Raw Output:")
-        System.out.println(rawOutput)
-        System.out.println("========================================")
+        logReport("========================================")
+        logReport("Test 1.2: Draft Response Format Validation")
+        logReport("========================================")
+        logReport("Input: @ai tell Alice meeting is at 3pm")
+        logReport("Raw Output:")
+        logReport(rawOutput)
+        logReport("========================================")
         
         // Validate draft schema
         try {
@@ -143,9 +143,9 @@ class MessengerSDKComplianceTest : SDKTestBase() {
             assertFalse("draft_message should not be empty",
                 json.optString("draft_message").isEmpty())
             
-            System.out.println("✅ Draft response matches expected schema")
+            logReport("✅ Draft response matches expected schema")
         } catch (e: Exception) {
-            System.out.println("❌ Draft response validation failed!")
+            logReport("❌ Draft response validation failed!")
             fail(
                 "Draft response does not match schema.\n" +
                 "Raw output:\n$rawOutput\n\n" +
@@ -170,17 +170,17 @@ class MessengerSDKComplianceTest : SDKTestBase() {
             "@ai summarize last 5 messages" to "response"
         )
         
-        System.out.println("========================================")
-        System.out.println("Test 1.3: Response Completeness")
-        System.out.println("========================================")
-        System.out.println("Testing ${testCases.size} different commands...")
+        logReport("========================================")
+        logReport("Test 1.3: Response Completeness")
+        logReport("========================================")
+        logReport("Testing ${testCases.size} different commands...")
         
         testCases.forEachIndexed { index, (command, expectedType) ->
-            System.out.println("\n========================================")
-            System.out.println("Test Case ${index + 1}/${testCases.size}")
-            System.out.println("========================================")
-            System.out.println("Command: $command")
-            System.out.println("Expected Type: $expectedType")
+            logReport("\n========================================")
+            logReport("Test Case ${index + 1}/${testCases.size}")
+            logReport("========================================")
+            logReport("Command: $command")
+            logReport("Expected Type: $expectedType")
             
             val request = chatRequest(
                 prompt = command,
@@ -192,10 +192,10 @@ class MessengerSDKComplianceTest : SDKTestBase() {
             
             val rawOutput = responses.last().choices.first().message!!.content
             assertNotNull("Response content should not be null", rawOutput)
-            
-            System.out.println("Raw Output:")
-            System.out.println(rawOutput)
-            System.out.println("----------------------------------------")
+
+            logReport("Raw Output:")
+            logReport(rawOutput)
+            logReport("----------------------------------------")
             
             // Validate type
             val json = JSONObject(rawOutput)
@@ -206,11 +206,11 @@ class MessengerSDKComplianceTest : SDKTestBase() {
                 actualType
             )
             
-            System.out.println("✅ Test case ${index + 1} passed")
+            logReport("✅ Test case ${index + 1} passed")
         }
         
-        System.out.println("\n========================================")
-        System.out.println("✅ All ${testCases.size} test cases passed")
-        System.out.println("========================================")
+        logReport("\n========================================")
+        logReport("✅ All ${testCases.size} test cases passed")
+        logReport("========================================")
     }
 }

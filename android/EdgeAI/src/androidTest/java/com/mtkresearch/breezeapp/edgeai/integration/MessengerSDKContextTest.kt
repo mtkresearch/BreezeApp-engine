@@ -41,21 +41,21 @@ class MessengerSDKContextTest : SDKTestBase() {
         // Use the proper TestSystemPrompt that matches Engine logic
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
         
-        System.out.println("========================================")
-        System.out.println("Test 4.1: Context Retention Test")
-        System.out.println("========================================")
+        logReport("========================================")
+        logReport("Test 4.1: Context Retention Test")
+        logReport("========================================")
 
         val history = mutableListOf<ChatMessage>()
         history.add(ChatMessage(role = "system", content = systemPrompt))
         
         // --- Turn 1 ---
         val userPrompt1 = "@ai translate: 我餓了"
-        System.out.println("\n--- Turn 1 ---")
-        System.out.println("User: $userPrompt1")
+        logReport("\n--- Turn 1 ---")
+        logReport("User: $userPrompt1")
         
         history.add(ChatMessage(role = "user", content = userPrompt1))
         
-        System.out.println("DEBUG: Sending Request 1 with history size: ${history.size}")
+        logReport("DEBUG: Sending Request 1 with history size: ${history.size}")
         // Note: model parameter is null to let Engine decide (OpenRouter)
         val request1 = chatRequestWithHistory(
             messages = history
@@ -64,13 +64,13 @@ class MessengerSDKContextTest : SDKTestBase() {
         val responses1 = EdgeAI.chat(request1).toList()
         assertTrue("Turn 1 should response", responses1.isNotEmpty())
         val output1 = responses1.last().choices.first().message!!.content
-        System.out.println("AI: $output1")
+        logReport("AI: $output1")
         
         // Try parsing, if fails print raw output
         val json1 = try {
             JSONObject(output1)
         } catch (e: Exception) {
-            System.err.println("Failed to parse JSON for Turn 1: $output1")
+            logReport("Failed to parse JSON for Turn 1: $output1")
             throw e
         }
         val text1 = json1.optString("text", "")
@@ -81,12 +81,12 @@ class MessengerSDKContextTest : SDKTestBase() {
         
         // --- Turn 2 ---
         val userPrompt2 = "@ai how do you say that more politely?"
-        System.out.println("\n--- Turn 2 ---")
-        System.out.println("User: $userPrompt2")
+        logReport("\n--- Turn 2 ---")
+        logReport("User: $userPrompt2")
         
         history.add(ChatMessage(role = "user", content = userPrompt2))
         
-        System.out.println("DEBUG: Sending Request 2 with history size: ${history.size}")
+        logReport("DEBUG: Sending Request 2 with history size: ${history.size}")
         val request2 = chatRequestWithHistory(
             messages = history
         )
@@ -94,7 +94,7 @@ class MessengerSDKContextTest : SDKTestBase() {
         val responses2 = EdgeAI.chat(request2).toList()
         assertTrue("Turn 2 should response", responses2.isNotEmpty())
         val output2 = responses2.last().choices.first().message!!.content
-        System.out.println("AI: $output2")
+        logReport("AI: $output2")
         
         val json2 = JSONObject(output2)
         val text2 = json2.optString("text", "")
@@ -108,12 +108,12 @@ class MessengerSDKContextTest : SDKTestBase() {
         // --- Turn 3 ---
         // Specific recall prompt
         val userPrompt3 = "@ai what did I ask you to translate earlier?"
-        System.out.println("\n--- Turn 3 ---")
-        System.out.println("User: $userPrompt3")
+        logReport("\n--- Turn 3 ---")
+        logReport("User: $userPrompt3")
         
         history.add(ChatMessage(role = "user", content = userPrompt3))
         
-        System.out.println("DEBUG: Sending Request 3 with history size: ${history.size}")
+        logReport("DEBUG: Sending Request 3 with history size: ${history.size}")
         
         val request3 = chatRequestWithHistory(
             messages = history
@@ -122,7 +122,7 @@ class MessengerSDKContextTest : SDKTestBase() {
         val responses3 = EdgeAI.chat(request3).toList()
         assertTrue("Turn 3 should response", responses3.isNotEmpty())
         val output3 = responses3.last().choices.first().message!!.content
-        System.out.println("AI: $output3")
+        logReport("AI: $output3")
         
         val json3 = JSONObject(output3)
         val text3 = json3.optString("text", "")
@@ -130,7 +130,7 @@ class MessengerSDKContextTest : SDKTestBase() {
         val passed3 = text3.contains("我餓了") || text3.contains("hungry")
         assertTrue("Turn 3 should recall turn 1. Got: $text3", passed3)
         
-        System.out.println("\n✅ Context retention passed across 3 turns")
+        logReport("\n✅ Context retention passed across 3 turns")
     }
 
     /**
@@ -143,17 +143,17 @@ class MessengerSDKContextTest : SDKTestBase() {
     fun llm_maintains8KTokenContext() = runBlocking {
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
         
-        System.out.println("========================================")
-        System.out.println("Test 4.2: Context Window Test (>8k tokens)")
-        System.out.println("========================================")
+        logReport("========================================")
+        logReport("Test 4.2: Context Window Test (>8k tokens)")
+        logReport("========================================")
         
         // Use helper to generate massive 8k+ history
         val history = LongContextData.getHistory(systemPrompt).toMutableList()
-        System.out.println("Generated history with ${history.size} turns.")
+        logReport("Generated history with ${history.size} turns.")
         
         // Ask for the needle buried at turn 1
         val finalQuestion = "@ai what is the secret code I mentioned at the beginning?"
-        System.out.println("Sending final request...")
+        logReport("Sending final request...")
         history.add(ChatMessage(role = "user", content = finalQuestion))
         
         val request = chatRequestWithHistory(
@@ -164,7 +164,7 @@ class MessengerSDKContextTest : SDKTestBase() {
         assertTrue("Should get response for large context", responses.isNotEmpty())
         
         val output = responses.last().choices.first().message!!.content
-        System.out.println("Final AI Response: $output")
+        logReport("Final AI Response: $output")
         
         val json = JSONObject(output)
         val text = json.optString("text", "")
@@ -173,9 +173,9 @@ class MessengerSDKContextTest : SDKTestBase() {
         val passed = text.contains("BLUE-SKY-99")
         
         if (passed) {
-             System.out.println("✅ Context window test passed (Retrieved BLUE-SKY-99)")
+             logReport("✅ Context window test passed (Retrieved BLUE-SKY-99)")
         } else {
-             System.out.println("⚠️ Context window test failed to retrieve exact code. Output: $text")
+             logReport("⚠️ Context window test failed to retrieve exact code. Output: $text")
         }
         
         // Assertion: Valid JSON and content is reasonable
