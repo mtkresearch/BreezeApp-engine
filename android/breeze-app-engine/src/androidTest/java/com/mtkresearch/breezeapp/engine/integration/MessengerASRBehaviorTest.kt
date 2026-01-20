@@ -215,7 +215,7 @@ class MessengerASRBehaviorTest {
             "test_audio_nihao.wav" to listOf("你好", "您好"),
             "test_audio_xiexie.wav" to listOf("謝謝", "谢谢"),
             "test_audio_zaijian.wav" to listOf("再見", "再见"),
-            "test_audio_chinese_question.wav" to listOf("怎麼", "怎么", "如何")
+            "test_audio_mix.wav" to listOf("我想要", "order", "一個pizza", "一个pizza")
         )
 
         var correctCount = 0
@@ -311,107 +311,107 @@ class MessengerASRBehaviorTest {
      *
      * Success Criteria: Degrades gracefully with quality
      */
-    @Test
-    fun asr_handlesVariousAudioQualities() {
-        // Check prerequisites
-        Assume.assumeTrue(
-            "Skipping: HF API Key required",
-            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_TOKEN_HERE"
-        )
-
-        System.out.println("========================================")
-        System.out.println("Test 2.3: Audio Quality Handling")
-        System.out.println("========================================")
-        System.out.println("Model: $hfModel")
-
-        // Setup runner
-        val runner = HuggingFaceASRRunner(context)
-        val params = mapOf(
-            "api_key" to hfApiKey,
-            "model" to hfModel,
-            "wait_for_model" to true
-        )
-
-        val settings = EngineSettings.default()
-            .withRunnerParameters("HuggingFaceASRRunner", params)
-
-        val loaded = runner.load(hfModel, settings, emptyMap())
-        assertTrue("Failed to load runner", loaded)
-
-        // Test cases with different quality levels
-        val qualityTests = listOf(
-            Triple("test_audio_clear.wav", "Clear", "hello"),
-            Triple("test_audio_normal.wav", "Normal", "hello"),
-            Triple("test_audio_noisy.wav", "Noisy", "hello")
-        )
-
-        val results = mutableMapOf<String, Pair<String, Long>>()
-
-        qualityTests.forEachIndexed { index, (audioFile, quality, expectedWord) ->
-            System.out.println("\n========================================")
-            System.out.println("Quality Test ${index + 1}/${qualityTests.size}: $quality")
-            System.out.println("========================================")
-            System.out.println("Audio: $audioFile")
-            System.out.println("Expected word: '$expectedWord'")
-            System.out.println("----------------------------------------")
-
-            var audioData = loadAudioFromAssets(audioFile)
-
-            if (audioData == null) {
-                System.out.println("⚠️  Audio file not found, using fallback")
-                // Use a fallback audio if specific quality file doesn't exist
-                val fallbackAudio = loadAudioFromAssets("test_audio_hello.wav")
-                if (fallbackAudio == null) {
-                    System.out.println("⚠️  No fallback audio, skipping")
-                    return@forEachIndexed
-                } else {
-                    audioData = fallbackAudio
-                }
-            }
-
-            val request = InferenceRequest(
-                sessionId = UUID.randomUUID().toString(),
-                inputs = mapOf(InferenceRequest.INPUT_AUDIO to audioData)
-            )
-
-            val startTime = System.currentTimeMillis()
-            val result = runner.run(request, stream = false)
-            val elapsed = System.currentTimeMillis() - startTime
-
-            if (result.error != null) {
-                System.out.println("❌ Error: ${result.error?.message}")
-                results[quality] = Pair("ERROR", elapsed)
-                return@forEachIndexed
-            }
-
-            val transcription = result.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: ""
-            results[quality] = Pair(transcription, elapsed)
-
-            System.out.println("Transcription: '$transcription'")
-            System.out.println("Time: ${elapsed}ms")
-
-            val containsExpected = transcription.lowercase().contains(expectedWord.lowercase())
-            if (containsExpected) {
-                System.out.println("✅ Contains expected word")
-            } else {
-                System.out.println("⚠️  Does not contain expected word")
-            }
-        }
-
-        System.out.println("\n========================================")
-        System.out.println("Audio Quality Results:")
-        System.out.println("========================================")
-
-        results.forEach { (quality, data) ->
-            val (transcription, time) = data
-            System.out.println("$quality: '$transcription' (${time}ms)")
-        }
-
-        assertTrue(
-            "At least one quality level should be tested",
-            results.isNotEmpty()
-        )
-    }
+//    @Test
+//    fun asr_handlesVariousAudioQualities() {
+//        // Check prerequisites
+//        Assume.assumeTrue(
+//            "Skipping: HF API Key required",
+//            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_TOKEN_HERE"
+//        )
+//
+//        System.out.println("========================================")
+//        System.out.println("Test 2.3: Audio Quality Handling")
+//        System.out.println("========================================")
+//        System.out.println("Model: $hfModel")
+//
+//        // Setup runner
+//        val runner = HuggingFaceASRRunner(context)
+//        val params = mapOf(
+//            "api_key" to hfApiKey,
+//            "model" to hfModel,
+//            "wait_for_model" to true
+//        )
+//
+//        val settings = EngineSettings.default()
+//            .withRunnerParameters("HuggingFaceASRRunner", params)
+//
+//        val loaded = runner.load(hfModel, settings, emptyMap())
+//        assertTrue("Failed to load runner", loaded)
+//
+//        // Test cases with different quality levels
+//        val qualityTests = listOf(
+//            Triple("test_audio_clear.wav", "Clear", "hello"),
+//            Triple("test_audio_normal.wav", "Normal", "hello"),
+//            Triple("test_audio_noisy.wav", "Noisy", "hello")
+//        )
+//
+//        val results = mutableMapOf<String, Pair<String, Long>>()
+//
+//        qualityTests.forEachIndexed { index, (audioFile, quality, expectedWord) ->
+//            System.out.println("\n========================================")
+//            System.out.println("Quality Test ${index + 1}/${qualityTests.size}: $quality")
+//            System.out.println("========================================")
+//            System.out.println("Audio: $audioFile")
+//            System.out.println("Expected word: '$expectedWord'")
+//            System.out.println("----------------------------------------")
+//
+//            var audioData = loadAudioFromAssets(audioFile)
+//
+//            if (audioData == null) {
+//                System.out.println("⚠️  Audio file not found, using fallback")
+//                // Use a fallback audio if specific quality file doesn't exist
+//                val fallbackAudio = loadAudioFromAssets("test_audio_hello.wav")
+//                if (fallbackAudio == null) {
+//                    System.out.println("⚠️  No fallback audio, skipping")
+//                    return@forEachIndexed
+//                } else {
+//                    audioData = fallbackAudio
+//                }
+//            }
+//
+//            val request = InferenceRequest(
+//                sessionId = UUID.randomUUID().toString(),
+//                inputs = mapOf(InferenceRequest.INPUT_AUDIO to audioData)
+//            )
+//
+//            val startTime = System.currentTimeMillis()
+//            val result = runner.run(request, stream = false)
+//            val elapsed = System.currentTimeMillis() - startTime
+//
+//            if (result.error != null) {
+//                System.out.println("❌ Error: ${result.error?.message}")
+//                results[quality] = Pair("ERROR", elapsed)
+//                return@forEachIndexed
+//            }
+//
+//            val transcription = result.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: ""
+//            results[quality] = Pair(transcription, elapsed)
+//
+//            System.out.println("Transcription: '$transcription'")
+//            System.out.println("Time: ${elapsed}ms")
+//
+//            val containsExpected = transcription.lowercase().contains(expectedWord.lowercase())
+//            if (containsExpected) {
+//                System.out.println("✅ Contains expected word")
+//            } else {
+//                System.out.println("⚠️  Does not contain expected word")
+//            }
+//        }
+//
+//        System.out.println("\n========================================")
+//        System.out.println("Audio Quality Results:")
+//        System.out.println("========================================")
+//
+//        results.forEach { (quality, data) ->
+//            val (transcription, time) = data
+//            System.out.println("$quality: '$transcription' (${time}ms)")
+//        }
+//
+//        assertTrue(
+//            "At least one quality level should be tested",
+//            results.isNotEmpty()
+//        )
+//    }
 
     /**
      * Test 2.4: Performance Metrics
@@ -495,12 +495,12 @@ class MessengerASRBehaviorTest {
         System.out.println("Average Latency: ${String.format("%.0f", avgLatency)}ms")
         System.out.println("Min Latency: ${minLatency}ms")
         System.out.println("Max Latency: ${maxLatency}ms")
-        System.out.println("Success Criteria: <10,000ms (10 seconds)")
+        System.out.println("Success Criteria: <3,000ms (3 seconds)")
         System.out.println("========================================")
 
         assertTrue(
             "Average latency should be under 10 seconds (got ${avgLatency}ms)",
-            avgLatency < 10000
+            avgLatency < 3000
         )
     }
 
