@@ -111,13 +111,8 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
         logReport("Max: ${maxResponseTime}ms")
         logReport("Individual times: $responseTimes")
         
-        // Assertions (relaxed for OpenRouter vs Local Engine, but structurally identical)
-        // TDD Plan says < 3000ms. We warn if higher.
-        if (avgResponseTime > 10000) {
-            System.err.println("WARNING: Average response time (${avgResponseTime}ms) exceeds target (<3000ms). This is expected for remote OpenRouter.")
-        } else {
-             assertTrue("Average response time reasonable", avgResponseTime < 20000)
-        }
+        assertTrue("Average response time must be <3000ms (got ${avgResponseTime}ms)", avgResponseTime < 3000)
+        assertTrue("Max responsse time must be <5000ms (got ${maxResponseTime}ms)", maxResponseTime < 5000)
     }
     
     @Test
