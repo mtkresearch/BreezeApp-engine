@@ -26,33 +26,41 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
 
     @Test
     fun integration_simulateSignalAppWorkflow() = runBlocking {
+        System.out.println("Test 5.1: Signal App Workflow Simulation")
         // This test simulates the EXACT workflow Signal app will use
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
         
         // Step 1: Signal app sends translation request
         val history1 = mutableListOf<ChatMessage>()
         history1.add(ChatMessage(role = "system", content = systemPrompt))
-        history1.add(ChatMessage(role = "user", content = "@ai translate: 明天見"))
+        val input1 = "@ai translate: 明天見"
+        history1.add(ChatMessage(role = "user", content = input1))
+        
+        System.out.println("Input: $input1")
         
         val request1 = chatRequestWithHistory(messages = history1)
         val responses1 = EdgeAI.chat(request1).toList()
         assertTrue("Translation response should be complete", responses1.isNotEmpty())
         
         val output1 = responses1.last().choices.first().message!!.content
+        System.out.println("Output: $output1")
         val json1 = JSONObject(output1)
         assertEquals("Should be response type", "response", json1.optString("type"))
 
         // Step 2: Signal app sends draft request
-        // In a real flow, this might maintain history, but the TDD plan examples treat them as separate tasks 
-        // to simplify checking the specific response types. We will clean history for the draft part to match TDD plan example structure 
-        // or just append. TDD plan snippet suggests independent requests but let's append to be 'Integration' worthy
+        // independent requests but let's append to be 'Integration' worthy
         val history2 = mutableListOf<ChatMessage>()
         history2.add(ChatMessage(role = "system", content = systemPrompt))
-        history2.add(ChatMessage(role = "user", content = "@ai tell Alice meeting is at 3pm"))
+        val input2 = "@ai tell Alice meeting is at 3pm"
+        history2.add(ChatMessage(role = "user", content = input2))
+        
+        System.out.println("Input: $input2")
 
         val request2 = chatRequestWithHistory(messages = history2)
         val responses2 = EdgeAI.chat(request2).toList()
         val output2 = responses2.last().choices.first().message!!.content
+        
+        System.out.println("Output: $output2")
         val json2 = JSONObject(output2)
         
         assertEquals("Should be draft type", "draft", json2.optString("type"))
@@ -72,6 +80,7 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
 
     @Test
     fun integration_meetsResponseTimeRequirement() = runBlocking {
+        System.out.println("Test 5.2: Response Time Requirement")
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
         val testCommands = listOf(
             "@ai translate: 你好",
@@ -113,6 +122,7 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
     
     @Test
     fun integration_apiCompatibleWithSignalApp() = runBlocking {
+        System.out.println("Test 5.3: API Compatibility")
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
         
         // Test 1: Translate
@@ -120,9 +130,12 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
              ChatMessage(role = "system", content = systemPrompt),
              ChatMessage(role = "user", content = "@ai translate: 謝謝")
         )
+        System.out.println("Input: @ai translate: 謝謝")
+        
         val request1 = chatRequestWithHistory(messages = history1)
         val responses1 = EdgeAI.chat(request1).toList()
         val engineResponseText = responses1.last().choices.first().message!!.content
+        System.out.println("Output: $engineResponseText")
         
         // Use Signal app's parser
         val signalParsedResponse = SignalAppBreezeResponseParser.parse(engineResponseText)
@@ -136,9 +149,12 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
              ChatMessage(role = "system", content = systemPrompt),
              ChatMessage(role = "user", content = "@ai tell Alice hi")
         )
+        System.out.println("Input: @ai tell Alice hi")
+        
         val request2 = chatRequestWithHistory(messages = history2)
         val responses2 = EdgeAI.chat(request2).toList()
         val draftEngineResponseText = responses2.last().choices.first().message!!.content
+        System.out.println("Output: $draftEngineResponseText")
         
         val signalParsedDraft = SignalAppBreezeResponseParser.parse(draftEngineResponseText)
         
