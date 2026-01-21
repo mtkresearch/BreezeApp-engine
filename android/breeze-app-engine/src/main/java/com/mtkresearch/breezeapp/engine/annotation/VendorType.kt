@@ -127,6 +127,13 @@ enum class VendorType(
         requiresInternet = true
     ),
 
+    CUSTOM(
+        displayName = "Custom",
+        description = "Self hosted server",
+        requiresSpecialHardware = false,
+        requiresInternet = true
+    ),
+
     ELEVENLABS(
         displayName = "ElevenLabs",
         description = "ElevenLabs Inference Framework",
