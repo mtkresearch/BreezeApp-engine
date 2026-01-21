@@ -7,6 +7,7 @@ import com.mtkresearch.breezeapp.edgeai.chatRequestWithHistory
 import com.mtkresearch.breezeapp.edgeai.integration.helpers.LongContextData
 import com.mtkresearch.breezeapp.edgeai.integration.helpers.SDKTestBase
 import com.mtkresearch.breezeapp.edgeai.integration.helpers.TestSystemPrompt
+import com.mtkresearch.breezeapp.edgeai.integration.helpers.TestDataLoader
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -26,6 +27,9 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class MessengerSDKContextTest : SDKTestBase() {
 
+    // Load test data lazily
+    private val testData by lazy { TestDataLoader.loadCategory4Data() }
+
     /**
      * Test 4.1: Context Retention Test
      *
@@ -38,128 +42,82 @@ class MessengerSDKContextTest : SDKTestBase() {
      */
     @Test
     fun llm_retainsContextAcrossTurns() = runBlocking {
-        // Use the proper TestSystemPrompt that matches Engine logic
-        val systemPrompt = TestSystemPrompt.FULL_PROMPT
-        
         logReport("========================================")
         logReport("Test 4.1: Context Retention Test")
         logReport("========================================")
-
-        val history = mutableListOf<ChatMessage>()
-        history.add(ChatMessage(role = "system", content = systemPrompt))
         
-        // --- Turn 1 ---
-        val userPrompt1 = "@ai translate: 我餓了"
-        logReport("\n--- Turn 1 ---")
-        logReport("User: $userPrompt1")
+        val systemPrompt = TestSystemPrompt.FULL_PROMPT
+        val scenarios = testData.retentionTests
         
-        history.add(ChatMessage(role = "user", content = userPrompt1))
-        
-        logReport("DEBUG: Sending Request 1 with history size: ${history.size}")
-        // Note: model parameter is null to let Engine decide (OpenRouter)
-        val request1 = chatRequestWithHistory(
-            messages = history
-        )
-        
-        val responses1 = EdgeAI.chat(request1).toList()
-        assertTrue("Turn 1 should response", responses1.isNotEmpty())
-        val output1 = responses1.last().choices.first().message!!.content
-        logReport("AI: $output1")
-        
-        // Try parsing, if fails print raw output
-        val json1 = try {
-            JSONObject(output1)
-        } catch (e: Exception) {
-            logReport("Failed to parse JSON for Turn 1: $output1")
-            throw e
-        }
-        val text1 = json1.optString("text", "")
-        assertTrue("Turn 1 should contain 'hungry'",
-            text1.contains("hungry", ignoreCase = true))
+        scenarios.forEach { scenario ->
+            logReport("\n--- Scenario ID: ${scenario.id} ---")
             
-        history.add(ChatMessage(role = "assistant", content = output1))
-        
-        // --- Turn 2 ---
-        val userPrompt2 = "@ai how do you say that more politely?"
-        logReport("\n--- Turn 2 ---")
-        logReport("User: $userPrompt2")
-        
-        history.add(ChatMessage(role = "user", content = userPrompt2))
-        
-        logReport("DEBUG: Sending Request 2 with history size: ${history.size}")
-        val request2 = chatRequestWithHistory(
-            messages = history
-        )
-        
-        val responses2 = EdgeAI.chat(request2).toList()
-        assertTrue("Turn 2 should response", responses2.isNotEmpty())
-        val output2 = responses2.last().choices.first().message!!.content
-        logReport("AI: $output2")
-        
-        val json2 = JSONObject(output2)
-        val text2 = json2.optString("text", "")
-        
-        // Should reference the previous Chinese phrase
-        val passed2 = text2.contains("有點餓") || text2.contains("polite") || text2.contains("hungry")
-        assertTrue("Turn 2 should understand context. Got: $text2", passed2)
-        
-        history.add(ChatMessage(role = "assistant", content = output2))
-        
-        // --- Turn 3 ---
-        // Specific recall prompt
-        val userPrompt3 = "@ai what did I ask you to translate earlier?"
-        logReport("\n--- Turn 3 ---")
-        logReport("User: $userPrompt3")
-        
-        history.add(ChatMessage(role = "user", content = userPrompt3))
-        
-        logReport("DEBUG: Sending Request 3 with history size: ${history.size}")
-        
-        val request3 = chatRequestWithHistory(
-            messages = history
-        )
-        
-        val responses3 = EdgeAI.chat(request3).toList()
-        assertTrue("Turn 3 should response", responses3.isNotEmpty())
-        val output3 = responses3.last().choices.first().message!!.content
-        logReport("AI: $output3")
-        
-        val json3 = JSONObject(output3)
-        val text3 = json3.optString("text", "")
-        
-        val passed3 = text3.contains("我餓了") || text3.contains("hungry")
-        assertTrue("Turn 3 should recall turn 1. Got: $text3", passed3)
-        
-        logReport("\n✅ Context retention passed across 3 turns")
+            val history = mutableListOf<ChatMessage>()
+            history.add(ChatMessage(role = "system", content = systemPrompt))
+            
+            scenario.turns.forEachIndexed { index, turn ->
+                logReport("\nTurn ${index + 1}: User Input: '${turn.input}'")
+                
+                history.add(ChatMessage(role = "user", content = turn.input))
+                
+                val request = chatRequestWithHistory(messages = history)
+                val responses = EdgeAI.chat(request).toList()
+                assertTrue("Should get response", responses.isNotEmpty())
+                
+                val output = responses.last().choices.first().message!!.content
+                logReport("AI Response: $output")
+                
+                // Add assistant response to history for next turn
+                history.add(ChatMessage(role = "assistant", content = output))
+                
+                // Validate expectation
+                val json = try { JSONObject(output) } catch(e: Exception) { null }
+                val text = json?.optString("text", "") ?: ""
+                val draftMsg = json?.optString("draft_message", "") ?: ""
+                val contentToCheck = if (text.isNotEmpty()) text else draftMsg
+                
+                if (turn.expectedContainsAny.isNotEmpty()) {
+                    val matched = turn.expectedContainsAny.any { phrase ->
+                        contentToCheck.contains(phrase, ignoreCase = true)
+                    }
+                    if (matched) {
+                        logReport("✅ PASS: Found expected phrase from ${turn.expectedContainsAny}")
+                    } else {
+                        val msg = "❌ FAIL: Output did not contain any of ${turn.expectedContainsAny}. Got: $contentToCheck"
+                        logReport(msg)
+                        fail(msg)
+                    }
+                }
+            }
+        }
     }
 
     /**
      * Test 4.2: Context Window Test
-     *
-     * Purpose: Verify 8K+ token context window.
-     * We simulate a long conversation and verify the model can still recall early details.
      */
     @Test
     fun llm_maintains8KTokenContext() = runBlocking {
+        val testConfig = testData.longContextTest
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
         
         logReport("========================================")
-        logReport("Test 4.2: Context Window Test (>8k tokens)")
+        logReport("Test 4.2: Context Window Test")
+        logReport("Target Token Count: ${testConfig.targetTokenCount}")
         logReport("========================================")
         
-        // Use helper to generate massive 8k+ history
+        // Use helper to generate massive history based on target token count
+        // Note: LongContextData.getHistory is existing code, assuming it generates roughly 8k tokens.
+        // If we want precise control we would pass targetTokenCount to it, but for now we follow existing logic 
+        // while asserting the INTENT from JSON.
         val history = LongContextData.getHistory(systemPrompt).toMutableList()
         logReport("Generated history with ${history.size} turns.")
         
-        // Ask for the needle buried at turn 1
-        val finalQuestion = "@ai what is the secret code I mentioned at the beginning?"
-        logReport("Sending final request...")
+        // Ask final question from JSON
+        val finalQuestion = testConfig.finalQuestion
+        logReport("Sending final request: $finalQuestion")
         history.add(ChatMessage(role = "user", content = finalQuestion))
         
-        val request = chatRequestWithHistory(
-            messages = history
-        )
-        
+        val request = chatRequestWithHistory(messages = history)
         val responses = EdgeAI.chat(request).toList()
         assertTrue("Should get response for large context", responses.isNotEmpty())
         
@@ -169,13 +127,13 @@ class MessengerSDKContextTest : SDKTestBase() {
         val json = JSONObject(output)
         val text = json.optString("text", "")
         
-        // Check for "BLUE-SKY-99"
-        val passed = text.contains("BLUE-SKY-99")
+        val expected = testConfig.expectedAnswerContains
+        val passed = text.contains(expected, ignoreCase = true)
         
         if (passed) {
-             logReport("✅ Context window test passed (Retrieved BLUE-SKY-99)")
+             logReport("✅ PASS: Retrieved secret '$expected'")
         } else {
-             logReport("⚠️ Context window test failed to retrieve exact code. Output: $text")
+             logReport("⚠️ FAIL: Did not retrieve secret '$expected'. Output: $text")
         }
         
         // Assertion: Valid JSON and content is reasonable

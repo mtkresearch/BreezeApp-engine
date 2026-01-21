@@ -6,6 +6,7 @@ import com.mtkresearch.breezeapp.edgeai.chatRequest
 import com.mtkresearch.breezeapp.edgeai.integration.helpers.SDKTestBase
 import com.mtkresearch.breezeapp.edgeai.integration.helpers.MessengerPayloadValidator
 import com.mtkresearch.breezeapp.edgeai.integration.helpers.TestSystemPrompt
+import com.mtkresearch.breezeapp.edgeai.integration.helpers.TestDataLoader
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -30,6 +31,9 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class MessengerSDKComplianceTest : SDKTestBase() {
     
+    // Load test data lazily
+    private val testData by lazy { TestDataLoader.loadCategory1Data() }
+    
     /**
      * Test 1.1: JSON Response Format Validation
      * 
@@ -38,54 +42,53 @@ class MessengerSDKComplianceTest : SDKTestBase() {
      */
     @Test
     fun chatResponse_matchesExpectedSchema() = runBlocking {
-        // System Prompt
-        val systemPrompt = TestSystemPrompt.FULL_PROMPT
-        val userPrompt = "@ai translate: 你好"
-        
-        // Create request via SDK API
-        val request = chatRequest(
-            prompt = userPrompt,
-            systemPrompt = systemPrompt
-        )
-        
-        // Execute via EdgeAI SDK
-        val responses = EdgeAI.chat(request).toList()
-        
-        // Get final response
-        assertTrue("SDK should return at least one response", responses.isNotEmpty())
-        val finalResponse = responses.last()
-        assertNotNull("Final response should not be null", finalResponse)
-        
-        val rawOutput = finalResponse.choices.first().message!!.content
-        assertNotNull("Response content should not be null", rawOutput)
-        
-        // Log output
         logReport("========================================")
         logReport("Test 1.1: JSON Response Format Validation")
-        logReport("========================================")
-        logReport("Input: @ai translate: 你好")
-        logReport("Raw Output:")
-        logReport(rawOutput)
+        logReport("Data Source: category1_compliance.json")
         logReport("========================================")
         
-        // Parse JSON directly - NO workarounds for markdown wrapping
-        try {
-            val json = JSONObject(rawOutput)
-            val validator = MessengerPayloadValidator.fromJSON(json)
-            
-            // Assertions (as per TDD Plan - only schema validation)
-            assertEquals("Expected type 'response'", "response", validator.type)
-            assertNotNull("Expected 'text' field", validator.text)
-            
-            logReport("✅ Model output is compliant with MessengerPayloadValidator schema")
-        } catch (e: Exception) {
-            logReport("❌ Model output is NOT compliant!")
-            fail(
-                "Model failed to produce valid JSON.\n" +
-                "This means the model did not follow BreezeSystemPrompt instructions.\n" +
-                "Raw output:\n$rawOutput\n\n" +
-                "Error: ${e.message}"
+        val systemPrompt = TestSystemPrompt.FULL_PROMPT
+        
+        testData.schemaValidationTests.forEachIndexed { index, testCase ->
+            logReport("\n--- Scenario ${index+1}: '${testCase.input}' ---")
+            val request = chatRequest(
+                prompt = testCase.input,
+                systemPrompt = systemPrompt
             )
+             
+            // Execute via EdgeAI SDK
+            val responses = EdgeAI.chat(request).toList()
+        
+            // Get final response
+            assertTrue("SDK should return at least one response", responses.isNotEmpty())
+            val finalResponse = responses.last()
+            assertNotNull("Final response should not be null", finalResponse)
+             
+            val rawOutput = finalResponse.choices.first().message!!.content
+            assertNotNull("Response content should not be null", rawOutput)
+            logReport("Output: $rawOutput")
+             
+            // Parse JSON directly - NO workarounds for markdown wrapping
+            try {
+                val json = JSONObject(rawOutput)
+                val validator = MessengerPayloadValidator.fromJSON(json)
+                
+                // Required checks per MessengerPayloadValidator
+                assertNotNull("Should have text", validator.text)
+                
+                // Optional specific field/value checks from JSON
+                testCase.expectedFields?.forEach { field ->
+                    assertTrue("Response should contain field '$field'", json.has(field))
+                }
+                testCase.expectedValues?.forEach { (key, expectedVal) ->
+                    assertEquals("Field '$key' should match", expectedVal, json.optString(key))
+                }
+                
+                logReport("✅ Schema validation PASSED")
+            } catch (e: Exception) {
+                logReport("❌ Schema validation FAILED: ${e.message}")
+                fail(e.message)
+            }
         }
     }
     
@@ -96,61 +99,46 @@ class MessengerSDKComplianceTest : SDKTestBase() {
      */
     @Test
     fun draftResponse_matchesExpectedSchema() = runBlocking {
-        // System Prompt
-        val systemPrompt = TestSystemPrompt.FULL_PROMPT
-        val userPrompt = "@ai tell Alice meeting is at 3pm"
-        
-        // Create request via SDK API
-        val request = chatRequest(
-            prompt = userPrompt,
-            systemPrompt = systemPrompt
-        )
-        
-        // Execute via EdgeAI SDK
-        val responses = EdgeAI.chat(request).toList()
-        
-        // Get final response
-        assertTrue("SDK should return responses", responses.isNotEmpty())
-        val rawOutput = responses.last().choices.first().message!!.content
-        assertNotNull("Response content should not be null", rawOutput)
-        
-        // Log output
         logReport("========================================")
         logReport("Test 1.2: Draft Response Format Validation")
         logReport("========================================")
-        logReport("Input: @ai tell Alice meeting is at 3pm")
-        logReport("Raw Output:")
-        logReport(rawOutput)
-        logReport("========================================")
         
-        // Validate draft schema
-        try {
-            val json = JSONObject(rawOutput)
-            val validator = MessengerPayloadValidator.fromJSON(json)
-            
-            // Validate draft schema
-            assertEquals("Expected type 'draft'", "draft", validator.type)
-            assertTrue("Must have 'draft_message' field", 
-                json.has("draft_message"))
-            assertTrue("Must have 'recipient' field", 
-                json.has("recipient"))
-            assertTrue("Must have 'confirmation_prompt' field", 
-                json.has("confirmation_prompt"))
-            
-            // Validate values
-            assertEquals("Recipient should be Alice", "Alice", 
-                json.optString("recipient"))
-            assertFalse("draft_message should not be empty",
-                json.optString("draft_message").isEmpty())
-            
-            logReport("✅ Draft response matches expected schema")
-        } catch (e: Exception) {
-            logReport("❌ Draft response validation failed!")
-            fail(
-                "Draft response does not match schema.\n" +
-                "Raw output:\n$rawOutput\n\n" +
-                "Error: ${e.message}"
+        val systemPrompt = TestSystemPrompt.FULL_PROMPT
+        
+        testData.draftSchemaTests.forEachIndexed { index, testCase ->
+            logReport("\n--- Scenario ${index+1}: '${testCase.input}' ---")
+            val request = chatRequest(
+            prompt = testCase.input,
+            systemPrompt = systemPrompt
             )
+            
+            val responses = EdgeAI.chat(request).toList()
+            assertTrue("Should receive response", responses.isNotEmpty())
+            val rawOutput = responses.last().choices.first().message!!.content
+            assertNotNull("Response content should not be null", rawOutput)
+            logReport("Output: $rawOutput")
+
+            try {
+                val json = JSONObject(rawOutput)
+                val validator = MessengerPayloadValidator.fromJSON(json)
+                
+                assertEquals("Expected type 'draft'", "draft", validator.type)
+                assertTrue("Must have 'draft_message' field", json.has("draft_message"))
+                assertTrue("Must have 'recipient' field", json.has("recipient"))
+                assertTrue("Must have 'confirmation_prompt' field", json.has("confirmation_prompt"))
+                
+                assertEquals("Recipient should match", testCase.expectedRecipient, json.optString("recipient"))
+                
+                if (testCase.checkNotEmpty) {
+                    val msg = json.optString("draft_message")
+                    assertFalse("draft_message should not be empty", msg.isEmpty())
+                }
+                
+                logReport("✅ Draft schema PASSED")
+            } catch(e: Exception) {
+                logReport("❌ Draft schema FAILED: ${e.message}")
+                fail(e.message)
+            }
         }
     }
     
@@ -161,56 +149,42 @@ class MessengerSDKComplianceTest : SDKTestBase() {
      */
     @Test
     fun allResponseTypes_areComplete() = runBlocking {
-        val systemPrompt = TestSystemPrompt.FULL_PROMPT
-        
-        val testCases = listOf(
-            "@ai translate: 你好" to "response",
-            "@ai help" to "response",
-            "@ai tell Alice hi" to "draft",
-            "@ai summarize last 5 messages" to "response"
-        )
-        
         logReport("========================================")
         logReport("Test 1.3: Response Completeness")
         logReport("========================================")
-        logReport("Testing ${testCases.size} different commands...")
         
-        testCases.forEachIndexed { index, (command, expectedType) ->
-            logReport("\n========================================")
-            logReport("Test Case ${index + 1}/${testCases.size}")
-            logReport("========================================")
-            logReport("Command: $command")
-            logReport("Expected Type: $expectedType")
-            
-            val request = chatRequest(
-                prompt = command,
-                systemPrompt = systemPrompt
-            )
-            
-            val responses = EdgeAI.chat(request).toList()
-            assertTrue("Response should be complete", responses.isNotEmpty())
-            
-            val rawOutput = responses.last().choices.first().message!!.content
-            assertNotNull("Response content should not be null", rawOutput)
+        val systemPrompt = TestSystemPrompt.FULL_PROMPT
+        
+        testData.completenessTests.forEachIndexed { index, testCase ->
+             logReport("\n--- Scenario ${index+1}: '${testCase.input}' ---")
+             val request = chatRequest(
+                 prompt = testCase.input,
+                 systemPrompt = systemPrompt
+             )
+             
+             val responses = EdgeAI.chat(request).toList()
+             assertTrue("Response should be complete", responses.isNotEmpty())
 
-            logReport("Raw Output:")
-            logReport(rawOutput)
-            logReport("----------------------------------------")
-            
-            // Validate type
-            val json = JSONObject(rawOutput)
-            val actualType = json.optString("type")
-            assertEquals(
-                "Response type should be $expectedType",
-                expectedType,
-                actualType
-            )
-            
-            logReport("✅ Test case ${index + 1} passed")
+             val rawOutput = responses.last().choices.first().message!!.content
+            assertNotNull("Response content should not be null", rawOutput)
+             logReport("Output: $rawOutput")
+             
+             try {
+                 val json = JSONObject(rawOutput)
+                 val actualType = json.optString("type")
+                 assertEquals("Type should match", testCase.expectedType, actualType)
+                 
+                 if (testCase.checkCompleteness) {
+                     // Basic check: is it valid JSON and has text?
+                     val validator = MessengerPayloadValidator.fromJSON(json)
+                     assertNotNull(validator) // throws if invalid
+                     logReport("✅ Completeness Check passed")
+                 }
+                 
+             } catch(e: Exception) {
+                 logReport("❌ Completeness Check FAILED: ${e.message}")
+                 fail(e.message)
+             }
         }
-        
-        logReport("\n========================================")
-        logReport("✅ All ${testCases.size} test cases passed")
-        logReport("========================================")
     }
 }

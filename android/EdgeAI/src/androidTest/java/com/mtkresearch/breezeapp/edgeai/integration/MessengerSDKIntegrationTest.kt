@@ -7,13 +7,13 @@ import com.mtkresearch.breezeapp.edgeai.chatRequestWithHistory
 import com.mtkresearch.breezeapp.edgeai.integration.helpers.SDKTestBase
 import com.mtkresearch.breezeapp.edgeai.integration.helpers.SignalAppBreezeResponseParser
 import com.mtkresearch.breezeapp.edgeai.integration.helpers.TestSystemPrompt
+import com.mtkresearch.breezeapp.edgeai.integration.helpers.TestDataLoader
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
-import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.flow.onEach
 
 /**
@@ -25,103 +25,123 @@ import kotlinx.coroutines.flow.onEach
 @RunWith(AndroidJUnit4::class)
 class MessengerSDKIntegrationTest : SDKTestBase() {
 
+    // Load test data lazily
+    private val testData by lazy { TestDataLoader.loadCategory5Data() }
+
     @Test
     fun integration_simulateSignalAppWorkflow() = runBlocking {
+        logReport("========================================")
         logReport("Test 5.1: Signal App Workflow Simulation")
-        // This test simulates the EXACT workflow Signal app will use
+        logReport("========================================")
+        
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
+        val steps = testData.workflowSimulation
         
-        // Step 1: Signal app sends translation request
-        val history1 = mutableListOf<ChatMessage>()
-        history1.add(ChatMessage(role = "system", content = systemPrompt))
-        val input1 = "@ai translate: 明天見"
-        history1.add(ChatMessage(role = "user", content = input1))
+        // Note: Workflow simulation strictly implies sequence, but often stateless between specific independent actions 
+        // unless context is carried. Here we simulate "App Usage Session" where user does X then Y.
         
-        logReport("Input: $input1")
-        
-        val request1 = chatRequestWithHistory(messages = history1)
-        val responses1 = EdgeAI.chat(request1).toList()
-        assertTrue("Translation response should be complete", responses1.isNotEmpty())
-        
-        val output1 = responses1.last().choices.first().message!!.content
-        logReport("Output: $output1")
-        val json1 = JSONObject(output1)
-        assertEquals("Should be response type", "response", json1.optString("type"))
-
-        // Step 2: Signal app sends draft request
-        // independent requests but let's append to be 'Integration' worthy
-        val history2 = mutableListOf<ChatMessage>()
-        history2.add(ChatMessage(role = "system", content = systemPrompt))
-        val input2 = "@ai tell Alice meeting is at 3pm"
-        history2.add(ChatMessage(role = "user", content = input2))
-        
-        logReport("Input: $input2")
-
-        val request2 = chatRequestWithHistory(messages = history2)
-        val responses2 = EdgeAI.chat(request2).toList()
-        val output2 = responses2.last().choices.first().message!!.content
-        
-        logReport("Output: $output2")
-        val json2 = JSONObject(output2)
-        
-        assertEquals("Should be draft type", "draft", json2.optString("type"))
-        // Strict TDD: "Alice" should be in recipient
-        assertEquals("Should identify Alice", "Alice", json2.optString("recipient"))
-        
-        // Step 3: Simulate Signal app confirmation flow
-        val draftMessage = json2.optString("draft_message")
-        assertFalse("Draft message should not be empty", draftMessage.isEmpty())
-        
-        // Step 4: Signal app would now display this to user (Implicit pass)
-        logReport("✅ Integration simulation passed!")
-        logReport("   Translation response: ${json1.optString("text")}")
-        logReport("   Draft message: $draftMessage")
-        logReport("   Recipient: ${json2.optString("recipient")}")
+        steps.forEachIndexed { index, step ->
+            logReport("\n--- Step ${index + 1}: ${step.stepName} ---")
+            logReport("Input: ${step.input}")
+            
+            val history = mutableListOf<ChatMessage>()
+            history.add(ChatMessage(role = "system", content = systemPrompt))
+            history.add(ChatMessage(role = "user", content = step.input))
+            
+            val request = chatRequestWithHistory(messages = history)
+            val responses = EdgeAI.chat(request).toList()
+            assertTrue("Step ${index+1} should get response", responses.isNotEmpty())
+            
+            val output = responses.last().choices.first().message!!.content ?: ""
+            logReport("Output: $output")
+            
+            val json = JSONObject(output)
+            assertEquals("Step ${index+1} type match", step.expectedType, json.optString("type"))
+            
+            if (step.expectedRecipient != null) {
+                assertEquals("Recipient match", step.expectedRecipient, json.optString("recipient"))
+            }
+            
+            if (step.checkCompleteness) {
+                // Ensure text or draft present based on type
+                if (step.expectedType == "response") {
+                    assertFalse("Text should not be empty", json.optString("text").isEmpty())
+                } else if (step.expectedType == "draft") {
+                    assertFalse("Draft message should not be empty", json.optString("draft_message").isEmpty())
+                }
+            }
+            logReport("✅ Step ${index+1} PASSED")
+        }
     }
 
     @Test
     fun integration_meetsResponseTimeRequirement() = runBlocking {
+        logReport("========================================")
         logReport("Test 5.2: Response Time Requirement")
+        logReport("========================================")
+        
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
-        val testCommands = listOf(
-            "@ai translate: 你好",
-            "@ai tell Alice meeting at 3pm",
-            // "@ai summarize: Alice asked about meeting time", // should provide complete history conversation
-            "@ai help"
-        )
-        // Note: Reduced list slightly to fit OpenRouter latency constraints in CI, 
-        // but keeping core logic. 'summarize' without context is weird for LLM.
+        val scenarios = testData.latencyTests
         
         val ttftValues = mutableListOf<Long>()
         val totalTimeValues = mutableListOf<Long>()
         
-        testCommands.forEach { command ->
-            val history = mutableListOf(
-                 ChatMessage(role = "system", content = systemPrompt),
-                 ChatMessage(role = "user", content = command)
-            )
+        scenarios.forEach { scenario ->
+            val input = scenario.input
+            val history = mutableListOf<ChatMessage>()
+            history.add(ChatMessage(role = "system", content = systemPrompt))
+            
+            // Build history based on JSON config
+            if (scenario.useHistory && scenario.historyMessages != null) {
+                val contextBuilder = StringBuilder()
+                contextBuilder.append("Conversation History:\n")
+                scenario.historyMessages.forEach { msg ->
+                    contextBuilder.append("[${msg.sender}]: ${msg.body}\n")
+                }
+                contextBuilder.append("\nUser Command: $input")
+                
+                // Replace the simple input with the context-rich input
+                history.add(ChatMessage(role = "user", content = contextBuilder.toString()))
+                
+            } else {
+                history.add(ChatMessage(role = "user", content = input))
+            }
+            
+            logReport("Executing: $input (History: ${scenario.useHistory})")
             
             var ttft: Long? = null
             val startTime = System.currentTimeMillis()
+            val fullResponseBuilder = StringBuilder()
             
             val request = chatRequestWithHistory(messages = history, stream = true)
             val response = EdgeAI.chat(request)
-                .onEach { 
+                .onEach { chunk ->
                     if (ttft == null) {
                         ttft = System.currentTimeMillis() - startTime
+                    }
+                    // For streaming, content is in 'delta'; for non-streaming, in 'message'
+                    // Safely check both or prefer delta for streaming
+                    val content = chunk.choices.firstOrNull()?.let { choice ->
+                        choice.delta?.content ?: choice.message?.content
+                    }
+                    
+                    content?.let {
+                        fullResponseBuilder.append(it)
                     }
                 }
                 .toList()
                 
             val totalTime = System.currentTimeMillis() - startTime
+            val finalOutput = fullResponseBuilder.toString()
             
-            assertTrue(response.isNotEmpty())
+            assertTrue("Should get response", response.isNotEmpty())
             
             if (ttft != null) {
                 ttftValues.add(ttft!!)
                 totalTimeValues.add(totalTime)
-                logReport("Command: '$command' | TTFT: ${ttft}ms | Total: ${totalTime}ms")
+                logReport("TTFT: ${ttft}ms | Total: ${totalTime}ms")
             }
+            logReport("Model Output: $finalOutput")
         }
         
         val avgTotalTime = totalTimeValues.average()
@@ -142,45 +162,50 @@ class MessengerSDKIntegrationTest : SDKTestBase() {
     
     @Test
     fun integration_apiCompatibleWithSignalApp() = runBlocking {
+        logReport("========================================")
         logReport("Test 5.3: API Compatibility")
+        logReport("========================================")
+        
         val systemPrompt = TestSystemPrompt.FULL_PROMPT
+        val tests = testData.compatibilityTests
         
-        // Test 1: Translate
-        val history1 = mutableListOf(
-             ChatMessage(role = "system", content = systemPrompt),
-             ChatMessage(role = "user", content = "@ai translate: 謝謝")
-        )
-        logReport("Input: @ai translate: 謝謝")
-        
-        val request1 = chatRequestWithHistory(messages = history1)
-        val responses1 = EdgeAI.chat(request1).toList()
-        val engineResponseText = responses1.last().choices.first().message!!.content
-        logReport("Output: $engineResponseText")
-        
-        // Use Signal app's parser
-        val signalParsedResponse = SignalAppBreezeResponseParser.parse(engineResponseText)
-        
-        assertNotNull("Signal app should be able to parse response", signalParsedResponse)
-        assertEquals("Parsed type should match", "response", signalParsedResponse?.type)
-        assertFalse("Parsed text should not be empty", signalParsedResponse?.text?.isEmpty() ?: true)
-        
-        // Test 2: Draft
-        val history2 = mutableListOf(
-             ChatMessage(role = "system", content = systemPrompt),
-             ChatMessage(role = "user", content = "@ai tell Alice hi")
-        )
-        logReport("Input: @ai tell Alice hi")
-        
-        val request2 = chatRequestWithHistory(messages = history2)
-        val responses2 = EdgeAI.chat(request2).toList()
-        val draftEngineResponseText = responses2.last().choices.first().message!!.content
-        logReport("Output: $draftEngineResponseText")
-        
-        val signalParsedDraft = SignalAppBreezeResponseParser.parse(draftEngineResponseText)
-        
-        assertNotNull("Signal app should parse draft", signalParsedDraft)
-        assertEquals("Draft type should match", "draft", signalParsedDraft?.type)
-        assertNotNull("Draft message should exist", signalParsedDraft?.draftMessage)
-        assertNotNull("Recipient should exist", signalParsedDraft?.recipient)
+        tests.forEach { test ->
+            val history = mutableListOf(
+                 ChatMessage(role = "system", content = systemPrompt),
+                 ChatMessage(role = "user", content = test.input)
+            )
+            logReport("\nInput: ${test.input}")
+
+            val request = chatRequestWithHistory(messages = history)
+            val responses = EdgeAI.chat(request).toList()
+            val engineResponseText = responses.last().choices.first().message!!.content
+            logReport("Output: $engineResponseText")
+            
+            if (test.expectValidSignalParsing) {
+                val parsed = SignalAppBreezeResponseParser.parse(engineResponseText)
+                assertNotNull("Signal Parser failed to parse output", parsed)
+                
+                if (test.expectedParsedType != null) {
+                    assertEquals("Parsed type mismatch", test.expectedParsedType, parsed?.type)
+                }
+
+                when (parsed?.type) {
+                    "response" -> {
+                        assertFalse("Response text should not be empty", parsed.text.isEmpty())
+                    }
+                    "draft" -> {
+                        // For drafts, text might be empty, we check draft_message instead
+                        val signalParsedDraft = SignalAppBreezeResponseParser.parse(engineResponseText)
+                        assertFalse("Draft message should not be empty", signalParsedDraft?.draftMessage.isNullOrEmpty())
+                        assertFalse("Recipient should not be empty", signalParsedDraft?.recipient.isNullOrEmpty())
+                    }
+                    else -> {
+                        fail("Unknown response type: ${parsed?.type}")
+                    }
+                }
+
+                logReport("✅ Signal Parser successfully parsed as '${parsed?.type}'")
+            }
+        }
     }
 }
