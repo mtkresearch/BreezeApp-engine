@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.RemoteException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -62,7 +64,7 @@ class EdgeAIServiceBindingEdgeCasesTest {
     fun `test service not found - bindService returns false`() = runTest {
         // Simulate service not installed or not exported
         whenever(mockContext.applicationContext).thenReturn(mockContext)
-        whenever(mockContext.bindService(any(), any(), any())).thenReturn(false)
+        whenever(mockContext.bindService(any(), any(), any<Int>())).thenReturn(false)
 
         val result = EdgeAI.initialize(mockContext)
 
@@ -77,7 +79,7 @@ class EdgeAIServiceBindingEdgeCasesTest {
     @Test
     fun `test security exception during binding - permission denied`() = runTest {
         whenever(mockContext.applicationContext).thenReturn(mockContext)
-        whenever(mockContext.bindService(any(), any(), any()))
+        whenever(mockContext.bindService(any(), any(), any<Int>()))
             .thenThrow(SecurityException("Permission denied"))
 
         val result = EdgeAI.initialize(mockContext)
@@ -91,7 +93,7 @@ class EdgeAIServiceBindingEdgeCasesTest {
     @Test
     fun `test service binding timeout - never calls onServiceConnected`() = runTest {
         whenever(mockContext.applicationContext).thenReturn(mockContext)
-        whenever(mockContext.bindService(any(), any(), any())).thenReturn(true)
+        whenever(mockContext.bindService(any(), any(), any<Int>())).thenReturn(true)
         // Service never connects (simulates hung service)
 
         try {
@@ -167,20 +169,22 @@ class EdgeAIServiceBindingEdgeCasesTest {
     @Test
     fun `test concurrent initialization attempts - only one succeeds`() = runTest {
         whenever(mockContext.applicationContext).thenReturn(mockContext)
-        whenever(mockContext.bindService(any(), any(), any())).thenReturn(true)
+        whenever(mockContext.bindService(any(), any(), any<Int>())).thenReturn(true)
 
         // Launch multiple concurrent initialization attempts
-        val results = List(10) {
-            kotlinx.coroutines.async {
+        // Launch multiple concurrent initialization attempts
+        val deferreds = List(10) {
+            async {
                 EdgeAI.initialize(mockContext)
             }
-        }.map { it.await() }
+        }
+        val results = deferreds.awaitAll()
 
         // All should succeed (idempotent)
         assertTrue("All initializations should succeed", results.all { it.isSuccess })
         
         // But bindService should only be called once
-        verify(mockContext, times(1)).bindService(any(), any(), any())
+        verify(mockContext, times(1)).bindService(any(), any(), any<Int>())
     }
 
     @Test
@@ -253,7 +257,7 @@ class EdgeAIServiceBindingEdgeCasesTest {
     @Test
     fun `test low memory during service binding`() = runTest {
         whenever(mockContext.applicationContext).thenReturn(mockContext)
-        whenever(mockContext.bindService(any(), any(), any()))
+        whenever(mockContext.bindService(any(), any(), any<Int>()))
             .thenThrow(OutOfMemoryError("Insufficient memory"))
 
         try {
@@ -282,7 +286,7 @@ class EdgeAIServiceBindingEdgeCasesTest {
     @Test
     fun `test listener registration fails - service rejects listener`() = runTest {
         whenever(mockContext.applicationContext).thenReturn(mockContext)
-        whenever(mockContext.bindService(any(), any(), any())).thenAnswer { invocation ->
+        whenever(mockContext.bindService(any(), any(), any<Int>())).thenAnswer { invocation ->
             val connection = invocation.arguments[1] as ServiceConnection
             connection.onServiceConnected(ComponentName("test", "test"), mockBinder)
             true
@@ -306,7 +310,7 @@ class EdgeAIServiceBindingEdgeCasesTest {
         whenever(mockContext.applicationContext).thenReturn(mockContext)
         
         repeat(5) {
-            whenever(mockContext.bindService(any(), any(), any())).thenReturn(true)
+            whenever(mockContext.bindService(any(), any(), any<Int>())).thenReturn(true)
             EdgeAI.initialize(mockContext)
             EdgeAI.shutdown()
         }
@@ -318,9 +322,9 @@ class EdgeAIServiceBindingEdgeCasesTest {
     @Test
     fun `test shutdown during initialization`() = runTest {
         whenever(mockContext.applicationContext).thenReturn(mockContext)
-        whenever(mockContext.bindService(any(), any(), any())).thenReturn(true)
+        whenever(mockContext.bindService(any(), any(), any<Int>())).thenReturn(true)
 
-        val initJob = kotlinx.coroutines.async {
+        val initJob = async {
             EdgeAI.initialize(mockContext)
         }
 
@@ -344,8 +348,8 @@ class EdgeAIServiceBindingEdgeCasesTest {
         
         whenever(context1.applicationContext).thenReturn(context1)
         whenever(context2.applicationContext).thenReturn(context2)
-        whenever(context1.bindService(any(), any(), any())).thenReturn(true)
-        whenever(context2.bindService(any(), any(), any())).thenReturn(true)
+        whenever(context1.bindService(any(), any(), any<Int>())).thenReturn(true)
+        whenever(context2.bindService(any(), any(), any<Int>())).thenReturn(true)
 
         EdgeAI.initialize(context1)
         val result2 = EdgeAI.initialize(context2)
@@ -354,8 +358,8 @@ class EdgeAIServiceBindingEdgeCasesTest {
         assertTrue("Should handle multiple contexts", result2.isSuccess)
         
         // Should only bind once
-        verify(context1, times(1)).bindService(any(), any(), any())
-        verify(context2, never()).bindService(any(), any(), any())
+        verify(context1, times(1)).bindService(any(), any(), any<Int>())
+        verify(context2, never()).bindService(any(), any(), any<Int>())
     }
 
     // ===================================================================
@@ -364,7 +368,7 @@ class EdgeAIServiceBindingEdgeCasesTest {
 
     private suspend fun setupSuccessfulBinding() {
         whenever(mockContext.applicationContext).thenReturn(mockContext)
-        whenever(mockContext.bindService(any(), any(), any())).thenAnswer { invocation ->
+        whenever(mockContext.bindService(any(), any(), any<Int>())).thenAnswer { invocation ->
             val connection = invocation.arguments[1] as ServiceConnection
             // Simulate successful connection
             connection.onServiceConnected(ComponentName("test", "test"), mockBinder)

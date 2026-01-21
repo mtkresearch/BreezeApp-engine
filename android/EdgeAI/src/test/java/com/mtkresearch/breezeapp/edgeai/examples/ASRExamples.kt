@@ -71,10 +71,11 @@ class ASRExamples : EdgeAITestBase() {
         val audioBytes = ByteArray(1024) { it.toByte() }
 
         // Create ASR request
+        // Create ASR request
         val request = asrRequest(
-            audioData = audioBytes,
+            audioBytes = audioBytes,
             language = "en",  // English
-            responseFormat = "json"
+            format = "json"
         )
 
         // Get transcription
@@ -150,9 +151,9 @@ class ASRExamples : EdgeAITestBase() {
 
         languages.forEach { lang ->
             val request = asrRequest(
-                audioData = audioBytes,
+                audioBytes = audioBytes,
                 language = lang,
-                responseFormat = "json"
+                format = "json"
             )
 
             val response = EdgeAI.asr(request).first()
@@ -191,8 +192,8 @@ class ASRExamples : EdgeAITestBase() {
 
         // Simple format
         val jsonRequest = asrRequest(
-            audioData = audioBytes,
-            responseFormat = "json"
+            audioBytes = audioBytes,
+            format = "json"
         )
         val jsonResponse = EdgeAI.asr(jsonRequest).first()
         println("JSON format:")
@@ -200,8 +201,8 @@ class ASRExamples : EdgeAITestBase() {
 
         // Verbose format
         val verboseRequest = asrRequest(
-            audioData = audioBytes,
-            responseFormat = "verbose_json"
+            audioBytes = audioBytes,
+            format = "verbose_json"
         )
         val verboseResponse = EdgeAI.asr(verboseRequest).first()
         println("Verbose JSON format:")
@@ -232,8 +233,8 @@ class ASRExamples : EdgeAITestBase() {
         val audioBytes = ByteArray(1024) { it.toByte() }
 
         val request = asrRequest(
-            audioData = audioBytes,
-            responseFormat = "verbose_json"  // Required for timestamps
+            audioBytes = audioBytes,
+            format = "verbose_json"  // Required for timestamps
         )
 
         val response = EdgeAI.asr(request).first()
@@ -266,7 +267,7 @@ class ASRExamples : EdgeAITestBase() {
     fun `06 - error handling`() = runTest {
         val audioBytes = ByteArray(1024) { it.toByte() }
 
-        val request = asrRequest(audioData = audioBytes)
+        val request = asrRequest(audioBytes = audioBytes)
 
         EdgeAI.asr(request)
             .catch { error ->
