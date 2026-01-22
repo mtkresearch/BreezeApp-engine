@@ -2,12 +2,14 @@ package com.mtkresearch.breezeapp.engine.integration
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.huggingface.HuggingFaceASRRunner
-import java.io.File
+import com.mtkresearch.breezeapp.engine.runner.selfhosted.SelfHostedASRRunner
 import java.util.UUID
 import org.junit.Assert.*
 import org.junit.Assume
@@ -16,36 +18,121 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Category 1: ASR Compliance Test
+ * General ASR Compliance Test
  *
  * Purpose: Validate that ASR runners correctly transcribe audio to text.
- * This tests the basic functionality and format compliance of ASR runners.
+ * Supports multiple ASR runner implementations.
  *
- * Tests correspond to TDD Plan Category 1:
- * - Test 1.1: Audio Input Processing (can accept audio bytes)
- * - Test 1.2: Text Output Format (returns plain text string)
- * - Test 1.3: Error Handling (handles invalid audio gracefully)
+ * Supported Runners:
+ * - SelfHostedASRRunner (default)
+ * - HuggingFaceASRRunner
  *
- * Note: These are instrumented tests requiring:
- * 1. Hugging Face API Key (via instrumentation arguments)
- * 2. Network connectivity
- * 3. Android device/emulator
- * 4. Test audio files in assets folder
+ * Configuration via instrumentation arguments:
+ * - ASR_RUNNER_TYPE: "selfhosted" (default) or "huggingface"
+ * - HF_API_KEY: Required for HuggingFace runner
+ * - SELFHOSTED_SERVER_URL: Server URL for self-hosted runner (default: http://10.0.2.2:5000)
+ * - ASR_MODEL: Model name (optional, uses runner default)
+ *
+ * Example:
+ * ./gradlew connectedAndroidTest \
+ *   -Pandroid.testInstrumentationRunnerArguments.ASR_RUNNER_TYPE=selfhosted \
+ *   -Pandroid.testInstrumentationRunnerArguments.SELFHOSTED_SERVER_URL=https://your-id.ngrok.io
  */
 @RunWith(AndroidJUnit4::class)
-class MessengerASRComplianceTest {
+class GeneralASRComplianceTest {
 
-    private lateinit var context: Context
-    private lateinit var hfApiKey: String
-    private lateinit var hfModel: String
+    private val context: Context
+        get() = InstrumentationRegistry.getInstrumentation().context // Use test context for assets
+    private lateinit var runnerType: String
+    private lateinit var runner: BaseRunner
+    private lateinit var runnerName: String
+    private lateinit var modelName: String
 
     @Before
     fun setup() {
-        context = ApplicationProvider.getApplicationContext()
-
         val args = androidx.test.platform.app.InstrumentationRegistry.getArguments()
-        hfApiKey = args.getString("HF_API_KEY") ?: ""
-        hfModel = args.getString("HF_ASR_MODEL") ?: "openai/whisper-large-v3"
+
+        // Get runner type (default: selfhosted)
+        runnerType = args.getString("ASR_RUNNER_TYPE")?.lowercase() ?: "selfhosted"
+
+        System.out.println("========================================")
+        System.out.println("ASR Runner Configuration")
+        System.out.println("========================================")
+        System.out.println("Runner Type: $runnerType")
+
+        // Initialize appropriate runner
+        when (runnerType) {
+            "huggingface", "hf" -> {
+                setupHuggingFaceRunner(args)
+            }
+            "selfhosted", "self" -> {
+                setupSelfHostedRunner(args)
+            }
+            else -> {
+                System.out.println("Unknown runner type '$runnerType', defaulting to selfhosted")
+                setupSelfHostedRunner(args)
+            }
+        }
+
+        System.out.println("Runner: $runnerName")
+        System.out.println("Model: $modelName")
+        System.out.println("========================================")
+    }
+
+    private fun setupHuggingFaceRunner(args: android.os.Bundle) {
+        val apiKey = args.getString("HF_API_KEY") ?: ""
+        modelName = args.getString("ASR_MODEL") ?: "openai/whisper-large-v3"
+        runnerName = "HuggingFaceASRRunner"
+
+        runner = HuggingFaceASRRunner(context)
+
+        val params = mapOf(
+            "api_key" to apiKey,
+            "model" to modelName,
+            "wait_for_model" to true,
+            "max_retries" to 3
+        )
+
+        val settings = EngineSettings.default()
+            .withRunnerParameters(runnerName, params)
+
+        val loaded = runner.load(modelName, settings, emptyMap())
+
+        Assume.assumeTrue(
+            "Failed to load HuggingFace runner. Check HF_API_KEY parameter.",
+            loaded
+        )
+
+        System.out.println("HuggingFace API Key: ${if (apiKey.isNotBlank()) "✓ Provided" else "✗ Missing"}")
+    }
+
+    private fun setupSelfHostedRunner(args: android.os.Bundle) {
+        // Default to Android emulator host (10.0.2.2 maps to host machine's localhost)
+        val serverUrl = args.getString("SELFHOSTED_SERVER_URL") ?: "https://neely-henlike-shin.ngrok-free.dev"
+        modelName = args.getString("ASR_MODEL") ?: "Taigi"
+        runnerName = "SelfHostedASRRunner"
+
+        runner = SelfHostedASRRunner(context)
+
+        val params = mapOf(
+            "server_url" to serverUrl,
+            "model_name" to modelName,
+            "endpoint" to "/transcribe",
+            "timeout_ms" to 120000,
+            "assume_connectivity" to true  // Skip connectivity checks for testing
+        )
+
+        val settings = EngineSettings.default()
+            .withRunnerParameters(runnerName, params)
+
+        val loaded = runner.load(modelName, settings, emptyMap())
+
+        Assume.assumeTrue(
+            "Failed to load SelfHosted runner. Check if server is running at $serverUrl",
+            loaded
+        )
+
+        System.out.println("Server URL: $serverUrl")
     }
 
     /**
@@ -55,36 +142,12 @@ class MessengerASRComplianceTest {
      * 1. Accept audio data in ByteArray format
      * 2. Successfully process the audio
      * 3. Return a non-null result
-     *
-     * Success Criteria: No errors during processing
      */
     @Test
     fun asrRunner_acceptsAudioInput() {
-        // Check prerequisites
-        Assume.assumeTrue(
-            "Skipping: HF API Key required. Pass -Pandroid.testInstrumentationRunnerArguments.HF_API_KEY=...",
-            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_KEY_HERE"
-        )
-
-        System.out.println("========================================")
+        System.out.println("\n========================================")
         System.out.println("Test 1.1: Audio Input Processing")
         System.out.println("========================================")
-        System.out.println("Model: $hfModel")
-
-        // Setup runner
-        val runner = HuggingFaceASRRunner(context)
-        val params = mapOf(
-            "api_key" to hfApiKey,
-            "model" to hfModel,
-            "wait_for_model" to true,
-            "max_retries" to 3
-        )
-
-        val settings = EngineSettings.default()
-            .withRunnerParameters("HuggingFaceASRRunner", params)
-
-        val loaded = runner.load(hfModel, settings, emptyMap())
-        assertTrue("Failed to load HuggingFace ASR runner", loaded)
 
         // Load test audio from assets
         val audioData = loadAudioFromAssets("test_audio_hello.wav")
@@ -123,39 +186,13 @@ class MessengerASRComplianceTest {
     /**
      * Test 1.2: Text Output Format
      *
-     * Validates that the ASR runner:
-     * 1. Returns text in the correct output key (OUTPUT_TEXT)
-     * 2. Text is a non-empty String
-     * 3. Text is reasonable (not too short, not gibberish)
-     *
-     * Success Criteria: Valid text output in expected format
+     * Validates that the ASR runner returns text in the correct format
      */
     @Test
     fun asrRunner_returnsValidTextFormat() {
-        // Check prerequisites
-        Assume.assumeTrue(
-            "Skipping: HF API Key required",
-            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_KEY_HERE"
-        )
-
-        System.out.println("========================================")
+        System.out.println("\n========================================")
         System.out.println("Test 1.2: Text Output Format Validation")
         System.out.println("========================================")
-        System.out.println("Model: $hfModel")
-
-        // Setup runner
-        val runner = HuggingFaceASRRunner(context)
-        val params = mapOf(
-            "api_key" to hfApiKey,
-            "model" to hfModel,
-            "wait_for_model" to true
-        )
-
-        val settings = EngineSettings.default()
-            .withRunnerParameters("HuggingFaceASRRunner", params)
-
-        val loaded = runner.load(hfModel, settings, emptyMap())
-        assertTrue("Failed to load runner", loaded)
 
         // Load test audio
         val audioData = loadAudioFromAssets("test_audio_hello.wav")
@@ -217,38 +254,13 @@ class MessengerASRComplianceTest {
     /**
      * Test 1.3: Error Handling
      *
-     * Validates that the ASR runner:
-     * 1. Handles empty audio gracefully
-     * 2. Handles invalid audio data gracefully
-     * 3. Returns meaningful error messages
-     *
-     * Success Criteria: Proper error handling without crashes
+     * Validates proper error handling for invalid inputs
      */
     @Test
     fun asrRunner_handlesInvalidInputGracefully() {
-        // Check prerequisites
-        Assume.assumeTrue(
-            "Skipping: HF API Key required",
-            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_KEY_HERE"
-        )
-
-        System.out.println("========================================")
+        System.out.println("\n========================================")
         System.out.println("Test 1.3: Error Handling Validation")
         System.out.println("========================================")
-        System.out.println("Model: $hfModel")
-
-        // Setup runner
-        val runner = HuggingFaceASRRunner(context)
-        val params = mapOf(
-            "api_key" to hfApiKey,
-            "model" to hfModel
-        )
-
-        val settings = EngineSettings.default()
-            .withRunnerParameters("HuggingFaceASRRunner", params)
-
-        val loaded = runner.load(hfModel, settings, emptyMap())
-        assertTrue("Failed to load runner", loaded)
 
         // Test Case 1: Empty audio
         System.out.println("\n--- Test Case 1: Empty Audio ---")
@@ -293,7 +305,6 @@ class MessengerASRComplianceTest {
         val invalidResult = runner.run(invalidRequest, stream = false)
 
         // Should either error OR return empty/nonsense transcription
-        // (some ASR models attempt to transcribe anything)
         if (invalidResult.error != null) {
             System.out.println("Error message: ${invalidResult.error?.message}")
             System.out.println("✅ Invalid audio rejected")
@@ -310,35 +321,12 @@ class MessengerASRComplianceTest {
      * Test 1.4: Multiple Audio Files
      *
      * Validates ASR consistency across different audio samples
-     *
-     * Success Criteria: Successfully processes multiple audio files
      */
     @Test
     fun asrRunner_processesMultipleAudioFiles() {
-        // Check prerequisites
-        Assume.assumeTrue(
-            "Skipping: HF API Key required",
-            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_KEY_HERE"
-        )
-
-        System.out.println("========================================")
+        System.out.println("\n========================================")
         System.out.println("Test 1.4: Multiple Audio Files Processing")
         System.out.println("========================================")
-        System.out.println("Model: $hfModel")
-
-        // Setup runner
-        val runner = HuggingFaceASRRunner(context)
-        val params = mapOf(
-            "api_key" to hfApiKey,
-            "model" to hfModel,
-            "wait_for_model" to true
-        )
-
-        val settings = EngineSettings.default()
-            .withRunnerParameters("HuggingFaceASRRunner", params)
-
-        val loaded = runner.load(hfModel, settings, emptyMap())
-        assertTrue("Failed to load runner", loaded)
 
         // Test multiple audio files
         val testFiles = listOf(
@@ -405,7 +393,7 @@ class MessengerASRComplianceTest {
      */
     private fun loadAudioFromAssets(filename: String): ByteArray? {
         return try {
-            context.assets.open(filename).use { inputStream ->
+            context.assets.open("test_data/$filename").use { inputStream ->
                 inputStream.readBytes()
             }
         } catch (e: Exception) {
