@@ -439,6 +439,7 @@ class AIEngineManager(
         // Get the model that should be used (before loading)
         val isCloudRunner = runnerName.contains("OpenRouter", ignoreCase = true) ||
                            runnerName.contains("LlamaStack", ignoreCase = true) ||
+                            runnerName.contains("selfhost", ignoreCase = true) ||
                            runnerName.contains("cloud", ignoreCase = true)
         val isRequestModelValid = if (!requestModel.isNullOrBlank()) {
             if (isCloudRunner) {
@@ -794,6 +795,7 @@ class AIEngineManager(
             // For local runners, prefer models with lower RAM requirements
             // For cloud runners, any model is fine
             val isCloudRunner = runnerName.contains("openrouter", ignoreCase = true) ||
+                                runnerName.contains("selfhost", ignoreCase = true) ||
                                runnerName.contains("cloud", ignoreCase = true)
 
             val selectedModel = if (isCloudRunner) {
