@@ -3,6 +3,7 @@ package com.mtkresearch.breezeapp.edgeai.examples
 import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.launch
+import org.mockito.kotlin.mock
 import org.junit.Test
 import org.junit.Assert.*
 import org.junit.runner.RunWith
@@ -37,6 +38,7 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class SDKLifecycleExamples : EdgeAITestBase() {
+    override var autoInitialize: Boolean = false
     // setUp/tearDown inherited from EdgeAITestBase
 
     /**
@@ -60,7 +62,7 @@ class SDKLifecycleExamples : EdgeAITestBase() {
     @Test
     fun `01 - initialize with Result`() = runTest {
         val result = EdgeAI.initialize(
-            context = mockContext()
+            context = mock()
         )
 
         result.onSuccess {
@@ -94,7 +96,7 @@ class SDKLifecycleExamples : EdgeAITestBase() {
     fun `02 - initialize and wait`() = runTest {
         try {
             EdgeAI.initializeAndWait(
-                context = mockContext()
+                context = mock()
             )
 
             println("✓ SDK initialized successfully")
@@ -200,7 +202,12 @@ class SDKLifecycleExamples : EdgeAITestBase() {
      */
     @Test
     fun `05 - ViewModel integration pattern`() = runTest {
-        class ChatViewModel : androidx.lifecycle.ViewModel() {
+        // Mock ViewModel for test environment where androidx.lifecycle might be missing
+        open class ViewModel {
+            protected open fun onCleared() {}
+        }
+        
+        class ChatViewModel : ViewModel() {
             private val _isReady = kotlinx.coroutines.flow.MutableStateFlow(false)
             val isReady = _isReady
 
@@ -210,7 +217,7 @@ class SDKLifecycleExamples : EdgeAITestBase() {
                     kotlinx.coroutines.Dispatchers.Main
                 ).launch {
                     try {
-                        EdgeAI.initializeAndWait(mockContext())
+                        EdgeAI.initializeAndWait(mock())
                         _isReady.value = true
                     } catch (e: EdgeAIException) {
                         _isReady.value = false
@@ -277,6 +284,6 @@ class SDKLifecycleExamples : EdgeAITestBase() {
     // === HELPER FUNCTIONS ===
 
     private fun mockContext(): android.content.Context {
-        return org.mockito.Mockito.mock(android.content.Context::class.java)
+        return mock()
     }
 }

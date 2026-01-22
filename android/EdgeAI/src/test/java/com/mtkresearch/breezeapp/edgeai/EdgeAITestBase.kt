@@ -35,18 +35,28 @@ import org.robolectric.annotation.Config
  * @see SDKLifecycleExamples
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28])
+@Config(sdk = [34])
 abstract class EdgeAITestBase {
+    
+    protected lateinit var mockService: IBreezeAppEngineService
+    protected open var autoInitialize: Boolean = true
     
     /**
      * Set up test environment before each test.
      * 
-     * Ensures SDK is in clean state by shutting down any previous instance.
+     * Ensures SDK is in clean state and optionally initialized with mocks.
      */
     @Before
     fun baseSetUp() {
-        // Shutdown before each test to ensure clean state
-        EdgeAI.shutdown()
+        kotlinx.coroutines.test.runTest {
+            // Shutdown before each test to ensure clean state
+            EdgeAI.shutdown()
+            
+            if (autoInitialize) {
+                // Initialize with default mock service
+                mockService = EdgeAITestHelpers.setupMockEdgeAI()
+            }
+        }
     }
     
     /**

@@ -10,11 +10,33 @@ Run unit tests locally:
 
 ## Integration Tests
 
-Integration tests require BreezeApp Engine installed on device/emulator:
+### Quick Start
 
 ```bash
-./gradlew :EdgeAI:connectedAndroidTest
+cd EdgeAI
+./run_tests.sh
 ```
+
+This runs all integration tests and generates `sdk_test_report.html`.
+
+### Manual Run
+
+```bash
+# Run tests
+./gradlew :EdgeAI:connectedAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.package=com.mtkresearch.breezeapp.edgeai.integration
+
+# Generate report
+cd EdgeAI/scripts
+./generate_sdk_test_report.sh
+open ../sdk_test_report.html
+```
+
+### Prerequisites
+
+1. Android device connected: `adb devices`
+2. Engine installed: `./gradlew :breeze-app-engine:installDebug`
+3. OpenRouter API key configured in Engine Settings
 
 ## Manual Testing
 
