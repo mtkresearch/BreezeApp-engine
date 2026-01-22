@@ -108,7 +108,7 @@ class GeneralASRComplianceTest {
 
     private fun setupSelfHostedRunner(args: android.os.Bundle) {
         // Default to Android emulator host (10.0.2.2 maps to host machine's localhost)
-        val serverUrl = args.getString("SELFHOSTED_SERVER_URL") ?: "https://conciliable-clara-unpraised.ngrok-free.dev"
+        val serverUrl = args.getString("SELFHOSTED_SERVER_URL") ?: "https://neely-henlike-shin.ngrok-free.dev"
         modelName = args.getString("ASR_MODEL") ?: "Taigi"
         runnerName = "SelfHostedASRRunner"
 

@@ -55,7 +55,7 @@ class SelfHostedASRRunner(
 
     companion object {
         private const val TAG = "SelfHostedASRRunner"
-        private const val DEFAULT_SERVER_URL = "https://conciliable-clara-unpraised.ngrok-free.dev"
+        private const val DEFAULT_SERVER_URL = "https://neely-henlike-shin.ngrok-free.dev"
         private const val DEFAULT_MODEL = "Taigi"
         private const val DEFAULT_TIMEOUT_MS = 120000
         private const val MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024
