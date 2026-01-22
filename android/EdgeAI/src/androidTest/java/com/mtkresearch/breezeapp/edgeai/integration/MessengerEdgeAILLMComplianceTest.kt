@@ -29,7 +29,7 @@ import org.junit.runner.RunWith
  * - Test 1.3: Response Completeness
  */
 @RunWith(AndroidJUnit4::class)
-class MessengerSDKComplianceTest : SDKTestBase() {
+class MessengerEdgeAILLMComplianceTest : SDKTestBase() {
     
     // Load test data lazily
     private val testData by lazy { TestDataLoader.loadCategory1Data() }

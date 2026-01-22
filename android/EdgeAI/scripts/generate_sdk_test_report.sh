@@ -51,15 +51,15 @@ categories=$(cut -d' ' -f2 /tmp/edgeai_test_markers.txt | cut -d'.' -f1 | sort -
         echo "=========================================="
         case $category in
             1) echo "Category 1: SDK API Contract Validation"
-               echo "Test Class: MessengerSDKComplianceTest" ;;
+               echo "Test Class: MessengerEdgeAILLMComplianceTest" ;;
             2) echo "Category 2: SDK LLM Behavior Tests"
-               echo "Test Class: MessengerSDKBehaviorTest" ;;
+               echo "Test Class: MessengerEdgeAILLMBehaviorTest" ;;
             3) echo "Category 3: ASR Accuracy Integration Tests"
-               echo "Test Class: MessengerSDKASRTest" ;;
+               echo "Test Class: MessengerEdgeAILLMASRTest" ;;
             4) echo "Category 4: Multi-turn Context Tests"
-               echo "Test Class: MessengerSDKContextTest" ;;
+               echo "Test Class: MessengerEdgeAILLMContextTest" ;;
             5) echo "Category 5: Integration Readiness Tests"
-               echo "Test Class: MessengerSDKIntegrationTest" ;;
+               echo "Test Class: MessengerEdgeAILLMIntegrationTest" ;;
             *) echo "Category $category: SDK Tests" ;;
         esac
         echo "=========================================="

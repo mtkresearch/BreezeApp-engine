@@ -29,7 +29,7 @@ import org.junit.runner.RunWith
  * Note: These tests require Engine to be running with configured API keys.
  */
 @RunWith(AndroidJUnit4::class)
-class MessengerSDKBehaviorTest : SDKTestBase() {
+class MessengerEdgeAILLMBehaviorTest : SDKTestBase() {
 
     // Load test data lazily
     private val testData by lazy { TestDataLoader.loadCategory2Data() }
@@ -170,7 +170,7 @@ class MessengerSDKBehaviorTest : SDKTestBase() {
         }
         
         val accuracy = (correctCount.toDouble() / testCases.size) * 100
-        logReport("Translation Accuracy: $passedCount/${testCases.size} (${accuracy}%)")
+        logReport("Translation Accuracy: $correctCount/${testCases.size} (${accuracy}%)")
         logReport("Success Criteria: ≥90%")
                 
         if (accuracy < 90.0) {

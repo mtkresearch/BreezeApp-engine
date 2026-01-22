@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
  * - Test 4.2: Context Window Test
  */
 @RunWith(AndroidJUnit4::class)
-class MessengerSDKContextTest : SDKTestBase() {
+class MessengerEdgeAILLMContextTest : SDKTestBase() {
 
     // Load test data lazily
     private val testData by lazy { TestDataLoader.loadCategory4Data() }

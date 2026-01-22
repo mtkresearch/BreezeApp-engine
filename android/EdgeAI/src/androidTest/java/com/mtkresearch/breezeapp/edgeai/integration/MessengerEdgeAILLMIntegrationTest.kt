@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.onEach
  * Matches strictly with TDD Reference Plan definitions.
  */
 @RunWith(AndroidJUnit4::class)
-class MessengerSDKIntegrationTest : SDKTestBase() {
+class MessengerEdgeAILLMIntegrationTest : SDKTestBase() {
 
     // Load test data lazily
     private val testData by lazy { TestDataLoader.loadCategory5Data() }
