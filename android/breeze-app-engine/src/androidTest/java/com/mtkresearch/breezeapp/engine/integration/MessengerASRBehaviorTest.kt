@@ -2,6 +2,7 @@ package com.mtkresearch.breezeapp.engine.integration
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
@@ -48,7 +49,8 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class GeneralASRBehaviorTest {
 
-    private lateinit var context: Context
+    private val context: Context
+        get() = InstrumentationRegistry.getInstrumentation().context // Use test context for assets
     private lateinit var runnerType: String
     private lateinit var runner: BaseRunner
     private lateinit var runnerName: String
@@ -57,8 +59,6 @@ class GeneralASRBehaviorTest {
 
     @Before
     fun setup() {
-        context = ApplicationProvider.getApplicationContext()
-
         val args = androidx.test.platform.app.InstrumentationRegistry.getArguments()
 
         // Get runner type (default: selfhosted)
@@ -502,7 +502,7 @@ class GeneralASRBehaviorTest {
      */
     private fun loadAudioFromAssets(filename: String): ByteArray? {
         return try {
-            context.assets.open(filename).use { inputStream ->
+            context.assets.open("test_data/$filename").use { inputStream ->
                 inputStream.readBytes()
             }
         } catch (e: Exception) {
