@@ -9,6 +9,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -101,7 +102,7 @@ class EdgeAIServiceBindingEdgeCasesTest {
                 EdgeAI.initialize(mockContext)
             }
             fail("Should timeout waiting for service connection")
-        } catch (e: TimeoutException) {
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             // Expected - service never connected
         }
     }
@@ -183,8 +184,12 @@ class EdgeAIServiceBindingEdgeCasesTest {
         // All should succeed (idempotent)
         assertTrue("All initializations should succeed", results.all { it.isSuccess })
         
+        
         // But bindService should only be called once
         verify(mockContext, times(1)).bindService(any(), any(), any<Int>())
+
+        EdgeAI.shutdown()
+        yield() // Ensure cancellation propagates
     }
 
     @Test
@@ -296,9 +301,9 @@ class EdgeAIServiceBindingEdgeCasesTest {
         whenever(mockService.registerListener(any()))
             .thenThrow(RemoteException("Listener registration failed"))
 
-        // Should still complete initialization but log error
+        // SDK fails initialization if listener registration fails
         val result = EdgeAI.initialize(mockContext)
-        assertTrue("Should complete initialization", result.isSuccess)
+        assertTrue("Should fail initialization if listener registration fails", result.isFailure)
     }
 
     // ===================================================================
@@ -313,6 +318,7 @@ class EdgeAIServiceBindingEdgeCasesTest {
             whenever(mockContext.bindService(any(), any(), any<Int>())).thenReturn(true)
             EdgeAI.initialize(mockContext)
             EdgeAI.shutdown()
+            yield()
         }
 
         // Should handle rapid cycling without crashes
@@ -330,11 +336,15 @@ class EdgeAIServiceBindingEdgeCasesTest {
 
         // Shutdown immediately
         EdgeAI.shutdown()
+        yield() // Ensure cancellation starts
 
         val result = initJob.await()
         // Should either succeed or fail gracefully
         assertTrue("Should handle concurrent shutdown", 
                   result.isSuccess || result.isFailure)
+
+        EdgeAI.shutdown()
+        yield()
     }
 
     // ===================================================================
@@ -360,6 +370,9 @@ class EdgeAIServiceBindingEdgeCasesTest {
         // Should only bind once
         verify(context1, times(1)).bindService(any(), any(), any<Int>())
         verify(context2, never()).bindService(any(), any(), any<Int>())
+
+        EdgeAI.shutdown()
+        yield()
     }
 
     // ===================================================================

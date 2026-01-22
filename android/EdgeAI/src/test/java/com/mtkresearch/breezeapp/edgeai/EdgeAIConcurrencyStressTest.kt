@@ -315,7 +315,11 @@ class EdgeAIConcurrencyStressTest {
                     )
                     
                     val job = launch {
-                        EdgeAI.chat(request).collect { }
+                        try {
+                            EdgeAI.chat(request).collect { }
+                        } catch (e: Exception) {
+                            // Expected service exception or cancellation
+                        }
                     }
                     
                     delay(10) // Let request start

@@ -121,7 +121,7 @@ dependencies {
     testImplementation("androidx.test:runner:1.5.2")
     
     // Robolectric - Android framework testing without emulator
-    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     
     // === Instrumentation Testing Dependencies (Android) ===
     androidTestImplementation("androidx.test:runner:1.5.2")
