@@ -1,0 +1,50 @@
+{
+  "test_5_1_workflow": [
+    {
+      "step_name": "Translation Request",
+      "input": "@ai translate: 明天見",
+      "expected_type": "response",
+      "check_completeness": true,
+      "expected_contains": "tomorrow"
+    },
+    {
+      "step_name": "Draft Request",
+      "input": "@ai tell Alice meeting is at 3pm",
+      "expected_type": "draft",
+      "expected_recipient": "Alice",
+      "check_completeness": true,
+      "expected_draft_content_not_empty": true
+    }
+  ],
+  "test_5_2_latency": [
+    { "input": "@ai translate: 你好", "use_history": false },
+    { "input": "@ai tell Alice meeting at 3pm", "use_history": false },
+    { 
+      "input": "@ai summarize: Alice asked about meeting time", 
+      "use_history": true,
+      "history_messages": [
+         {"thread_id": 1, "sender": "Bob", "body": "Did you see the game last night? It was intense!", "quote": null},
+         {"thread_id": 1, "sender": "Alice", "body": "Hey, when are we meeting for the project sync?", "quote": null},
+         {"thread_id": 1, "sender": "Bob", "body": "Totally. That last goal was incredible.", "quote": "Did you see the game last night?"},
+         {"thread_id": 1, "sender": "Me", "body": "I'm thinking about next week. Does Monday work?", "quote": "Hey, when are we meeting for the project sync?"},
+         {"thread_id": 1, "sender": "Alice", "body": "Monday is packed for me. How about Tuesday 1/12?", "quote": "Does Monday work?"},
+         {"thread_id": 1, "sender": "Me", "body": "Tuesday 1/12 works. What time?", "quote": "How about Tuesday 1/12?"},
+         {"thread_id": 1, "sender": "Bob", "body": "Is anyone ordering lunch?", "quote": null},
+         {"thread_id": 1, "sender": "Alice", "body": "Let's do 15:30. I'll send an invite.", "quote": "What time?"}
+      ]
+    },
+    { "input": "@ai help", "use_history": false }
+  ],
+  "test_5_3_compatibility": [
+    { 
+      "input": "@ai translate: 謝謝", 
+      "expect_valid_signal_parsing": true,
+      "expected_parsed_type": "response"
+    },
+    { 
+      "input": "@ai tell Alice hi", 
+      "expect_valid_signal_parsing": true,
+      "expected_parsed_type": "draft"
+    }
+  ]
+}

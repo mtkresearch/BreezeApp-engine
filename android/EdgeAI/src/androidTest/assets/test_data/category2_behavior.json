@@ -1,0 +1,30 @@
+{
+  "test_2_1_classification": [
+    { "input": "@ai translate: 你好", "expected_type": "response" },
+    { "input": "@ai what time is it?", "expected_type": "response" },
+    { "input": "@ai summarize this", "expected_type": "response" },
+    { "input": "@ai help", "expected_type": "response" },
+    { "input": "@ai tell Alice meeting is at 3pm", "expected_type": "draft" },
+    { "input": "@ai send Bob a hello message", "expected_type": "draft" },
+    { "input": "@ai let her know I'm running late", "expected_type": "draft" },
+    { "input": "@ai translate and send: 謝謝", "expected_type": "draft" }
+  ],
+  "test_2_2_translation": [
+    { "input": "@ai translate: 你好", "expected_contains": ["hello", "hi"] },
+    { "input": "@ai translate: 謝謝你", "expected_contains": ["thank you", "thanks"] },
+    { "input": "@ai translate: 明天見", "expected_contains": ["see you tomorrow"] },
+    { "input": "@ai translate: 我餓了", "expected_contains": ["i'm hungry", "hungry"] }
+  ],
+  "test_2_3_draft_quality": [
+    {
+      "input": "@ai tell Alice the meeting is at 3pm tomorrow",
+      "checks": [
+        { "type": "contains", "value": "Alice" },
+        { "type": "contains", "value": "3pm" },
+        { "type": "contains", "value": "tomorrow" },
+        { "type": "length_range", "min": 20, "max": 200 }
+      ],
+      "forbidden_check": { "type": "contains", "value": "@ai" }
+    }
+  ]
+}

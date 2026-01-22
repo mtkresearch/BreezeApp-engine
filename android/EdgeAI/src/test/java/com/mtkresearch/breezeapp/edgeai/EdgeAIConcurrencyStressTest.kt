@@ -76,7 +76,10 @@ class EdgeAIConcurrencyStressTest {
                 } catch (e: Exception) {
                     fail("Unexpected exception: ${e.javaClass.simpleName}: ${e.message}")
                 }
+                Unit
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         jobs.awaitAll()
@@ -104,6 +107,7 @@ class EdgeAIConcurrencyStressTest {
                         // Expected
                         completedCount.incrementAndGet()
                     }
+                    Unit
                 }
             }
             jobs.awaitAll()
@@ -136,7 +140,11 @@ class EdgeAIConcurrencyStressTest {
                 } catch (e: ServiceConnectionException) {
                     // Expected
                 }
+                Unit
+                Unit
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         jobs.awaitAll()
@@ -158,6 +166,8 @@ class EdgeAIConcurrencyStressTest {
             async {
                 results[index] = EdgeAI.isInitialized()
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         jobs.awaitAll()
@@ -177,6 +187,8 @@ class EdgeAIConcurrencyStressTest {
             async {
                 results[index] = EdgeAI.isReady()
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         jobs.awaitAll()
@@ -198,6 +210,8 @@ class EdgeAIConcurrencyStressTest {
             async {
                 EdgeAI.shutdown()
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         jobs.awaitAll()
@@ -222,13 +236,14 @@ class EdgeAIConcurrencyStressTest {
                     } catch (e: Exception) {
                         // Expected
                     }
+                    Unit
                 })
             }
             
-            // Launch shutdown attempts
             repeat(5) {
                 jobs.add(async {
                     EdgeAI.shutdown()
+                    Unit
                 })
             }
 
@@ -262,7 +277,10 @@ class EdgeAIConcurrencyStressTest {
                 } catch (e: ServiceConnectionException) {
                     // Expected
                 }
+                Unit
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         jobs.awaitAll()
@@ -297,16 +315,24 @@ class EdgeAIConcurrencyStressTest {
                     )
                     
                     val job = launch {
-                        EdgeAI.chat(request).collect { }
+                        try {
+                            EdgeAI.chat(request).collect { }
+                        } catch (e: Exception) {
+                            // Expected service exception or cancellation
+                        }
                     }
                     
                     delay(10) // Let request start
                     job.cancel() // Cancel it
+                    job.cancel() // Cancel it
                     cancelledCount.incrementAndGet()
+                    Unit
                 } catch (e: Exception) {
                     // Expected
                 }
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         jobs.forEach { it.join() }
@@ -338,6 +364,7 @@ class EdgeAIConcurrencyStressTest {
                 } catch (e: ServiceConnectionException) {
                     chatCount.incrementAndGet()
                 }
+                Unit
             })
         }
 
@@ -353,6 +380,7 @@ class EdgeAIConcurrencyStressTest {
                 } catch (e: ServiceConnectionException) {
                     ttsCount.incrementAndGet()
                 }
+                Unit
             })
         }
 
@@ -361,12 +389,13 @@ class EdgeAIConcurrencyStressTest {
             jobs.add(async {
                 try {
                     EdgeAI.asr(ASRRequest(
-                        file = byteArrayOf(1, 2, 3),
+                        _file = byteArrayOf(1, 2, 3),
                         model = "whisper-1"
                     )).collect { }
                 } catch (e: ServiceConnectionException) {
                     asrCount.incrementAndGet()
                 }
+                Unit
             })
         }
 
@@ -398,7 +427,10 @@ class EdgeAIConcurrencyStressTest {
                 } catch (e: ServiceConnectionException) {
                     completedCount.incrementAndGet()
                 }
+                Unit
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         assertEquals("All requests should complete", requestCount, completedCount.get())
@@ -427,7 +459,10 @@ class EdgeAIConcurrencyStressTest {
                 } catch (e: ServiceConnectionException) {
                     completedCount.incrementAndGet()
                 }
+                Unit
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         jobs.awaitAll()
@@ -458,7 +493,10 @@ class EdgeAIConcurrencyStressTest {
                 } catch (e: Exception) {
                     exceptionCount.incrementAndGet()
                 }
+                Unit
             }
+            // Add implicit return for async block
+            // Note: This block is the last expression in map, so it must return the Deferred
         }
 
         jobs.awaitAll()
@@ -471,7 +509,7 @@ class EdgeAIConcurrencyStressTest {
     // Helper Methods
     // ===================================================================
 
-    private fun <T> mock(): T {
+    private inline fun <reified T : Any> mock(): T {
         return org.mockito.kotlin.mock()
     }
 }

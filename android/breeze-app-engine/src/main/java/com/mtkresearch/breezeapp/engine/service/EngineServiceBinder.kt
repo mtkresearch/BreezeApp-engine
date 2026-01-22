@@ -507,7 +507,8 @@ class EngineServiceBinder(
                 val allowedOverrides = setOf(
                     "stream",  // Streaming mode is a client choice
                     "response_format",  // Response format for TTS/ASR
-                    "microphone_mode"   // ASR microphone mode
+                    "microphone_mode",   // ASR microphone mode
+                    "system_prompt"  // System prompt for LLM requests
                 )
                 
                 var clientOverrideCount = 0
@@ -583,10 +584,27 @@ class EngineServiceBinder(
     private fun convertChatRequestToDomain(request: ChatRequest, requestId: String): InferenceRequest {
         // DEBUG: Log what we received from client
         Log.d(TAG, "💬 ChatRequest from client - model: '${request.model}', temperature: ${request.temperature}, stream: ${request.stream}")
+        Log.d(TAG, "💬 ChatRequest messages count: ${request.messages?.size ?: 0}")
         
-        // Extract the last message as the main input text
-        val inputText = request.messages?.lastOrNull()?.content ?: ""
+        // Extract system prompt and user messages separately
+        var systemPrompt: String? = null
+        val userMessages = mutableListOf<com.mtkresearch.breezeapp.edgeai.ChatMessage>()
         
+        request.messages?.forEach { message ->
+            when (message.role?.lowercase()) {
+                "system" -> {
+                    systemPrompt = message.content
+                    Log.d(TAG, "💬 Found system prompt in messages (length: ${message.content?.length ?: 0})")
+                }
+                "user", "assistant" -> {
+                    userMessages.add(message)
+                }
+            }
+        }
+        
+        // Extract the last user message as the main input text
+        val inputText = userMessages.lastOrNull()?.content ?: ""
+
         // Detect actual capability (LLM vs VLM) based on model and content
         val detectedCapability = detectVLMCapability(request)
         
@@ -596,7 +614,13 @@ class EngineServiceBinder(
         // Only allow streaming mode as client override
         request.stream?.let { clientOverrides["stream"] = it }
         
-        Log.d(TAG, "💬 Client overrides: $clientOverrides")
+        // CRITICAL: Add system prompt to params so OpenRouterLLMRunner can use it
+        if (!systemPrompt.isNullOrBlank()) {
+            clientOverrides[InferenceRequest.PARAM_SYSTEM_PROMPT] = systemPrompt!!
+            Log.d(TAG, "💬 Added system prompt to params (length: ${systemPrompt!!.length})")
+        }
+        
+        Log.d(TAG, "💬 Client overrides: ${clientOverrides.keys}")
         
         // Use engine-first parameter strategy
         val finalParams = buildEngineFirstParameters(clientOverrides, detectedCapability, requestId)
@@ -606,9 +630,12 @@ class EngineServiceBinder(
             InferenceRequest.INPUT_TEXT to inputText
         )
         
-        // Add full conversation history if multiple messages
-        if (request.messages?.size ?: 0 > 1) {
-            inputs["conversation_history"] = request.messages?.toList() ?: emptyList<Any>()
+        // Add full conversation history if multiple user messages
+        if (userMessages.size > 1) {
+            val historyData = userMessages.map { 
+                mapOf("role" to it.role, "content" to it.content) 
+            }
+            inputs["conversation_history"] = historyData
         }
         
         return InferenceRequest(
