@@ -38,6 +38,7 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class SDKLifecycleExamples : EdgeAITestBase() {
+    override var autoInitialize: Boolean = false
     // setUp/tearDown inherited from EdgeAITestBase
 
     /**
