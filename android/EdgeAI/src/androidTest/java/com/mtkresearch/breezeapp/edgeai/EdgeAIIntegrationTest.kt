@@ -132,8 +132,8 @@ class EdgeAIIntegrationTest {
     fun `integration test - ASR request without initialization fails gracefully`() = runTest {
         val audioData = ByteArray(1024) { it.toByte() }
         val request = ASRRequest(
-            file = audioData,
-            model = "whisper-1"
+            _file = audioData,
+            model = "taigi"
         )
 
         var exceptionCaught = false
@@ -238,8 +238,8 @@ class EdgeAIIntegrationTest {
     fun `integration test - validate ASR request structure`() = runTest {
         val audioData = ByteArray(1024) { it.toByte() }
         val request = ASRRequest(
-            file = audioData,
-            model = "whisper-1",
+            _file = audioData,
+            model = "taigi",
             language = "en",
             temperature = 0.0f
         )
@@ -258,7 +258,7 @@ class EdgeAIIntegrationTest {
     fun `integration test - binary data integrity in ASR request`() = runTest {
         val originalData = ByteArray(256) { (it % 256).toByte() }
         val request = ASRRequest(
-            file = originalData,
+            _file = originalData,
             model = "whisper-1"
         )
 
@@ -339,7 +339,7 @@ class EdgeAIIntegrationTest {
     @Test
     fun `integration test - ASRRequest is Parcelable`() {
         val request = ASRRequest(
-            file = byteArrayOf(1, 2, 3),
+            _file = byteArrayOf(1, 2, 3),
             model = "whisper-1"
         )
 
