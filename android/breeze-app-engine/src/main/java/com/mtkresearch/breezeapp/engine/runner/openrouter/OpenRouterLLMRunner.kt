@@ -55,10 +55,10 @@ import org.json.JSONArray
  */
 @AIRunner(
     vendor = VendorType.OPENROUTER,
-    priority = RunnerPriority.LOW,
+    priority = RunnerPriority.HIGH,
     capabilities = [CapabilityType.LLM],
     enabled = true,
-    defaultModel = "openai/gpt-oss-20b:free"
+    defaultModel = "google/gemini-3-flash-preview"
 )
 class OpenRouterLLMRunner(
     private val apiKey: String,
@@ -83,7 +83,7 @@ class OpenRouterLLMRunner(
     companion object {
         private const val TAG = "OpenRouterLLMRunner"
         private const val DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
-        private const val DEFAULT_MODEL = "openai/gpt-oss-20b:free"
+        private const val DEFAULT_MODEL = "google/gemini-3-flash-preview"
         private const val CHAT_COMPLETIONS_ENDPOINT = "/chat/completions"
         private const val DEFAULT_TIMEOUT_MS = 30000
         private const val DEFAULT_TEMPERATURE = 0.7f
@@ -274,7 +274,7 @@ class OpenRouterLLMRunner(
                 description = "OpenRouter model to use for text generation (free tier only by default, use Refresh to load more)",
                 type = ParameterType.SelectionType(
                     options = listOf(
-                        SelectionOption("openai/gpt-oss-20b:free", "GPT-OSS 20B (Free)", "Free tier model - default fallback")
+                        SelectionOption("google/gemini-3-flash-preview", "Gemini 3 flash preview", "Default model")
                     )
                 ),
                 defaultValue = DEFAULT_MODEL,
