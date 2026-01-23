@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 @AIRunner(
     vendor = VendorType.EXECUTORCH,
-    priority = RunnerPriority.HIGH,
+    priority = RunnerPriority.LOW,
     capabilities = [CapabilityType.LLM],
     defaultModel = "Llama3_2-3b-4096-spin-250605-cpu"
 )
