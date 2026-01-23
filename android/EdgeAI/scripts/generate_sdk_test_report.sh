@@ -55,7 +55,7 @@ categories=$(cut -d' ' -f2 /tmp/edgeai_test_markers.txt | cut -d'.' -f1 | sort -
             2) echo "Category 2: SDK LLM Behavior Tests"
                echo "Test Class: MessengerEdgeAILLMBehaviorTest" ;;
             3) echo "Category 3: ASR Accuracy Integration Tests"
-               echo "Test Class: MessengerEdgeAILLMASRTest" ;;
+               echo "Test Class: EdgeAIASRBehaviorTest" ;;
             4) echo "Category 4: Multi-turn Context Tests"
                echo "Test Class: MessengerEdgeAILLMContextTest" ;;
             5) echo "Category 5: Integration Readiness Tests"
