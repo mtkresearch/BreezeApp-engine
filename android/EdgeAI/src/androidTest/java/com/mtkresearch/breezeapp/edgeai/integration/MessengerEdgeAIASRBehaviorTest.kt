@@ -13,18 +13,18 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Category 2: EdgeAI SDK ASR Behavior Integration Tests
+ * Category 3: EdgeAI SDK ASR Behavior Integration Tests
  *
  * Purpose: Validate real ASR behavior through EdgeAI SDK.
  * Tests accuracy and quality of speech recognition via SDK.
  *
  * DATA-DRIVEN: Test cases are loaded from assets/test_data/asr_category2_behavior.json
  *
- * Tests correspond to TDD Plan Category 2:
- * - Test 2.1: English Transcription Accuracy (8 scenarios)
- * - Test 2.2: Chinese/Multilingual Accuracy (4 translations)
- * - Test 2.3: Performance Metrics
- * - Test 2.4: Language Detection Accuracy
+ * Tests correspond to TDD Plan Category 3:
+ * - Test 3.1: English Transcription Accuracy (8 scenarios)
+ * - Test 3.2: Chinese/Multilingual Accuracy (4 translations)
+ * - Test 3.3: Performance Metrics
+ * - Test 3.4: Language Detection Accuracy
  *
  * Note: These tests require Engine to be running with ASR runner configured.
  */
@@ -35,7 +35,7 @@ class EdgeAIASRBehaviorTest : SDKTestBase() {
     private val testData by lazy { TestASRDataLoader.loadASRCategory2Data() }
 
     /**
-     * Test 2.1: English Transcription Accuracy
+     * Test 3.1: English Transcription Accuracy
      *
      * Validates that ASR correctly transcribes English phrases.
      * Uses fuzzy matching to account for minor variations.
@@ -45,7 +45,7 @@ class EdgeAIASRBehaviorTest : SDKTestBase() {
     @Test
     fun sdkASR_transcribesEnglishAccurately() = runBlocking {
         logReport("========================================")
-        logReport("Test 2.1: English Transcription Accuracy")
+        logReport("Test 3.1: English Transcription Accuracy")
         logReport("========================================")
 
         val testCases = testData.englishAccuracyTests
@@ -134,7 +134,7 @@ class EdgeAIASRBehaviorTest : SDKTestBase() {
     }
 
     /**
-     * Test 2.2: Chinese/Multilingual Transcription Accuracy
+     * Test 3.2: Chinese/Multilingual Transcription Accuracy
      *
      * Validates that ASR correctly transcribes Chinese phrases via SDK.
      *
@@ -143,7 +143,7 @@ class EdgeAIASRBehaviorTest : SDKTestBase() {
     @Test
     fun sdkASR_transcribesChineseAccurately() = runBlocking {
         logReport("========================================")
-        logReport("Test 2.2: Chinese Transcription Accuracy")
+        logReport("Test 3.2: Chinese Transcription Accuracy")
         logReport("========================================")
 
         val testCases = testData.chineseAccuracyTests
@@ -231,7 +231,7 @@ class EdgeAIASRBehaviorTest : SDKTestBase() {
     }
 
     /**
-     * Test 2.3: Performance Metrics
+     * Test 3.3: Performance Metrics
      *
      * Measures ASR performance characteristics via SDK:
      * - Latency (time to first result)
@@ -242,7 +242,7 @@ class EdgeAIASRBehaviorTest : SDKTestBase() {
     @Test
     fun sdkASR_meetsPerformanceRequirements() = runBlocking {
         logReport("========================================")
-        logReport("Test 2.3: Performance Metrics")
+        logReport("Test 3.3: Performance Metrics")
         logReport("========================================")
 
         val audioFile = "test_audio_hello.wav"
@@ -297,7 +297,7 @@ class EdgeAIASRBehaviorTest : SDKTestBase() {
     }
 
     /**
-     * Test 2.4: Language Detection Accuracy
+     * Test 3.4: Language Detection Accuracy
      *
      * Validates that ASR can correctly auto-detect languages or
      * handle explicit language specification via SDK.
@@ -307,7 +307,7 @@ class EdgeAIASRBehaviorTest : SDKTestBase() {
     @Test
     fun sdkASR_handlesLanguagesCorrectly() = runBlocking {
         logReport("========================================")
-        logReport("Test 2.4: Language Detection Accuracy")
+        logReport("Test 3.4: Language Detection Accuracy")
         logReport("========================================")
 
         val languageTests = listOf(

@@ -144,9 +144,6 @@ tasks.named<org.jetbrains.dokka.gradle.DokkaTask>("dokkaHtml") {
     dokkaSourceSets {
         named("main") {
             moduleName.set("EdgeAI SDK")
-            
-            // Include package documentation
-            includes.from("src/main/java/com/mtkresearch/breezeapp/edgeai/package-info.kt")
         }
     }
 }
