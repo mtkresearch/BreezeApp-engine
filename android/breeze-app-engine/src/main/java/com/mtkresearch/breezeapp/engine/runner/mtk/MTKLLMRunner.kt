@@ -40,7 +40,7 @@ import java.io.File
  */
 @AIRunner(
     vendor = VendorType.MEDIATEK,
-    priority = RunnerPriority.HIGH,
+    priority = RunnerPriority.LOW,
     capabilities = [CapabilityType.LLM],
     defaultModel = "Breeze2-3B-8W16A-250630-npu"
 )
