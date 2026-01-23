@@ -118,7 +118,7 @@ class ElevenLabsTTSRunner(
     private val isLoaded = AtomicBoolean(false)
     private var actualApiKey: String = apiKey
     private var voiceId: String = defaultVoiceId
-    private var modelId: String = "eleven_v2"
+    private var modelId: String = "eleven_flash_v2_5"
     private var timeoutMs: Int = DEFAULT_TIMEOUT_MS
     private var assumeConnectivity: Boolean = false
 
@@ -135,7 +135,7 @@ class ElevenLabsTTSRunner(
         try {
             val runnerName = getRunnerInfo().name
             val runnerParams = settings.getRunnerParameters(runnerName)
-            Log.d(TAG, "Loading ElevenLabsTTSRunner with voice '${modelId}' and params: $runnerParams")
+            Log.d(TAG, "Loading ElevenLabsTTSRunner with model '${modelId}' and params: $runnerParams")
 
             // 1. Get API Key from runner-specific settings
             val keyFromSettings = runnerParams["api_key"] as? String ?: ""
@@ -147,9 +147,8 @@ class ElevenLabsTTSRunner(
             this.actualApiKey = keyFromSettings
 
             // 2. Get voice ID and other parameters
-            // modelId is actually the voice name, map it to voice ID
-            this.voiceId = mapVoiceNameToId(modelId.takeIf { it.isNotBlank() } ?: "Rachel")
-            this.modelId = runnerParams["model_id"] as? String ?: "eleven_v3"
+            this.voiceId = mapVoiceNameToId(voiceId.takeIf { it.isNotBlank() } ?: "Rachel")
+            this.modelId = runnerParams["model_id"] as? String ?: "eleven_flash_v2_5"
             this.timeoutMs = (runnerParams["timeout_ms"] as? Number)?.toInt() ?: DEFAULT_TIMEOUT_MS
             this.assumeConnectivity = (runnerParams["assume_connectivity"] as? Boolean) ?: false
 
@@ -299,7 +298,7 @@ class ElevenLabsTTSRunner(
                 type = ParameterType.SelectionType(
                     options = listOf(
                         SelectionOption("eleven_v3", "Eleven v3", "High Quality"),
-                        SelectionOption("eleven_Turbo_v2_5", "Turbo v2.5", "Balanced"),
+                        SelectionOption("eleven_turbo_v2_5", "Turbo v2.5", "Balanced"),
                         SelectionOption("eleven_flash_v2_5", "Flash v2.5", "Fastest - lower latency")
                     )
                 ),

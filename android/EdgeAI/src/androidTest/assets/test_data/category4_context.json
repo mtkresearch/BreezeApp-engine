@@ -1,0 +1,18 @@
+{
+  "test_4_1_retention": [
+    {
+      "id": "context_retention_scenario",
+      "turns": [
+        { "input": "@ai translate: 我餓了", "expect_contains": "hungry" },
+        { "input": "@ai how do you say that more politely?", "expect_contains_any": ["有點餓", "polite"] },
+        { "input": "@ai what did I ask you to translate earlier?", "expect_contains_any": ["我餓了", "hungry"] }
+      ]
+    }
+  ],
+  "test_4_2_long_context": {
+    "filler_prompt": "Generate 8k context...",
+    "target_token_count": 8000,
+    "final_question": "@ai what is the secret code I mentioned at the beginning?",
+    "expected_answer_contains": "BLUE-SKY-99"
+  }
+}

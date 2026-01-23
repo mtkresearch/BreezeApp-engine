@@ -307,7 +307,7 @@ class ChatExamples : EdgeAITestBase() {
         )
 
         var chunkCount = 0
-        val job = kotlinx.coroutines.launch {
+        val job = launch {
             EdgeAI.chat(request).collect { response ->
                 chunkCount++
                 println("Chunk $chunkCount")

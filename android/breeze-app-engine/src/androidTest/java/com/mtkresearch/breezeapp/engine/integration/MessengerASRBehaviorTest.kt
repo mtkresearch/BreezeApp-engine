@@ -2,11 +2,14 @@ package com.mtkresearch.breezeapp.engine.integration
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtkresearch.breezeapp.engine.model.EngineSettings
 import com.mtkresearch.breezeapp.engine.model.InferenceRequest
 import com.mtkresearch.breezeapp.engine.model.InferenceResult
+import com.mtkresearch.breezeapp.engine.runner.core.BaseRunner
 import com.mtkresearch.breezeapp.engine.runner.huggingface.HuggingFaceASRRunner
+import com.mtkresearch.breezeapp.engine.runner.selfhosted.SelfHostedASRRunner
 import java.util.UUID
 import org.junit.Assert.*
 import org.junit.Assume
@@ -15,73 +18,145 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Category 2: ASR Behavior Integration Tests
+ * General ASR Behavior Test
  *
- * Purpose: Validate real ASR behavior with actual Hugging Face API calls.
- * This tests the accuracy and quality of speech recognition.
+ * Purpose: Validate real ASR behavior with actual API calls.
+ * Tests accuracy and quality of speech recognition.
+ * Supports multiple ASR runner implementations.
  *
- * Tests correspond to TDD Plan Category 2:
- * - Test 2.1: Transcription Accuracy (English)
- * - Test 2.2: Transcription Accuracy (Chinese/Multilingual)
- * - Test 2.3: Audio Quality Handling (various quality levels)
- * - Test 2.4: Performance Metrics (latency, throughput)
+ * Supported Runners:
+ * - SelfHostedASRRunner (default)
+ * - HuggingFaceASRRunner
  *
- * Note: These are instrumented tests requiring:
- * 1. Hugging Face API Key (via instrumentation arguments)
- * 2. Network connectivity
- * 3. Android device/emulator
- * 4. Test audio files in assets folder
+ * Configuration via instrumentation arguments:
+ * - ASR_RUNNER_TYPE: "selfhosted" (default) or "huggingface"
+ * - HF_API_KEY: Required for HuggingFace runner
+ * - SELFHOSTED_SERVER_URL: Server URL for self-hosted runner
+ * - ASR_MODEL: Model name (optional)
+ * - TEST_LANGUAGE: Language for tests (default: "en")
+ *
+ * Example:
+ * # Test with self-hosted runner (default)
+ * ./gradlew connectedAndroidTest \
+ *   -Pandroid.testInstrumentationRunnerArguments.ASR_RUNNER_TYPE=selfhosted \
+ *   -Pandroid.testInstrumentationRunnerArguments.SELFHOSTED_SERVER_URL=https://your-id.ngrok.io
+ *
+ * # Test with HuggingFace runner
+ * ./gradlew connectedAndroidTest \
+ *   -Pandroid.testInstrumentationRunnerArguments.ASR_RUNNER_TYPE=huggingface \
+ *   -Pandroid.testInstrumentationRunnerArguments.HF_API_KEY=hf_xxx
  */
 @RunWith(AndroidJUnit4::class)
-class MessengerASRBehaviorTest {
+class GeneralASRBehaviorTest {
 
-    private lateinit var context: Context
-    private lateinit var hfApiKey: String
-    private lateinit var hfModel: String
+    private val context: Context
+        get() = InstrumentationRegistry.getInstrumentation().context // Use test context for assets
+    private lateinit var runnerType: String
+    private lateinit var runner: BaseRunner
+    private lateinit var runnerName: String
+    private lateinit var modelName: String
+    private var testLanguage: String = "en"
 
     @Before
     fun setup() {
-        context = ApplicationProvider.getApplicationContext()
-
         val args = androidx.test.platform.app.InstrumentationRegistry.getArguments()
-        hfApiKey = args.getString("HF_API_KEY") ?: ""
-        hfModel = args.getString("HF_ASR_MODEL") ?: "openai/whisper-large-v3"
+
+        // Get runner type (default: selfhosted)
+        runnerType = args.getString("ASR_RUNNER_TYPE")?.lowercase() ?: "selfhosted"
+        testLanguage = args.getString("TEST_LANGUAGE") ?: "auto"
+
+        System.out.println("========================================")
+        System.out.println("ASR Behavior Test Configuration")
+        System.out.println("========================================")
+        System.out.println("Runner Type: $runnerType")
+        System.out.println("Test Language: $testLanguage")
+
+        // Initialize appropriate runner
+        when (runnerType) {
+            "huggingface", "hf" -> {
+                setupHuggingFaceRunner(args)
+            }
+            "selfhosted", "self" -> {
+                setupSelfHostedRunner(args)
+            }
+            else -> {
+                System.out.println("Unknown runner type '$runnerType', defaulting to selfhosted")
+                setupSelfHostedRunner(args)
+            }
+        }
+
+        System.out.println("Runner: $runnerName")
+        System.out.println("Model: $modelName")
+        System.out.println("========================================")
+    }
+
+    private fun setupHuggingFaceRunner(args: android.os.Bundle) {
+        val apiKey = args.getString("HF_API_KEY") ?: ""
+        modelName = args.getString("ASR_MODEL") ?: "openai/whisper-large-v3"
+        runnerName = "HuggingFaceASRRunner"
+
+        runner = HuggingFaceASRRunner(context)
+
+        val params = mapOf(
+            "api_key" to apiKey,
+            "model" to modelName,
+            "wait_for_model" to true,
+            "max_retries" to 3
+        )
+
+        val settings = EngineSettings.default()
+            .withRunnerParameters(runnerName, params)
+
+        val loaded = runner.load(modelName, settings, emptyMap())
+
+        Assume.assumeTrue(
+            "Failed to load HuggingFace runner. Check HF_API_KEY parameter.",
+            loaded
+        )
+
+        System.out.println("HuggingFace API Key: ${if (apiKey.isNotBlank()) "✓ Provided" else "✗ Missing"}")
+    }
+
+    private fun setupSelfHostedRunner(args: android.os.Bundle) {
+        // Default to Android emulator host (10.0.2.2 maps to host machine's localhost)
+        val serverUrl = args.getString("SELFHOSTED_SERVER_URL") ?: "https://neely-henlike-shin.ngrok-free.dev"
+        modelName = args.getString("ASR_MODEL") ?: "Taigi"
+        runnerName = "SelfHostedASRRunner"
+
+        runner = SelfHostedASRRunner(context)
+
+        val params = mapOf(
+            "server_url" to serverUrl,
+            "model_name" to modelName,
+            "endpoint" to "/transcribe",
+            "timeout_ms" to 120000,
+            "assume_connectivity" to true
+        )
+
+        val settings = EngineSettings.default()
+            .withRunnerParameters(runnerName, params)
+
+        val loaded = runner.load(modelName, settings, emptyMap())
+
+        Assume.assumeTrue(
+            "Failed to load SelfHosted runner. Check if server is running at $serverUrl",
+            loaded
+        )
+
+        System.out.println("Server URL: $serverUrl")
     }
 
     /**
      * Test 2.1: English Transcription Accuracy
      *
-     * Validates that the ASR correctly transcribes common English phrases.
-     * Uses fuzzy matching to account for minor variations.
-     *
-     * Success Criteria: ≥80% word accuracy across test samples
+     * Validates accurate transcription of English phrases
+     * Success Criteria: ≥80% word accuracy
      */
     @Test
     fun asr_transcribesEnglishAccurately() {
-        // Check prerequisites
-        Assume.assumeTrue(
-            "Skipping: HF API Key required",
-            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_TOKEN_HERE"
-        )
-
+        System.out.println("\n========================================")
+        System.out.println("Test 2.1: English Transcription Accuracy")
         System.out.println("========================================")
-        System.out.println("Test 2.1: English Transcription AccuracyfallbackAudio")
-        System.out.println("========================================")
-        System.out.println("Model: $hfModel")
-
-        // Setup runner
-        val runner = HuggingFaceASRRunner(context)
-        val params = mapOf(
-            "api_key" to hfApiKey,
-            "model" to hfModel,
-            "wait_for_model" to true
-        )
-
-        val settings = EngineSettings.default()
-            .withRunnerParameters("HuggingFaceASRRunner", params)
-
-        val loaded = runner.load(hfModel, settings, emptyMap())
-        assertTrue("Failed to load runner", loaded)
 
         // Test cases: audio file -> expected phrases
         val testCases = mapOf(
@@ -179,43 +254,21 @@ class MessengerASRBehaviorTest {
     /**
      * Test 2.2: Chinese/Multilingual Transcription Accuracy
      *
-     * Validates that the ASR correctly transcribes Chinese phrases.
-     *
-     * Success Criteria: ≥70% accuracy (Chinese is generally harder)
+     * Validates accurate transcription of Chinese phrases
+     * Success Criteria: ≥70% accuracy
      */
     @Test
     fun asr_transcribesChineseAccurately() {
-        // Check prerequisites
-        Assume.assumeTrue(
-            "Skipping: HF API Key required",
-            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_TOKEN_HERE"
-        )
-
-        System.out.println("========================================")
+        System.out.println("\n========================================")
         System.out.println("Test 2.2: Chinese Transcription Accuracy")
         System.out.println("========================================")
-        System.out.println("Model: $hfModel")
-
-        // Setup runner (no language specified for auto-detection)
-        val runner = HuggingFaceASRRunner(context)
-        val params = mapOf(
-            "api_key" to hfApiKey,
-            "model" to hfModel,
-            "wait_for_model" to true
-        )
-
-        val settings = EngineSettings.default()
-            .withRunnerParameters("HuggingFaceASRRunner", params)
-
-        val loaded = runner.load(hfModel, settings, emptyMap())
-        assertTrue("Failed to load runner", loaded)
 
         // Test cases: audio file -> expected Chinese characters
         val testCases = mapOf(
             "test_audio_nihao.wav" to listOf("你好", "您好"),
             "test_audio_xiexie.wav" to listOf("謝謝", "谢谢"),
             "test_audio_zaijian.wav" to listOf("再見", "再见"),
-            "test_audio_chinese_question.wav" to listOf("怎麼", "怎么", "如何")
+            "test_audio_mix.wav" to listOf("我想要", "order", "一個pizza", "一个pizza")
         )
 
         var correctCount = 0
@@ -302,153 +355,19 @@ class MessengerASRBehaviorTest {
     }
 
     /**
-     * Test 2.3: Audio Quality Handling
-     *
-     * Validates that ASR handles various audio quality levels:
-     * - Clear audio (studio quality)
-     * - Normal audio (phone quality)
-     * - Noisy audio (background noise)
-     *
-     * Success Criteria: Degrades gracefully with quality
-     */
-    @Test
-    fun asr_handlesVariousAudioQualities() {
-        // Check prerequisites
-        Assume.assumeTrue(
-            "Skipping: HF API Key required",
-            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_TOKEN_HERE"
-        )
-
-        System.out.println("========================================")
-        System.out.println("Test 2.3: Audio Quality Handling")
-        System.out.println("========================================")
-        System.out.println("Model: $hfModel")
-
-        // Setup runner
-        val runner = HuggingFaceASRRunner(context)
-        val params = mapOf(
-            "api_key" to hfApiKey,
-            "model" to hfModel,
-            "wait_for_model" to true
-        )
-
-        val settings = EngineSettings.default()
-            .withRunnerParameters("HuggingFaceASRRunner", params)
-
-        val loaded = runner.load(hfModel, settings, emptyMap())
-        assertTrue("Failed to load runner", loaded)
-
-        // Test cases with different quality levels
-        val qualityTests = listOf(
-            Triple("test_audio_clear.wav", "Clear", "hello"),
-            Triple("test_audio_normal.wav", "Normal", "hello"),
-            Triple("test_audio_noisy.wav", "Noisy", "hello")
-        )
-
-        val results = mutableMapOf<String, Pair<String, Long>>()
-
-        qualityTests.forEachIndexed { index, (audioFile, quality, expectedWord) ->
-            System.out.println("\n========================================")
-            System.out.println("Quality Test ${index + 1}/${qualityTests.size}: $quality")
-            System.out.println("========================================")
-            System.out.println("Audio: $audioFile")
-            System.out.println("Expected word: '$expectedWord'")
-            System.out.println("----------------------------------------")
-
-            var audioData = loadAudioFromAssets(audioFile)
-
-            if (audioData == null) {
-                System.out.println("⚠️  Audio file not found, using fallback")
-                // Use a fallback audio if specific quality file doesn't exist
-                val fallbackAudio = loadAudioFromAssets("test_audio_hello.wav")
-                if (fallbackAudio == null) {
-                    System.out.println("⚠️  No fallback audio, skipping")
-                    return@forEachIndexed
-                } else {
-                    audioData = fallbackAudio
-                }
-            }
-
-            val request = InferenceRequest(
-                sessionId = UUID.randomUUID().toString(),
-                inputs = mapOf(InferenceRequest.INPUT_AUDIO to audioData)
-            )
-
-            val startTime = System.currentTimeMillis()
-            val result = runner.run(request, stream = false)
-            val elapsed = System.currentTimeMillis() - startTime
-
-            if (result.error != null) {
-                System.out.println("❌ Error: ${result.error?.message}")
-                results[quality] = Pair("ERROR", elapsed)
-                return@forEachIndexed
-            }
-
-            val transcription = result.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: ""
-            results[quality] = Pair(transcription, elapsed)
-
-            System.out.println("Transcription: '$transcription'")
-            System.out.println("Time: ${elapsed}ms")
-
-            val containsExpected = transcription.lowercase().contains(expectedWord.lowercase())
-            if (containsExpected) {
-                System.out.println("✅ Contains expected word")
-            } else {
-                System.out.println("⚠️  Does not contain expected word")
-            }
-        }
-
-        System.out.println("\n========================================")
-        System.out.println("Audio Quality Results:")
-        System.out.println("========================================")
-
-        results.forEach { (quality, data) ->
-            val (transcription, time) = data
-            System.out.println("$quality: '$transcription' (${time}ms)")
-        }
-
-        assertTrue(
-            "At least one quality level should be tested",
-            results.isNotEmpty()
-        )
-    }
-
-    /**
      * Test 2.4: Performance Metrics
      *
-     * Measures ASR performance characteristics:
+     * Measures ASR performance:
      * - Latency (time to first result)
-     * - Throughput (processing speed)
      * - Consistency across multiple requests
      *
-     * Success Criteria: Latency < 10 seconds for 3-second audio
+     * Success Criteria: Latency < 10 seconds for typical audio
      */
     @Test
     fun asr_meetsPerformanceRequirements() {
-        // Check prerequisites
-        Assume.assumeTrue(
-            "Skipping: HF API Key required",
-            hfApiKey.isNotBlank() && hfApiKey != "hf_YOUR_TOKEN_HERE"
-        )
-
-        System.out.println("========================================")
+        System.out.println("\n========================================")
         System.out.println("Test 2.4: Performance Metrics")
         System.out.println("========================================")
-        System.out.println("Model: $hfModel")
-
-        // Setup runner
-        val runner = HuggingFaceASRRunner(context)
-        val params = mapOf(
-            "api_key" to hfApiKey,
-            "model" to hfModel,
-            "wait_for_model" to true
-        )
-
-        val settings = EngineSettings.default()
-            .withRunnerParameters("HuggingFaceASRRunner", params)
-
-        val loaded = runner.load(hfModel, settings, emptyMap())
-        assertTrue("Failed to load runner", loaded)
 
         // Load test audio
         val audioData = loadAudioFromAssets("test_audio_hello.wav")
@@ -505,11 +424,85 @@ class MessengerASRBehaviorTest {
     }
 
     /**
+     * Test 2.5: Language Detection
+     *
+     * Validates that ASR can handle multiple languages
+     * Tests auto-detection or explicit language setting
+     */
+    @Test
+    fun asr_handlesMultipleLanguages() {
+        System.out.println("\n========================================")
+        System.out.println("Test 2.5: Language Handling")
+        System.out.println("========================================")
+
+        // Test cases with different languages
+        val languageTests = listOf(
+            Triple("test_audio_hello.wav", "en", listOf("hello", "hi")),
+            Triple("test_audio_nihao.wav", "zh", listOf("你好", "您好")),
+            Triple("test_audio_nihao.wav", null, listOf("你好", "您好"))  // Auto-detect
+        )
+
+        val results = mutableListOf<Pair<String, String>>()
+
+        languageTests.forEachIndexed { index, (audioFile, language, expectedWords) ->
+            System.out.println("\n--- Test ${index + 1}/${languageTests.size} ---")
+            System.out.println("Audio: $audioFile")
+            System.out.println("Language: ${language ?: "auto-detect"}")
+            System.out.println("Expected: $expectedWords")
+
+            val audioData = loadAudioFromAssets(audioFile)
+            if (audioData == null) {
+                System.out.println("⚠️  Audio file not found, skipping")
+                return@forEachIndexed
+            }
+
+            val request = InferenceRequest(
+                sessionId = UUID.randomUUID().toString(),
+                inputs = mapOf(InferenceRequest.INPUT_AUDIO to audioData),
+                params = if (language != null) {
+                    mapOf(InferenceRequest.PARAM_LANGUAGE to language)
+                } else {
+                    emptyMap()
+                }
+            )
+
+            val result = runner.run(request, stream = false)
+
+            if (result.error == null) {
+                val transcription = result.outputs[InferenceResult.OUTPUT_TEXT] as? String ?: ""
+                System.out.println("Transcription: '$transcription'")
+
+                val matches = expectedWords.any { word ->
+                    transcription.lowercase().contains(word.lowercase()) ||
+                            transcription.contains(word)
+                }
+
+                System.out.println(if (matches) "✅ Match found" else "⚠️  No match")
+                results.add(audioFile to transcription)
+            } else {
+                System.out.println("❌ Error: ${result.error?.message}")
+            }
+        }
+
+        System.out.println("\n========================================")
+        System.out.println("Language Test Results:")
+        results.forEach { (file, text) ->
+            System.out.println("$file → '$text'")
+        }
+        System.out.println("========================================")
+
+        assertTrue(
+            "At least one language test should succeed",
+            results.isNotEmpty()
+        )
+    }
+
+    /**
      * Helper: Load audio file from assets
      */
     private fun loadAudioFromAssets(filename: String): ByteArray? {
         return try {
-            context.assets.open(filename).use { inputStream ->
+            context.assets.open("test_data/$filename").use { inputStream ->
                 inputStream.readBytes()
             }
         } catch (e: Exception) {

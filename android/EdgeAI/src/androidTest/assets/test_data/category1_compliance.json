@@ -1,0 +1,24 @@
+{
+  "test_1_1_schema_validation": [
+    {
+      "input": "@ai translate: 你好",
+      "description": "Basic translation trigger for schema validation",
+      "expected_fields": ["type", "text"],
+      "expected_values": { "type": "response" }
+    }
+  ],
+  "test_1_2_draft_schema": [
+    {
+      "input": "@ai tell Alice meeting is at 3pm",
+      "expected_fields": ["draft_message", "recipient", "confirmation_prompt"],
+      "expected_values": { "type": "draft", "recipient": "Alice" },
+      "expected_draft_content_not_empty": true
+    }
+  ],
+  "test_1_3_completeness": [
+    { "input": "@ai translate: 你好", "expected_type": "response", "check_completeness": true },
+    { "input": "@ai help", "expected_type": "response", "check_completeness": true },
+    { "input": "@ai tell Alice hi", "expected_type": "draft", "check_completeness": true },
+    { "input": "@ai summarize last 5 messages", "expected_type": "response", "check_completeness": true }
+  ]
+}

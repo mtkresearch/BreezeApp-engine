@@ -35,6 +35,7 @@ class CommandLineQuickTest {
         "com.mtkresearch.breezeapp.engine.runner.core",
         "com.mtkresearch.breezeapp.engine.runner.huggingface",
         "com.mtkresearch.breezeapp.engine.runner.elevenlabs",
+        "com.mtkresearch.breezeapp.engine.runner.selfhosted",
     )
 
     private val DEFAULT_AUDIO_PATH = "src/main/assets/test_asr.wav"

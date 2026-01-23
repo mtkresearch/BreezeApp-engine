@@ -78,7 +78,7 @@ fun ttsRequest(
  */
 fun asrRequest(
     audioBytes: ByteArray,
-    model: String = "whisper-1",
+    model: String = "taigi",
     language: String? = null,
     format: String = "json",
     temperature: Float? = null,

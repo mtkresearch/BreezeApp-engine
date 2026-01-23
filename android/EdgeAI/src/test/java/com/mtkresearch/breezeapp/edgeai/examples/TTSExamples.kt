@@ -80,10 +80,10 @@ class TTSExamples : EdgeAITestBase() {
         // Get audio response
         val response = EdgeAI.tts(request).first()
 
-        // Verify audio data
-        assertNotNull("Should have audio data", response.audioData)
-        assertTrue("Audio should not be empty", response.audioData.isNotEmpty())
-        println("Generated ${response.audioData.size} bytes of audio")
+        // EdgeAI uses engine-side playback, client doesn't receive audio data
+        assertNotNull("Should have response", response)
+        assertEquals("Should use engine playback", "engine_playback", response.format)
+        println("TTS completed with engine playback mode")
     }
 
     /**
@@ -120,9 +120,9 @@ class TTSExamples : EdgeAITestBase() {
 
             val response = EdgeAI.tts(request).first()
 
-            assertNotNull("$voice should generate audio", response.audioData)
-            assertTrue("$voice audio should not be empty", response.audioData.isNotEmpty())
-            println("$voice: ${response.audioData.size} bytes")
+            assertNotNull("$voice should generate response", response)
+            assertEquals("Should use engine playback", "engine_playback", response.format)
+            println("$voice: engine playback mode")
         }
     }
 
@@ -159,9 +159,9 @@ class TTSExamples : EdgeAITestBase() {
 
             val response = EdgeAI.tts(request).first()
 
-            assertNotNull("$format should generate audio", response.audioData)
-            assertTrue("$format audio should not be empty", response.audioData.isNotEmpty())
-            println("$format: ${response.audioData.size} bytes")
+            assertNotNull("$format should generate response", response)
+            assertEquals("Should use engine playback", "engine_playback", response.format)
+            println("$format: engine playback mode")
         }
     }
 
@@ -196,8 +196,8 @@ class TTSExamples : EdgeAITestBase() {
 
             val response = EdgeAI.tts(request).first()
 
-            assertNotNull("Speed $speed should generate audio", response.audioData)
-            println("Speed $speed: ${response.audioData.size} bytes")
+            assertNotNull("Speed $speed should generate response", response)
+            println("Speed $speed: engine playback mode")
         }
     }
 
@@ -277,7 +277,7 @@ class TTSExamples : EdgeAITestBase() {
         // Split into sentences
         val chunks = longText.split(". ").filter { it.isNotBlank() }
 
-        val audioChunks = mutableListOf<ByteArray>()
+        var successfulChunks = 0
 
         chunks.forEachIndexed { index, chunk ->
             val request = ttsRequest(
@@ -287,14 +287,15 @@ class TTSExamples : EdgeAITestBase() {
             )
 
             val response = EdgeAI.tts(request).first()
-            audioChunks.add(response.audioData)
+            // EdgeAI uses engine playback, verify response received
+            assertNotNull("Should have response for chunk ${index + 1}", response)
+            successfulChunks++
 
-            println("Chunk ${index + 1}/${chunks.size}: ${response.audioData.size} bytes")
+            println("Chunk ${index + 1}/${chunks.size}: engine playback mode")
         }
 
-        // Verify all chunks generated
-        assertEquals("Should have ${chunks.size} audio chunks", chunks.size, audioChunks.size)
-        assertTrue("All chunks should have audio", audioChunks.all { it.isNotEmpty() })
+        // Verify all chunks processed
+        assertEquals("Should process ${chunks.size} chunks", chunks.size, successfulChunks)
     }
 
     // === HELPER FUNCTIONS ===

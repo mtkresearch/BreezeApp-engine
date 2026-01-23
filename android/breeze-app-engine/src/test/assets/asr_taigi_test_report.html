@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ASR Integration Test Report</title>
+    <style>
+        body { 
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            margin: 20px; 
+            background: #fafafa; 
+        }
+        h1 { color: #333; font-family: Arial, sans-serif; }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #2196f3;
+            font-family: Arial, sans-serif;
+        }
+        pre { 
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px; 
+            border-radius: 5px;
+            overflow-x: auto;
+            line-height: 1.6;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 ASR Integration Test Report</h1>
+    <p><strong>Generated:</strong> 公曆 20廿六年 一月 廿二日 週四 十一時48分六秒</p>
+    
+    <div class="info">
+        <p><strong>📋 Tests Automatically Organized</strong></p>
+        <p>✅ Tests grouped by category and sorted by number</p>
+        <p>✅ Supports any number of tests and categories</p>
+    </div>
+    
+    <pre>
+==========================================
+Category 1: API Contract Validation Tests
+Test Class: MessengerASRComplianceTest
+==========================================
+
+01-22 11:48:26.177  5498  5513 I System.out: Test 1.1: Audio Input Processing
+01-22 11:48:26.177  5498  5513 I System.out: ========================================
+01-22 11:48:26.178  5498  5513 I System.out: Audio loaded: 15927 bytes
+01-22 11:48:26.178  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:26.944  5498  5513 I System.out: Processing time: 766ms
+01-22 11:48:26.944  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:26.944  5498  5513 I System.out: Transcription: '哈囉'
+01-22 11:48:26.944  5498  5513 I System.out: ✅ Audio input processing successful
+01-22 11:48:26.944  5498  5513 I System.out: ========================================
+
+01-22 11:48:25.286  5498  5513 I System.out: Test 1.2: Text Output Format Validation
+01-22 11:48:25.286  5498  5513 I System.out: ========================================
+01-22 11:48:25.287  5498  5513 I System.out: Testing output format...
+01-22 11:48:25.287  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:26.056  5498  5513 I System.out: Transcription: '哈囉'
+01-22 11:48:26.056  5498  5513 I System.out: Length: 2 characters
+01-22 11:48:26.056  5498  5513 I System.out: ✅ Output format is valid
+01-22 11:48:26.056  5498  5513 I System.out: ========================================
+01-22 11:48:26.063  5498  5513 I System.out: ========================================
+01-22 11:48:26.064  5498  5513 I System.out: ASR Runner Configuration
+01-22 11:48:26.064  5498  5513 I System.out: ========================================
+01-22 11:48:26.064  5498  5513 I System.out: Runner Type: selfhosted
+01-22 11:48:26.064  5498  5513 I System.out: Server URL: https://conciliable-clara-unpraised.ngrok-free.dev
+01-22 11:48:26.064  5498  5513 I System.out: Runner: SelfHostedASRRunner
+01-22 11:48:26.064  5498  5513 I System.out: Model: Taigi
+01-22 11:48:26.064  5498  5513 I System.out: ========================================
+01-22 11:48:26.064  5498  5513 I System.out: 
+01-22 11:48:26.064  5498  5513 I System.out: ========================================
+
+01-22 11:48:26.065  5498  5513 I System.out: Test 1.3: Error Handling Validation
+01-22 11:48:26.065  5498  5513 I System.out: ========================================
+01-22 11:48:26.065  5498  5513 I System.out: 
+01-22 11:48:26.065  5498  5513 I System.out: --- Test Case 1: Empty Audio ---
+01-22 11:48:26.065  5498  5513 I System.out: Error message: Missing or empty audio input
+01-22 11:48:26.065  5498  5513 I System.out: ✅ Empty audio handled correctly
+01-22 11:48:26.065  5498  5513 I System.out: 
+01-22 11:48:26.065  5498  5513 I System.out: --- Test Case 2: Missing Audio Input ---
+01-22 11:48:26.065  5498  5513 I System.out: Error message: Missing or empty audio input
+01-22 11:48:26.065  5498  5513 I System.out: ✅ Missing audio handled correctly
+01-22 11:48:26.066  5498  5513 I System.out: 
+01-22 11:48:26.066  5498  5513 I System.out: --- Test Case 3: Invalid Audio Data ---
+01-22 11:48:26.167  5498  5513 I System.out: Error message: Network error: HTTP 400: Bad request - invalid audio format or parameters - {"error":"Invvalid audio format","message":"Error opening <_io.BytesIO object at 0xe83af947f6f0>: Format not recognised."}
+01-22 11:48:26.167  5498  5513 I System.out: ✅ Invalid audio rejected
+01-22 11:48:26.167  5498  5513 I System.out: 
+01-22 11:48:26.168  5498  5513 I System.out: ✅ All error handling tests passed
+01-22 11:48:26.168  5498  5513 I System.out: ========================================
+01-22 11:48:26.175  5498  5513 I System.out: ========================================
+01-22 11:48:26.175  5498  5513 I System.out: ASR Runner Configuration
+01-22 11:48:26.175  5498  5513 I System.out: ========================================
+01-22 11:48:26.175  5498  5513 I System.out: Runner Type: selfhosted
+01-22 11:48:26.176  5498  5513 I System.out: Server URL: https://conciliable-clara-unpraised.ngrok-free.dev
+01-22 11:48:26.176  5498  5513 I System.out: Runner: SelfHostedASRRunner
+01-22 11:48:26.176  5498  5513 I System.out: Model: Taigi
+01-22 11:48:26.176  5498  5513 I System.out: ========================================
+01-22 11:48:26.176  5498  5513 I System.out: 
+01-22 11:48:26.177  5498  5513 I System.out: ========================================
+
+01-22 11:48:22.842  5498  5513 I System.out: Test 1.4: Multiple Audio Files Processing
+01-22 11:48:22.842  5498  5513 I System.out: ========================================
+01-22 11:48:22.842  5498  5513 I System.out: 
+01-22 11:48:22.842  5498  5513 I System.out: --- Processing 1/3: test_audio_hello.wav ---
+01-22 11:48:22.843  5498  5513 I System.out: Audio size: 15927 bytes
+01-22 11:48:23.687  5498  5513 I System.out: Transcription: '哈囉'
+01-22 11:48:23.687  5498  5513 I System.out: Time: 844ms
+01-22 11:48:23.687  5498  5513 I System.out: ✅ Success
+01-22 11:48:23.687  5498  5513 I System.out: 
+01-22 11:48:23.687  5498  5513 I System.out: --- Processing 2/3: test_audio_thanks.wav ---
+01-22 11:48:23.687  5498  5513 I System.out: Audio size: 14673 bytes
+01-22 11:48:24.507  5498  5513 I System.out: Transcription: '謝謝'
+01-22 11:48:24.507  5498  5513 I System.out: Time: 819ms
+01-22 11:48:24.507  5498  5513 I System.out: ✅ Success
+01-22 11:48:24.507  5498  5513 I System.out: 
+01-22 11:48:24.507  5498  5513 I System.out: --- Processing 3/3: test_audio_goodbye.wav ---
+01-22 11:48:24.508  5498  5513 I System.out: Audio size: 14673 bytes
+01-22 11:48:25.275  5498  5513 I System.out: Transcription: '再見'
+01-22 11:48:25.275  5498  5513 I System.out: Time: 766ms
+01-22 11:48:25.275  5498  5513 I System.out: ✅ Success
+01-22 11:48:25.275  5498  5513 I System.out: 
+01-22 11:48:25.275  5498  5513 I System.out: ========================================
+01-22 11:48:25.276  5498  5513 I System.out: Results: 3/3 files processed successfully
+01-22 11:48:25.276  5498  5513 I System.out: ========================================
+01-22 11:48:25.276  5498  5513 I System.out: test_audio_hello.wav → '哈囉'
+01-22 11:48:25.276  5498  5513 I System.out: test_audio_thanks.wav → '謝謝'
+01-22 11:48:25.276  5498  5513 I System.out: test_audio_goodbye.wav → '再見'
+01-22 11:48:25.285  5498  5513 I System.out: ========================================
+01-22 11:48:25.285  5498  5513 I System.out: ASR Runner Configuration
+01-22 11:48:25.285  5498  5513 I System.out: ========================================
+01-22 11:48:25.285  5498  5513 I System.out: Runner Type: selfhosted
+01-22 11:48:25.286  5498  5513 I System.out: Server URL: https://conciliable-clara-unpraised.ngrok-free.dev
+01-22 11:48:25.286  5498  5513 I System.out: Runner: SelfHostedASRRunner
+01-22 11:48:25.286  5498  5513 I System.out: Model: Taigi
+01-22 11:48:25.286  5498  5513 I System.out: ========================================
+01-22 11:48:25.286  5498  5513 I System.out: 
+01-22 11:48:25.286  5498  5513 I System.out: ========================================
+
+
+==========================================
+Category 2: ASR Behavior Tests
+Test Class: MessengerASRBehaviorTest
+==========================================
+
+01-22 11:48:16.021  5498  5513 I System.out: Test 2.1: English Transcription Accuracy
+01-22 11:48:16.021  5498  5513 I System.out: ========================================
+01-22 11:48:16.022  5498  5513 I System.out: 
+01-22 11:48:16.022  5498  5513 I System.out: ========================================
+01-22 11:48:16.022  5498  5513 I System.out: Test Case 1/4
+01-22 11:48:16.022  5498  5513 I System.out: ========================================
+01-22 11:48:16.022  5498  5513 I System.out: Audio: test_audio_hello.wav
+01-22 11:48:16.022  5498  5513 I System.out: Expected: [hello, hi]
+01-22 11:48:16.022  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:16.931  5498  5513 I System.out: Transcription: '哈囉'
+01-22 11:48:16.931  5498  5513 I System.out: Time: 908ms
+01-22 11:48:16.931  5498  5513 I System.out: ❌ No match found
+01-22 11:48:16.931  5498  5513 I System.out: 
+01-22 11:48:16.931  5498  5513 I System.out: ========================================
+01-22 11:48:16.931  5498  5513 I System.out: Test Case 2/4
+01-22 11:48:16.932  5498  5513 I System.out: ========================================
+01-22 11:48:16.932  5498  5513 I System.out: Audio: test_audio_thanks.wav
+01-22 11:48:16.932  5498  5513 I System.out: Expected: [thank you, thanks]
+01-22 11:48:16.932  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:17.751  5498  5513 I System.out: Transcription: '謝謝'
+01-22 11:48:17.751  5498  5513 I System.out: Time: 818ms
+01-22 11:48:17.751  5498  5513 I System.out: ❌ No match found
+01-22 11:48:17.752  5498  5513 I System.out: 
+01-22 11:48:17.752  5498  5513 I System.out: ========================================
+01-22 11:48:17.752  5498  5513 I System.out: Test Case 3/4
+01-22 11:48:17.752  5498  5513 I System.out: ========================================
+01-22 11:48:17.752  5498  5513 I System.out: Audio: test_audio_goodbye.wav
+01-22 11:48:17.752  5498  5513 I System.out: Expected: [goodbye, bye, see you]
+01-22 11:48:17.752  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:18.515  5498  5513 I System.out: Transcription: '再見'
+01-22 11:48:18.516  5498  5513 I System.out: Time: 762ms
+01-22 11:48:18.516  5498  5513 I System.out: ❌ No match found
+01-22 11:48:18.516  5498  5513 I System.out: 
+01-22 11:48:18.516  5498  5513 I System.out: ========================================
+01-22 11:48:18.516  5498  5513 I System.out: Test Case 4/4
+01-22 11:48:18.517  5498  5513 I System.out: ========================================
+01-22 11:48:18.517  5498  5513 I System.out: Audio: test_audio_question.wav
+01-22 11:48:18.517  5498  5513 I System.out: Expected: [how are you, how's it going]
+01-22 11:48:18.517  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:19.340  5498  5513 I System.out: Transcription: 'How are you'
+01-22 11:48:19.340  5498  5513 I System.out: Time: 822ms
+01-22 11:48:19.340  5498  5513 I System.out: ✅ Match found
+01-22 11:48:19.341  5498  5513 I System.out: 
+01-22 11:48:19.341  5498  5513 I System.out: ========================================
+01-22 11:48:19.342  5498  5513 I System.out: Transcription Accuracy: 1/4 (25.0%)
+01-22 11:48:19.342  5498  5513 I System.out: Success Criteria: ≥80%
+01-22 11:48:19.342  5498  5513 I System.out: ========================================
+01-22 11:48:19.342  5498  5513 I System.out: 
+01-22 11:48:19.342  5498  5513 I System.out: Detailed Results:
+01-22 11:48:19.343  5498  5513 I System.out: ❌ test_audio_hello.wav → '哈囉'
+01-22 11:48:19.343  5498  5513 I System.out: ❌ test_audio_thanks.wav → '謝謝'
+01-22 11:48:19.343  5498  5513 I System.out: ❌ test_audio_goodbye.wav → '再見'
+01-22 11:48:19.343  5498  5513 I System.out: ✅ test_audio_question.wav → 'How are you'
+01-22 11:48:19.361  5498  5513 I System.out: ========================================
+01-22 11:48:19.361  5498  5513 I System.out: ASR Behavior Test Configuration
+01-22 11:48:19.361  5498  5513 I System.out: ========================================
+01-22 11:48:19.361  5498  5513 I System.out: Runner Type: selfhosted
+01-22 11:48:19.361  5498  5513 I System.out: Test Language: auto
+01-22 11:48:19.362  5498  5513 I System.out: Server URL: https://conciliable-clara-unpraised.ngrok-free.dev
+01-22 11:48:19.362  5498  5513 I System.out: Runner: SelfHostedASRRunner
+01-22 11:48:19.362  5498  5513 I System.out: Model: Taigi
+01-22 11:48:19.362  5498  5513 I System.out: ========================================
+01-22 11:48:19.362  5498  5513 I System.out: 
+01-22 11:48:19.362  5498  5513 I System.out: ========================================
+
+01-22 11:48:19.362  5498  5513 I System.out: Test 2.2: Chinese Transcription Accuracy
+01-22 11:48:19.362  5498  5513 I System.out: ========================================
+01-22 11:48:19.362  5498  5513 I System.out: 
+01-22 11:48:19.362  5498  5513 I System.out: ========================================
+01-22 11:48:19.362  5498  5513 I System.out: Test Case 1/4
+01-22 11:48:19.362  5498  5513 I System.out: ========================================
+01-22 11:48:19.362  5498  5513 I System.out: Audio: test_audio_nihao.wav
+01-22 11:48:19.362  5498  5513 I System.out: Expected: [你好, 您好]
+01-22 11:48:19.362  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:20.202  5498  5513 I System.out: Transcription: '你好'
+01-22 11:48:20.202  5498  5513 I System.out: Time: 839ms
+01-22 11:48:20.202  5498  5513 I System.out: ✅ Match found
+01-22 11:48:20.202  5498  5513 I System.out: 
+01-22 11:48:20.203  5498  5513 I System.out: ========================================
+01-22 11:48:20.203  5498  5513 I System.out: Test Case 2/4
+01-22 11:48:20.203  5498  5513 I System.out: ========================================
+01-22 11:48:20.203  5498  5513 I System.out: Audio: test_audio_xiexie.wav
+01-22 11:48:20.203  5498  5513 I System.out: Expected: [謝謝, 谢谢]
+01-22 11:48:20.203  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:21.025  5498  5513 I System.out: Transcription: '謝謝'
+01-22 11:48:21.025  5498  5513 I System.out: Time: 822ms
+01-22 11:48:21.025  5498  5513 I System.out: ✅ Match found
+01-22 11:48:21.025  5498  5513 I System.out: 
+01-22 11:48:21.025  5498  5513 I System.out: ========================================
+01-22 11:48:21.026  5498  5513 I System.out: Test Case 3/4
+01-22 11:48:21.026  5498  5513 I System.out: ========================================
+01-22 11:48:21.026  5498  5513 I System.out: Audio: test_audio_zaijian.wav
+01-22 11:48:21.026  5498  5513 I System.out: Expected: [再見, 再见]
+01-22 11:48:21.026  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:21.846  5498  5513 I System.out: Transcription: '再見'
+01-22 11:48:21.846  5498  5513 I System.out: Time: 819ms
+01-22 11:48:21.846  5498  5513 I System.out: ✅ Match found
+01-22 11:48:21.846  5498  5513 I System.out: 
+01-22 11:48:21.846  5498  5513 I System.out: ========================================
+01-22 11:48:21.846  5498  5513 I System.out: Test Case 4/4
+01-22 11:48:21.846  5498  5513 I System.out: ========================================
+01-22 11:48:21.846  5498  5513 I System.out: Audio: test_audio_mix.wav
+01-22 11:48:21.847  5498  5513 I System.out: Expected: [我想要, order, 一個pizza, 一个pizza]
+01-22 11:48:21.847  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:22.825  5498  5513 I System.out: Transcription: '我想要 order一個pizza'
+01-22 11:48:22.825  5498  5513 I System.out: Time: 977ms
+01-22 11:48:22.826  5498  5513 I System.out: ✅ Match found
+01-22 11:48:22.826  5498  5513 I System.out: 
+01-22 11:48:22.826  5498  5513 I System.out: ========================================
+01-22 11:48:22.826  5498  5513 I System.out: Chinese Accuracy: 4/4 (100.0%)
+01-22 11:48:22.826  5498  5513 I System.out: Success Criteria: ≥70%
+01-22 11:48:22.826  5498  5513 I System.out: ========================================
+01-22 11:48:22.826  5498  5513 I System.out: 
+01-22 11:48:22.827  5498  5513 I System.out: Detailed Results:
+01-22 11:48:22.827  5498  5513 I System.out: ✅ test_audio_nihao.wav → '你好'
+01-22 11:48:22.827  5498  5513 I System.out: ✅ test_audio_xiexie.wav → '謝謝'
+01-22 11:48:22.827  5498  5513 I System.out: ✅ test_audio_zaijian.wav → '再見'
+01-22 11:48:22.827  5498  5513 I System.out: ✅ test_audio_mix.wav → '我想要 order一個pizza'
+01-22 11:48:22.840  5498  5513 I System.out: ========================================
+01-22 11:48:22.841  5498  5513 I System.out: ASR Runner Configuration
+01-22 11:48:22.841  5498  5513 I System.out: ========================================
+01-22 11:48:22.841  5498  5513 I System.out: Runner Type: selfhosted
+01-22 11:48:22.842  5498  5513 I System.out: Server URL: https://conciliable-clara-unpraised.ngrok-free.dev
+01-22 11:48:22.842  5498  5513 I System.out: Runner: SelfHostedASRRunner
+01-22 11:48:22.842  5498  5513 I System.out: Model: Taigi
+01-22 11:48:22.842  5498  5513 I System.out: ========================================
+01-22 11:48:22.842  5498  5513 I System.out: 
+01-22 11:48:22.842  5498  5513 I System.out: ========================================
+
+01-22 11:48:11.055  5498  5513 I System.out: Test 2.4: Performance Metrics
+01-22 11:48:11.055  5498  5513 I System.out: ========================================
+01-22 11:48:11.055  5498  5513 I System.out: Audio size: 15927 bytes
+01-22 11:48:11.055  5498  5513 I System.out: Running 3 iterations to measure consistency...
+01-22 11:48:11.055  5498  5513 I System.out: ----------------------------------------
+01-22 11:48:11.055  5498  5513 I System.out: 
+01-22 11:48:11.055  5498  5513 I System.out: Iteration 1/3
+01-22 11:48:12.008  5498  5513 I System.out:   Time: 950ms
+01-22 11:48:12.008  5498  5513 I System.out:   Result: '哈囉'
+01-22 11:48:12.008  5498  5513 I System.out: 
+01-22 11:48:12.008  5498  5513 I System.out: Iteration 2/3
+01-22 11:48:12.771  5498  5513 I System.out:   Time: 763ms
+01-22 11:48:12.771  5498  5513 I System.out:   Result: '哈囉'
+01-22 11:48:12.771  5498  5513 I System.out: 
+01-22 11:48:12.771  5498  5513 I System.out: Iteration 3/3
+01-22 11:48:13.531  5498  5513 I System.out:   Time: 760ms
+01-22 11:48:13.531  5498  5513 I System.out:   Result: '哈囉'
+01-22 11:48:13.537  5498  5513 I System.out: 
+01-22 11:48:13.537  5498  5513 I System.out: ========================================
+01-22 11:48:13.537  5498  5513 I System.out: Performance Statistics:
+01-22 11:48:13.537  5498  5513 I System.out: ========================================
+01-22 11:48:13.538  5498  5513 I System.out: Average Latency: 824ms
+01-22 11:48:13.538  5498  5513 I System.out: Min Latency: 760ms
+01-22 11:48:13.538  5498  5513 I System.out: Max Latency: 950ms
+01-22 11:48:13.538  5498  5513 I System.out: Success Criteria: <10,000ms (10 seconds)
+01-22 11:48:13.538  5498  5513 I System.out: ========================================
+01-22 11:48:13.544  5498  5513 I System.out: ========================================
+01-22 11:48:13.545  5498  5513 I System.out: ASR Behavior Test Configuration
+01-22 11:48:13.545  5498  5513 I System.out: ========================================
+01-22 11:48:13.545  5498  5513 I System.out: Runner Type: selfhosted
+01-22 11:48:13.545  5498  5513 I System.out: Test Language: auto
+01-22 11:48:13.545  5498  5513 I System.out: Server URL: https://conciliable-clara-unpraised.ngrok-free.dev
+01-22 11:48:13.545  5498  5513 I System.out: Runner: SelfHostedASRRunner
+01-22 11:48:13.545  5498  5513 I System.out: Model: Taigi
+01-22 11:48:13.545  5498  5513 I System.out: ========================================
+01-22 11:48:13.546  5498  5513 I System.out: 
+01-22 11:48:13.546  5498  5513 I System.out: ========================================
+
+01-22 11:48:13.546  5498  5513 I System.out: Test 2.5: Language Handling
+01-22 11:48:13.546  5498  5513 I System.out: ========================================
+01-22 11:48:13.551  5498  5513 I System.out: 
+01-22 11:48:13.551  5498  5513 I System.out: --- Test 1/3 ---
+01-22 11:48:13.551  5498  5513 I System.out: Audio: test_audio_hello.wav
+01-22 11:48:13.551  5498  5513 I System.out: Language: en
+01-22 11:48:13.551  5498  5513 I System.out: Expected: [hello, hi]
+01-22 11:48:14.313  5498  5513 I System.out: Transcription: '哈囉'
+01-22 11:48:14.313  5498  5513 I System.out: ⚠️  No match
+01-22 11:48:14.313  5498  5513 I System.out: 
+01-22 11:48:14.313  5498  5513 I System.out: --- Test 2/3 ---
+01-22 11:48:14.313  5498  5513 I System.out: Audio: test_audio_nihao.wav
+01-22 11:48:14.313  5498  5513 I System.out: Language: zh
+01-22 11:48:14.313  5498  5513 I System.out: Expected: [你好, 您好]
+01-22 11:48:15.189  5498  5513 I System.out: Transcription: '你好'
+01-22 11:48:15.189  5498  5513 I System.out: ✅ Match found
+01-22 11:48:15.189  5498  5513 I System.out: 
+01-22 11:48:15.189  5498  5513 I System.out: --- Test 3/3 ---
+01-22 11:48:15.189  5498  5513 I System.out: Audio: test_audio_nihao.wav
+01-22 11:48:15.189  5498  5513 I System.out: Language: auto-detect
+01-22 11:48:15.189  5498  5513 I System.out: Expected: [你好, 您好]
+01-22 11:48:16.010  5498  5513 I System.out: Transcription: '你好'
+01-22 11:48:16.010  5498  5513 I System.out: ✅ Match found
+01-22 11:48:16.011  5498  5513 I System.out: 
+01-22 11:48:16.011  5498  5513 I System.out: ========================================
+01-22 11:48:16.011  5498  5513 I System.out: Language Test Results:
+01-22 11:48:16.011  5498  5513 I System.out: test_audio_hello.wav → '哈囉'
+01-22 11:48:16.011  5498  5513 I System.out: test_audio_nihao.wav → '你好'
+01-22 11:48:16.011  5498  5513 I System.out: test_audio_nihao.wav → '你好'
+01-22 11:48:16.011  5498  5513 I System.out: ========================================
+01-22 11:48:16.020  5498  5513 I System.out: ========================================
+01-22 11:48:16.020  5498  5513 I System.out: ASR Behavior Test Configuration
+01-22 11:48:16.020  5498  5513 I System.out: ========================================
+01-22 11:48:16.020  5498  5513 I System.out: Runner Type: selfhosted
+01-22 11:48:16.020  5498  5513 I System.out: Test Language: auto
+01-22 11:48:16.021  5498  5513 I System.out: Server URL: https://conciliable-clara-unpraised.ngrok-free.dev
+01-22 11:48:16.021  5498  5513 I System.out: Runner: SelfHostedASRRunner
+01-22 11:48:16.021  5498  5513 I System.out: Model: Taigi
+01-22 11:48:16.021  5498  5513 I System.out: ========================================
+01-22 11:48:16.021  5498  5513 I System.out: 
+01-22 11:48:16.021  5498  5513 I System.out: ========================================
+
+
+    </pre>
+</body>
+</html>
