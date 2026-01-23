@@ -128,13 +128,13 @@
       "entry_point": { "type": "whisper", "value": "sherpa-onnx-whisper-medium" }
     },
     {
-      "id": "openai/gpt-oss-20b:free",
+      "id": "google/gemini-3-flash-preview",
       "runner": "OpenRouterLLMRunner",
       "backend": "api",
       "ramGB": 1,
       "capabilities": ["LLM"],
       "files": [],
-      "entry_point": { "type": "api", "value": "openai/gpt-oss-20b:free" }
+      "entry_point": { "type": "api", "value": "google/gemini-3-flash-preview" }
     },
     {
       "id": "llama-3.2-90b-vision-instruct",

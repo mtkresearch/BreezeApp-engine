@@ -43,6 +43,13 @@ enum class VendorType(
      */
     val requiresInternet: Boolean = false
 ) {
+    CUSTOM(
+        displayName = "Custom",
+        description = "Self hosted server",
+        requiresSpecialHardware = false,
+        requiresInternet = true
+    ),
+
     /**
      * MediaTek NPU and AI acceleration technology.
      * 
@@ -127,12 +134,7 @@ enum class VendorType(
         requiresInternet = true
     ),
 
-    CUSTOM(
-        displayName = "Custom",
-        description = "Self hosted server",
-        requiresSpecialHardware = false,
-        requiresInternet = true
-    ),
+
 
     ELEVENLABS(
         displayName = "ElevenLabs",

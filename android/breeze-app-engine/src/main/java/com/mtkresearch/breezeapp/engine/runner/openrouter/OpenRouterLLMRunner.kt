@@ -82,6 +82,8 @@ class OpenRouterLLMRunner(
 
     companion object {
         private const val TAG = "OpenRouterLLMRunner"
+        // User provided default key
+        private const val DEFAULT_API_KEY = ""
         private const val DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
         private const val DEFAULT_MODEL = "google/gemini-3-flash-preview"
         private const val CHAT_COMPLETIONS_ENDPOINT = "/chat/completions"
@@ -119,9 +121,12 @@ class OpenRouterLLMRunner(
             Log.d(TAG, "Loading OpenRouterLLMRunner with model '${modelId}' and params: $runnerParams")
 
             // 1. Get API Key from runner-specific settings
-            val keyFromSettings = runnerParams["api_key"] as? String ?: ""
+            // Logic: Try settings -> fail check blank -> fallback to default
+            val settingsKey = runnerParams["api_key"] as? String
+            val keyFromSettings = if (!settingsKey.isNullOrBlank()) settingsKey else DEFAULT_API_KEY
+            
             if (keyFromSettings.isBlank()) {
-                Log.e(TAG, "API key not found in settings for $runnerName")
+                Log.e(TAG, "API key not found in settings for $runnerName and no default set")
                 return false
             }
             this.actualApiKey = keyFromSettings
@@ -263,7 +268,7 @@ class OpenRouterLLMRunner(
                 type = ParameterType.StringType(
                     minLength = 1
                 ),
-                defaultValue = "",
+                defaultValue = DEFAULT_API_KEY,
                 isRequired = true,
                 isSensitive = true,
                 category = "Authentication"
@@ -422,6 +427,7 @@ class OpenRouterLLMRunner(
         // Validate model selection
         val model = parameters[InferenceRequest.PARAM_MODEL] as? String ?: DEFAULT_MODEL
         val validModels = listOf(
+            "google/gemini-3-flash-preview",
             "openai/gpt-3.5-turbo",
             "openai/gpt-4", 
             "openai/gpt-4-turbo-preview",
