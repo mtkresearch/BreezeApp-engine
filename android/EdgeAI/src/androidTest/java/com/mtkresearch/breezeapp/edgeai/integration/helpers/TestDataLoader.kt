@@ -339,6 +339,22 @@ object TestASRDataLoader {
         )
     }
 
+    fun loadASRCategory1Data(): ASRCategory1Data {
+        return ASRCategory1Data(
+            audioInputTests = getInputTests (),
+            outputFormatTests = getInputTests ()
+        )
+    }
+
+    private fun getInputTests(): List<EnglishTestScenario> {
+        return listOf(
+            EnglishTestScenario(
+                audioFile = "test_audio_hello.wav",
+                expectedPhrases = listOf("hello", "hi", "greetings", "good morning")
+            )
+        )
+    }
+
     private fun getEnglishScenarios(): List<EnglishTestScenario> {
         return listOf(
             EnglishTestScenario(
@@ -379,8 +395,13 @@ object TestASRDataLoader {
 }
 
 /**
- * Container for ASR Category 2 Test Data.
+ * Container for ASR Test Data.
  */
+
+data class ASRCategory1Data(
+    val audioInputTests: List<EnglishTestScenario>,
+    val outputFormatTests: List<EnglishTestScenario>
+)
 data class ASRCategory2Data(
     val englishAccuracyTests: List<EnglishTestScenario>,
     val chineseAccuracyTests: List<ChineseTestScenario>
