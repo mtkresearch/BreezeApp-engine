@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:label="BreezeApp Engine"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+
+        <!-- ===================== Engine 主活動入口 (Standalone Only) ===================== -->
+        <activity
+            android:name=".ui.BreezeAppEngineLauncherActivity"
+            android:exported="true"
+            android:label="BreezeApp Engine"
+            android:theme="@style/Theme.BreezeApp">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Keep Settings/Download UI available in standalone mode explicit definition if needed, 
+             but they are likely in main manifest. Application attributes here merge with main. -->
+
+    </application>
+
+</manifest>

@@ -18,8 +18,13 @@
         android:label="@string/permission_bind_engine_label"
         android:description="@string/permission_bind_engine_desc" />
 
-    <!-- Remove app-specific attributes (label, icon, theme) to avoid conflicts in Library mode -->
-    <application>
+    <application
+        android:allowBackup="true"
+        android:label="BreezeApp Engine"
+        android:icon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
         <!-- ===================== Neuron SDK / MTK NPU Support ===================== -->
         <uses-native-library
@@ -54,11 +59,20 @@
             android:name="libc++_shared.so"
             android:required="false" />
 
-        <!-- 
-           LauncherActivity moved to src/standalone/AndroidManifest.xml 
-        -->
 
-        <!-- ===================== 設定頁面 (Keep in main to allow Signal to launch settings if needed) ===================== -->
+        <!-- ===================== Engine 主活動入口 ===================== -->
+        <activity
+            android:name=".ui.BreezeAppEngineLauncherActivity"
+            android:exported="true"
+            android:label="BreezeApp Engine"
+            android:theme="@style/Theme.BreezeApp">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- ===================== 設定頁面 ===================== -->
         <activity
             android:name=".ui.EngineSettingsActivity"
             android:exported="true"
