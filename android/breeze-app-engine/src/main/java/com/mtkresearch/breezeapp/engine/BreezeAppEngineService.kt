@@ -173,6 +173,20 @@ class BreezeAppEngineService : Service() {
         )
     }
     
+    /**
+     * Notify that a request has started (for breathing border and status)
+     */
+    fun notifyRequestStarted(requestId: String, requestType: String) {
+        serviceOrchestrator.startRequestTracking(requestId, requestType)
+    }
+
+    /**
+     * Notify that a request has ended
+     */
+    fun notifyRequestEnded(requestId: String, requestType: String) {
+        serviceOrchestrator.endRequestTracking(requestId, requestType)
+    }
+
     // === Private Helper Methods ===
     
     private fun startForegroundService() {

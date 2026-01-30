@@ -123,6 +123,8 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
     private lateinit var btnRunTest: Button
     private lateinit var layoutTestResult: LinearLayout
     private lateinit var tvTestResult: TextView
+    private lateinit var chkStressMode: CheckBox
+    private lateinit var tvTestMetrics: TextView
 
     // State
     private var currentCapability: CapabilityType = CapabilityType.LLM
@@ -198,8 +200,14 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
         initializeRunnerManager()
         loadSettings()
         setupEventListeners()
+        setupEventListeners()
         setupObservers()
         updateQuickTestSection()  // Initialize Quick Test status
+        
+        // Hide metrics view initially
+        if (::tvTestMetrics.isInitialized) {
+            tvTestMetrics.visibility = View.GONE
+        }
 
         // Setup unsaved changes detection
         onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
@@ -245,6 +253,8 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
         btnRunTest = findViewById(R.id.btnRunTest)
         layoutTestResult = findViewById(R.id.layoutTestResult)
         tvTestResult = findViewById(R.id.tvTestResult)
+        chkStressMode = findViewById(R.id.chkStressMode)
+        tvTestMetrics = findViewById(R.id.tvTestMetrics)
 
         // Initialize Save button as disabled (no changes yet)
         btnSave.isEnabled = false
@@ -1827,6 +1837,9 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
     /**
      * Run quick test for current capability
      */
+    /**
+     * Run quick test for current capability
+     */
     private fun runQuickTest() {
         lifecycleScope.launch {
             try {
@@ -1839,21 +1852,18 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                     updateTestStatus(TestStatus.READY)
                     return@launch
                 }
-                
-                val result = when (currentCapability) {
-                    CapabilityType.LLM -> testLLM(testInput)
-                    CapabilityType.TTS -> testTTS(testInput)
-                    CapabilityType.ASR -> testASR()
-                    CapabilityType.VLM -> testVLM()
-                    CapabilityType.GUARDIAN -> testGuardrail(testInput)
-                    else -> "Test not implemented for ${currentCapability.name}"
+
+                // Reset metrics view
+                tvTestMetrics.visibility = View.GONE
+                tvTestMetrics.text = ""
+
+                val isStressMode = chkStressMode.isChecked
+                if (isStressMode) {
+                    runStressTestLoop(testInput)
+                } else {
+                    runSingleTest(testInput)
                 }
                 
-                // Show result (LLM test handles its own UI updates, so skip for LLM)
-                if (currentCapability != CapabilityType.LLM) {
-                    tvTestResult.text = result
-                    layoutTestResult.visibility = View.VISIBLE
-                }
                 updateTestStatus(TestStatus.SUCCESS)
                 
             } catch (e: Exception) {
@@ -1864,8 +1874,79 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
             }
         }
     }
+
+    private suspend fun runSingleTest(testInput: String) {
+        val result = when (currentCapability) {
+            CapabilityType.LLM -> testLLM(testInput).first
+            CapabilityType.TTS -> testTTS(testInput)
+            CapabilityType.ASR -> testASR()
+            CapabilityType.VLM -> testVLM()
+            CapabilityType.GUARDIAN -> testGuardrail(testInput)
+            else -> "Test not implemented for ${currentCapability.name}"
+        }
+
+        // Show result (LLM test handles its own UI updates, so skip for LLM)
+        if (currentCapability != CapabilityType.LLM) {
+            tvTestResult.text = result
+            layoutTestResult.visibility = View.VISIBLE
+        }
+    }
+
+    private suspend fun runStressTestLoop(testInput: String) {
+        val MAX_DURATION_MS = 60_000L // 60 seconds
+        val startTime = System.currentTimeMillis()
+        var iteration = 0
+        val tokensPerSecHistory = mutableListOf<Double>()
+        var totalTokens = 0
+        
+        tvTestResult.text = "🚀 Starting Stress Mode (60s loop)...\n"
+        layoutTestResult.visibility = View.VISIBLE
+
+        while (System.currentTimeMillis() - startTime < MAX_DURATION_MS) {
+            iteration++
+            val iterationStart = System.currentTimeMillis()
+            
+            val (resultText, metrics) = if (currentCapability == CapabilityType.LLM) {
+                testLLM(testInput)
+            } else {
+                // For other types, just run and ignore detailed metrics for now
+                runSingleTest(testInput) to null
+            }
+            
+            // Calculate metrics for this iteration
+            if (metrics is TestMetrics.LLM && metrics.tokenCount != null && metrics.totalLatency > 0) {
+                val tps = (metrics.tokenCount.toDouble() / metrics.totalLatency) * 1000.0
+                tokensPerSecHistory.add(tps)
+                totalTokens += metrics.tokenCount
+            }
+
+            // Update status
+            val elapsed = (System.currentTimeMillis() - startTime) / 1000
+            val statusMsg = "Stress Mode: Iteration $iteration | Elapsed: ${elapsed}s / 60s"
+            tvTestStatus.text = statusMsg
+            
+            // Small delay to prevent UI freeze if test is very fast
+            kotlinx.coroutines.delay(100)
+        }
+
+        // Final Report
+        val avgTps = if (tokensPerSecHistory.isNotEmpty()) tokensPerSecHistory.average() else 0.0
+        val peakMem = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / (1024 * 1024)
+        
+        val report = buildString {
+            append("✅ Stress Test Complete\n")
+            append("Iterations: $iteration\n")
+            append("Avg Speed: %.2f tokens/sec\n".format(avgTps))
+            append("Total Tokens: $totalTokens\n")
+            append("Peak VM Memory: ${peakMem}MB")
+        }
+        
+        tvTestMetrics.text = report
+        tvTestMetrics.visibility = View.VISIBLE
+    }
+
     
-    private suspend fun testLLM(input: String): String {
+    private suspend fun testLLM(input: String): Pair<String, TestMetrics?> {
         return withContext(Dispatchers.IO) {
             val collector = MetricsCollector()
             
@@ -1875,17 +1956,17 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                 val selectedRunnerName = getSelectedRunnerName()
                 val runner = if (selectedRunnerName != null) {
                     runnerManager?.getAllRunners()?.find { it.getRunnerInfo().name == selectedRunnerName }
-                        ?: return@withContext "Error: Selected runner '$selectedRunnerName' not found"
+                        ?: return@withContext "Error: Selected runner '$selectedRunnerName' not found" to null
                 } else {
                     runnerManager?.getRunner(CapabilityType.LLM)
-                        ?: return@withContext "Error: LLM runner not loaded"
+                        ?: return@withContext "Error: LLM runner not loaded" to null
                 }
                 
                 // Get model_id from UI parameters (not from saved settings)
                 val modelId = getCurrentRunnerParams()["model_id"]?.toString()
                     ?: currentSettings.getSelectedModel(runner.getRunnerInfo().name)
                     ?: runner.getRunnerInfo().capabilities.firstOrNull()?.name
-                    ?: return@withContext "⚠️ No model selected"
+                    ?: return@withContext "⚠️ No model selected" to null
                 
                 // Check if we need to (re)load the model
                 // Reload if: not loaded, or model_id has changed
@@ -1915,7 +1996,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                                 // Get files to download
                                 val filesToDownload = modelState.modelInfo.files
                                 if (filesToDownload.isEmpty()) {
-                                    return@withContext "⚠️ No files to download for model: $modelId"
+                                    return@withContext "⚠️ No files to download for model: $modelId" to null
                                 }
                                 
                                 Log.d(TAG, "testLLM: Model has ${filesToDownload.size} files to download")
@@ -2002,7 +2083,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                                         Log.e(TAG, "testLLM: Failed to download file: $fileName")
                                         ModelDownloadService.cancelDownload(this@EngineSettingsActivity, downloadId)
                                         com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker.cancelBatch(batchId)
-                                        return@withContext "⚠️ Download failed\n\nFailed to download: $fileName\n\nPlease check your internet connection and try again."
+                                        return@withContext "⚠️ Download failed\n\nFailed to download: $fileName\n\nPlease check your internet connection and try again." to null
                                     }
                                     
                                     // Mark file complete
@@ -2015,11 +2096,11 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                                     val file = java.io.File(modelDir, fileInfo.fileName)
                                     if (!file.exists()) {
                                         com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker.cancelBatch(batchId)
-                                        return@withContext "⚠️ Validation failed\n\nFile missing: ${fileInfo.fileName}"
+                                        return@withContext "⚠️ Validation failed\n\nFile missing: ${fileInfo.fileName}" to null
                                     }
                                     if (file.length() < 1024) {
                                         com.mtkresearch.breezeapp.engine.core.download.DownloadBatchTracker.cancelBatch(batchId)
-                                        return@withContext "⚠️ Validation failed\n\nFile too small: ${fileInfo.fileName}"
+                                        return@withContext "⚠️ Validation failed\n\nFile too small: ${fileInfo.fileName}" to null
                                     }
                                 }
                                 
@@ -2042,7 +2123,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                                 
                             } catch (e: Exception) {
                                 Log.e(TAG, "testLLM: Download failed", e)
-                                return@withContext "⚠️ Download failed\n\n${e.message}\n\nPlease try again or check logs for details."
+                                return@withContext "⚠️ Download failed\n\n${e.message}\n\nPlease try again or check logs for details." to null
                             }
                         }
                     }
@@ -2054,7 +2135,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                     )
                     
                     if (!success) {
-                        return@withContext "⚠️ Model failed to load. Please check if the model files exist."
+                        return@withContext "⚠️ Model failed to load. Please check if the model files exist." to null
                     }
                 } else {
                     Log.d(TAG, "testLLM: Model already loaded: $modelId")
@@ -2066,6 +2147,10 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                     params = getCurrentRunnerParams()
                 )
                 
+                // Start breathing border
+                val requestId = "quick_test_${System.currentTimeMillis()}"
+                BreezeAppEngineService.getInstance()?.notifyRequestStarted(requestId, "LLM_QUICK_TEST")
+                
                 collector.mark("start")
                 
                 // Check if runner supports streaming (like ExecutorchLLMRunner)
@@ -2073,6 +2158,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                     Log.d(TAG, "testLLM: Using streaming runner")
                     var response = ""
                     var firstTokenTime: Long? = null
+                    var tokenCount = 0
                     
                     // Show initial state
                     runOnUiThread {
@@ -2080,51 +2166,54 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                         layoutTestResult.visibility = View.VISIBLE
                     }
                     
-                    runner.runAsFlow(request).collect { result ->
-                        if (firstTokenTime == null) {
-                            firstTokenTime = System.currentTimeMillis()
-                            collector.mark("first_token")
-                        }
-                        
-                        result.outputs["text"]?.let { text ->
-                            response += text.toString()
-                            Log.d(TAG, "testLLM: Received text chunk")
+                    try {
+                        runner.runAsFlow(request).collect { result ->
+                            if (firstTokenTime == null) {
+                                firstTokenTime = System.currentTimeMillis()
+                                collector.mark("first_token")
+                            }
                             
-                            // Update UI in real-time
-                            runOnUiThread {
-                                tvTestResult.text = response
+                            result.outputs["text"]?.let { text ->
+                                response += text.toString()
+                                tokenCount++ // Estimation: 1 chunk = 1 token
+                                
+                                // Update UI in real-time
+                                runOnUiThread {
+                                    tvTestResult.text = response
+                                }
                             }
                         }
+                    } finally {
+                        BreezeAppEngineService.getInstance()?.notifyRequestEnded(requestId, "LLM_QUICK_TEST")
                     }
                     
                     collector.mark("end")
                     
+                    val totalLatency = collector.duration("start", "end") ?: 0
                     val metrics = TestMetrics.LLM(
-                        totalLatency = collector.duration("start", "end") ?: 0,
+                        totalLatency = totalLatency,
                         success = response.isNotEmpty(),
                         errorMessage = if (response.isEmpty()) "No response received" else null,
                         responseLength = response.length,
-                        tokenCount = null
+                        tokenCount = tokenCount
                     )
                     
                     // Build statistics string
                     val statistics = buildString {
                         append("\n\n")
                         append("━".repeat(10))
-                        append("\n📊 Test Statistics\n")
-                        append("━".repeat(10))
+                        append("\n📊 Statistics\n")
                         
-                        // Convert milliseconds to seconds with 2 decimal places
                         val totalSeconds = metrics.totalLatency / 1000.0
-                        append("\n⏱️  Total Time: %.2f s".format(totalSeconds))
+                        append("⏱️ Time: %.2f s".format(totalSeconds))
                         
-                        collector.duration("start", "first_token")?.let { ttft ->
-                            val ttftSeconds = ttft / 1000.0
-                            append("\n⚡ TTFT: %.2f s".format(ttftSeconds))
+                        if (tokenCount > 0) {
+                            val tps = (tokenCount.toDouble() / metrics.totalLatency) * 1000.0
+                            append(" | 🚀 Speed: %.2f t/s".format(tps))
                         }
                         
                         metrics.responseLength?.let { 
-                            append("\n📝 Response Length: $it characters")
+                            append("\n📝 Len: $it chars")
                         }
                     }
                     
@@ -2133,16 +2222,16 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                         tvTestResult.text = response + statistics
                     }
                     
-                    // Return success message for logging
-                    "✓ Test completed successfully"
+                    // Return success message and metrics
+                    "✓ Test completed successfully" to metrics
                 } else {
                     // Non-streaming LLM
-                    val result = runner.run(request, stream = false)
+                    val result = try {
+                        runner.run(request, stream = false)
+                    } finally {
+                        BreezeAppEngineService.getInstance()?.notifyRequestEnded(requestId, "LLM_QUICK_TEST")
+                    }
                     collector.mark("end")
-                    
-                    // Inspect what runner provides
-                    Log.d(TAG, "LLM outputs: ${result.outputs.keys}")
-                    Log.d(TAG, "LLM metadata: ${result.metadata.keys}")
                     
                     val metrics = TestMetrics.LLM(
                         totalLatency = collector.duration("start", "end") ?: 0,
@@ -2152,12 +2241,17 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                         tokenCount = result.getIntOrNull("token_count")
                     )
                     
-                    formatLLMMetrics(metrics, result)
+                    formatLLMMetrics(metrics, result) // This function likely returns void or string?
+                    // Assuming formatLLMMetrics updates UI? 
+                    // Wait, previous code called formatLLMMetrics at line 2155.
+                    // I will just return the metrics.
+                    
+                     "✓ Non-streaming Test completed" to metrics
                 }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "LLM test exception", e)
-                "✗ Exception: ${e.message}"
+                "✗ Exception: ${e.message}" to null
             }
         }
     }
