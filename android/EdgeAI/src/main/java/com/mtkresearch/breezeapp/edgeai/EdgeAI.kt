@@ -184,6 +184,13 @@ object EdgeAI {
      * - Subsequent calls: Returns immediately with success
      * - Cancellable: Can be cancelled via coroutine cancellation
      *
+     * ## Package Name Detection
+     * 
+     * The SDK attempts to find the BreezeApp Engine Service in the following order:
+     * 1. **Explicit Target:** If [targetPackageName] is provided, it is used directly.
+     * 2. **Embedded (Host):** Checks if the service exists in the current application's package.
+     * 3. **Standalone:** Falls back to the standard standalone app package (`com.mtkresearch.breezeapp.engine`).
+     *
      * ## Example Usage
      *
      * ```kotlin
@@ -194,22 +201,27 @@ object EdgeAI {
      *     }.onFailure { error ->
      *         println("Initialization failed: ${error.message}")
      *     }
+     *
+     *     // Connect to a specific host (e.g. Signal)
+     *     EdgeAI.initialize(context, targetPackageName = "org.thoughtcrime.securesms")
      * }
      * ```
      *
      * @param context Android application context. Will be converted to application context internally.
+     * @param targetPackageName Optional package name to bind to. If null, auto-detection logic is used.
      * @return [Result]<Unit> indicating success or failure
      *
      * @see initializeAndWait
      * @see shutdown
      */
-    suspend fun initialize(context: Context): Result<Unit> = suspendCancellableCoroutine { continuation ->
+    suspend fun initialize(context: Context, targetPackageName: String? = null): Result<Unit> = suspendCancellableCoroutine { continuation ->
         if (isInitialized) {
             continuation.resume(Result.success(Unit))
             return@suspendCancellableCoroutine
         }
 
-        this.context = context.applicationContext
+        val appContext = context.applicationContext
+        this.context = appContext
 
         // Set up completion callback
         initializationCompletion = { result ->
@@ -217,24 +229,42 @@ object EdgeAI {
             continuation.resume(result)
         }
 
+        // Determine which package to bind to
+        val resolvedPackageName = targetPackageName ?: run {
+            // Auto-detect strategy:
+            // 1. Check if the service exists in the current app (Embedded/Library mode)
+            val localIntent = Intent(AI_ROUTER_SERVICE_ACTION).setPackage(appContext.packageName)
+            val pm = appContext.packageManager
+            val localResolve = pm.resolveService(localIntent, 0)
+            
+            if (localResolve != null) {
+                Log.d(TAG, "Found embedded BreezeApp Engine in local package: ${appContext.packageName}")
+                appContext.packageName
+            } else {
+                // 2. Fallback to standalone app
+                Log.d(TAG, "Embedded engine not found, falling back to standalone package: $AI_ROUTER_SERVICE_PACKAGE")
+                AI_ROUTER_SERVICE_PACKAGE
+            }
+        }
+
         // Bind to service
         val intent = Intent(AI_ROUTER_SERVICE_ACTION).apply {
-            setPackage(AI_ROUTER_SERVICE_PACKAGE)
+            setPackage(resolvedPackageName)
         }
 
         val bound = try {
-            context.applicationContext.bindService(
+            appContext.bindService(
                 intent,
                 serviceConnection,
                 Context.BIND_AUTO_CREATE
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to bind to service", e)
+            Log.e(TAG, "Failed to bind to service in package: $resolvedPackageName", e)
             false
         }
 
         if (!bound) {
-            val error = ServiceConnectionException("Failed to bind to BreezeApp Engine Service")
+            val error = ServiceConnectionException("Failed to bind to BreezeApp Engine Service in package: $resolvedPackageName")
             initializationCompletion?.invoke(Result.failure(error))
             initializationCompletion = null
         }
@@ -244,7 +274,7 @@ object EdgeAI {
             initializationCompletion = null
             if (isBound) {
                 try {
-                    context.applicationContext.unbindService(serviceConnection)
+                    appContext.unbindService(serviceConnection)
                 } catch (e: Exception) {
                     Log.w(TAG, "Error unbinding service during cancellation: ${e.message}")
                 }
@@ -297,18 +327,22 @@ object EdgeAI {
      *     } catch (e: ServiceConnectionException) {
      *         println("BreezeApp Engine not available: ${e.message}")
      *     }
+     *
+     *     // Connect to Signal's engine instance
+     *     EdgeAI.initializeAndWait(context, targetPackageName = "org.thoughtcrime.securesms")
      * }
      * ```
      *
      * @param context Android application context
+     * @param targetPackageName Optional package name to bind to
      * @param timeoutMs Timeout in milliseconds (currently unused, kept for API compatibility)
      * @throws ServiceConnectionException if BreezeApp Engine is not available or initialization fails
      *
      * @see initialize
      * @see shutdown
      */
-    suspend fun initializeAndWait(context: Context, timeoutMs: Long = 10000) {
-        val result = initialize(context)
+    suspend fun initializeAndWait(context: Context, targetPackageName: String? = null, timeoutMs: Long = 10000) {
+        val result = initialize(context, targetPackageName)
         result.getOrElse { error ->
             throw error as? ServiceConnectionException 
                 ?: ServiceConnectionException("Initialization failed: ${error.message}")
