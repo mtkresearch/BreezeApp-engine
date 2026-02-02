@@ -1893,16 +1893,16 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
     }
 
     private suspend fun runStressTestLoop(testInput: String) {
-        val MAX_DURATION_MS = 60_000L // 60 seconds
+        val MAX_ITERATIONS = 5
         val startTime = System.currentTimeMillis()
         var iteration = 0
         val tokensPerSecHistory = mutableListOf<Double>()
         var totalTokens = 0
         
-        tvTestResult.text = "🚀 Starting Stress Mode (60s loop)...\n"
+        tvTestResult.text = "🚀 Starting Stress Mode ($MAX_ITERATIONS iterations)...\n"
         layoutTestResult.visibility = View.VISIBLE
 
-        while (System.currentTimeMillis() - startTime < MAX_DURATION_MS) {
+        while (iteration < MAX_ITERATIONS) {
             iteration++
             val iterationStart = System.currentTimeMillis()
             
@@ -1921,13 +1921,15 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
             }
 
             // Update status
-            val elapsed = (System.currentTimeMillis() - startTime) / 1000
-            val statusMsg = "Stress Mode: Iteration $iteration | Elapsed: ${elapsed}s / 60s"
+            val statusMsg = "Stress Mode: Iteration $iteration / $MAX_ITERATIONS"
             tvTestStatus.text = statusMsg
+            Log.d(TAG, "runStressTestLoop: $statusMsg")
             
             // Small delay to prevent UI freeze if test is very fast
             kotlinx.coroutines.delay(100)
         }
+        
+        Log.d(TAG, "runStressTestLoop: Loop finished. Total durations: ${(System.currentTimeMillis() - startTime)}ms")
 
         // Final Report
         val avgTps = if (tokensPerSecHistory.isNotEmpty()) tokensPerSecHistory.average() else 0.0
@@ -1954,19 +1956,30 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                 // Get runner based on current UI selection, not saved settings
                 // This ensures Quick Test uses the latest UI selection even before saving
                 val selectedRunnerName = getSelectedRunnerName()
+                Log.d(TAG, "testLLM: getSelectedRunnerName() returned: '$selectedRunnerName'")
+                
                 val runner = if (selectedRunnerName != null) {
-                    runnerManager?.getAllRunners()?.find { it.getRunnerInfo().name == selectedRunnerName }
-                        ?: return@withContext "Error: Selected runner '$selectedRunnerName' not found" to null
+                    val foundRunner = runnerManager?.getAllRunners()?.find { it.getRunnerInfo().name == selectedRunnerName }
+                    if (foundRunner == null) Log.e(TAG, "testLLM: Runner '$selectedRunnerName' not found in manager")
+                    foundRunner ?: return@withContext "Error: Selected runner '$selectedRunnerName' not found" to null
                 } else {
+                    Log.w(TAG, "testLLM: selectedRunnerName is null, falling back to default LLM runner")
                     runnerManager?.getRunner(CapabilityType.LLM)
                         ?: return@withContext "Error: LLM runner not loaded" to null
                 }
                 
+                Log.d(TAG, "testLLM: Resolved runner: ${runner.getRunnerInfo().name}")
+                
                 // Get model_id from UI parameters (not from saved settings)
-                val modelId = getCurrentRunnerParams()["model_id"]?.toString()
-                    ?: currentSettings.getSelectedModel(runner.getRunnerInfo().name)
-                    ?: runner.getRunnerInfo().capabilities.firstOrNull()?.name
+                val params = getCurrentRunnerParams()
+                Log.d(TAG, "testLLM: Current params for runner: $params")
+                
+                val modelId = params["model_id"]?.toString()
+                    ?: currentSettings.getSelectedModel(runner.getRunnerInfo().name).also { Log.d(TAG, "testLLM: Fallback to saved settings: $it") }
+                    ?: runner.getRunnerInfo().capabilities.firstOrNull()?.name.also { Log.d(TAG, "testLLM: Fallback to capability name: $it") }
                     ?: return@withContext "⚠️ No model selected" to null
+                
+                Log.d(TAG, "testLLM: Final resolved modelId: '$modelId'")
                 
                 // Check if we need to (re)load the model
                 // Reload if: not loaded, or model_id has changed
@@ -1975,8 +1988,8 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                 if (needsReload) {
                     Log.d(TAG, "testLLM: Loading model: $modelId (current: ${runner.getLoadedModelId()})")
                     
-                    // For ExecutorchLLMRunner, check model state and trigger download if needed
-                    if (runner.getRunnerInfo().name == "ExecutorchLLMRunner") {
+                    // Check model state and trigger download if needed (for any runner)
+                    if (true) {
                         val modelManager = com.mtkresearch.breezeapp.engine.core.ModelManager.getInstance(this@EngineSettingsActivity)
                         val modelState = modelManager.getModelState(modelId)
                         
@@ -2023,8 +2036,8 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                                 // Download all files sequentially
                                 for ((index, fileInfo) in filesToDownload.withIndex()) {
                                     val downloadUrl = fileInfo.urls.firstOrNull()
-                                        ?: throw IllegalArgumentException("No download URL for file: ${fileInfo.fileName}")
-                                    val fileName = fileInfo.fileName
+                                        ?: throw IllegalArgumentException("No download URL for file index $index")
+                                    val fileName = fileInfo.fileName ?: throw IllegalArgumentException("No filename for file index $index")
                                     
                                     Log.d(TAG, "testLLM: Downloading file ${index + 1}/${filesToDownload.size}: $fileName")
                                     
@@ -2190,10 +2203,13 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                     collector.mark("end")
                     
                     val totalLatency = collector.duration("start", "end") ?: 0
+                    val ttft = collector.duration("start", "first_token")
+                    
                     val metrics = TestMetrics.LLM(
                         totalLatency = totalLatency,
                         success = response.isNotEmpty(),
                         errorMessage = if (response.isEmpty()) "No response received" else null,
+                        timeToFirstToken = ttft,
                         responseLength = response.length,
                         tokenCount = tokenCount
                     )
@@ -2206,6 +2222,10 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
                         
                         val totalSeconds = metrics.totalLatency / 1000.0
                         append("⏱️ Time: %.2f s".format(totalSeconds))
+                        
+                        metrics.timeToFirstToken?.let {
+                            append(" | ⚡ TTFT: ${it}ms")
+                        }
                         
                         if (tokenCount > 0) {
                             val tps = (tokenCount.toDouble() / metrics.totalLatency) * 1000.0
@@ -2557,6 +2577,7 @@ class EngineSettingsActivity : BaseDownloadAwareActivity() {
         if (m.success) {
             append("✓ Success\n")
             append("⏱️ Total: ${m.totalLatency}ms\n")
+            m.timeToFirstToken?.let { append("⚡ TTFT: ${it}ms\n") }
             
             // Show response
             val output = result.outputs["text"] ?: result.outputs["response"]

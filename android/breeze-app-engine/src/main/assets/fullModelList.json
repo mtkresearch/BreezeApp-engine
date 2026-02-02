@@ -7,10 +7,16 @@
       "ramGB": 4,
       "capabilities": ["LLM"],
       "files": [
-        { "group": "dla", "pattern": "BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_*_extracted.dla", "type": "dla", "urls": [
-            "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_128t1024c_0_extracted.dla",
-            "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_128t1024c_1_extracted.dla",
-            "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_1t1024c_0_extracted.dla",
+        { "fileName": "BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_128t1024c_0_extracted.dla", "type": "dla", "urls": [
+            "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_128t1024c_0_extracted.dla"
+        ] },
+        { "fileName": "BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_128t1024c_1_extracted.dla", "type": "dla", "urls": [
+            "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_128t1024c_1_extracted.dla"
+        ] },
+        { "fileName": "BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_1t1024c_0_extracted.dla", "type": "dla", "urls": [
+            "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_1t1024c_0_extracted.dla"
+        ] },
+        { "fileName": "BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_1t1024c_1_extracted.dla", "type": "dla", "urls": [
             "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/BreezeTinyInstruct_v0.1_sym8W_sym16A_Overall_14layer_1t1024c_1_extracted.dla"
         ] },
         { "fileName": "added_tokens.yaml", "type": "config", "urls": [
@@ -22,8 +28,10 @@
         { "fileName": "embedding_int16.bin", "type": "embedding", "urls": [
           "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/embedding_int16.bin"
         ] },
-        { "group": "weights", "pattern": "shared_weights_*.bin", "type": "weights", "urls": [
-          "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/shared_weights_0.bin",
+        { "fileName": "shared_weights_0.bin", "type": "weights", "urls": [
+          "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/shared_weights_0.bin"
+        ] },
+        { "fileName": "shared_weights_1.bin", "type": "weights", "urls": [
           "https://huggingface.co/MediaTek-Research/Breeze2-3B-8W16A-Instruct-mobile-npu/resolve/main/shared_weights_1.bin"
         ] },
         { "fileName": "tokenizer.tiktoken", "type": "tokenizer", "urls": [
