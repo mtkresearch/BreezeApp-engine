@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ===================== 基本權限 ===================== -->
+    <!-- ===================== 基本權限 (From Main) ===================== -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -18,47 +18,34 @@
         android:label="@string/permission_bind_engine_label"
         android:description="@string/permission_bind_engine_desc" />
 
-    <!-- Remove app-specific attributes (label, icon, theme) to avoid conflicts in Library mode -->
-    <application>
+    <application
+        android:label="BreezeApp Engine"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
         <!-- ===================== Neuron SDK / MTK NPU Support ===================== -->
-        <uses-native-library
-            android:name="libapuwareutils_v2.mtk.so"
-            android:required="false" />
+        <uses-native-library android:name="libapuwareutils_v2.mtk.so" android:required="false" />
+        <uses-native-library android:name="libapuwareapusys_v2.mtk.so" android:required="false" />
+        <uses-native-library android:name="libnir_neon_driver_ndk.mtk.so" android:required="false" />
+        <uses-native-library android:name="libnir_neon_driver_ndk.mtk.vndk.so" android:required="false" />
+        <uses-native-library android:name="libcmdl_ndk.mtk.vndk.so" android:required="false" />
+        <uses-native-library android:name="libcmdl_ndk.mtk.so" android:required="false" />
+        <uses-native-library android:name="libneuronusdk_adapter.mtk.so" android:required="false" />
+        <uses-native-library android:name="libc++_shared.so" android:required="false" />
 
-        <uses-native-library
-            android:name="libapuwareapusys_v2.mtk.so"
-            android:required="false" />
+        <!-- ===================== Engine 主活動入口 (Standalone Only) ===================== -->
+        <activity
+            android:name=".ui.BreezeAppEngineLauncherActivity"
+            android:exported="true"
+            android:label="BreezeApp Engine"
+            android:theme="@style/Theme.BreezeApp">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
-        <uses-native-library
-            android:name="libnir_neon_driver_ndk.mtk.so"
-            android:required="false" />
-
-        <uses-native-library
-            android:name="libnir_neon_driver_ndk.mtk.vndk.so"
-            android:required="false" />
-
-        <uses-native-library
-            android:name="libcmdl_ndk.mtk.vndk.so"
-            android:required="false" />
-
-        <uses-native-library
-            android:name="libcmdl_ndk.mtk.so"
-            android:required="false" />
-
-        <uses-native-library
-            android:name="libneuronusdk_adapter.mtk.so"
-            android:required="false" />
-        
-        <uses-native-library
-            android:name="libc++_shared.so"
-            android:required="false" />
-
-        <!-- 
-           LauncherActivity moved to src/standalone/AndroidManifest.xml 
-        -->
-
-        <!-- ===================== 設定頁面 (Keep in main to allow Signal to launch settings if needed) ===================== -->
+        <!-- ===================== 設定頁面 ===================== -->
         <activity
             android:name=".ui.EngineSettingsActivity"
             android:exported="true"
@@ -81,8 +68,6 @@
             android:foregroundServiceType="dataSync|microphone"
             android:stopWithTask="false"
             android:permission="com.mtkresearch.breezeapp.permission.BIND_ENGINE_SERVICE">
-
-            <!-- Action 供 EdgeAI SDK 綁定 -->
             <intent-filter>
                 <action android:name="com.mtkresearch.breezeapp.engine.BreezeAppEngineService" />
             </intent-filter>

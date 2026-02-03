@@ -13,7 +13,7 @@
         </attr>
         
         <!-- 訊息狀態 -->
-        <attr name="messageState" format="enum">
+        <attr name="breeze_messageState" format="enum">
             <enum name="normal" value="0" />
             <enum name="loading" value="1" />
             <enum name="error" value="2" />
@@ -154,14 +154,15 @@
             <enum name="outlined" value="1" />
             <enum name="text" value="2" />
         </attr>
-        <attr name="buttonSize" format="enum">
+        <attr name="breeze_buttonSize" format="enum">
             <enum name="small" value="0" />
             <enum name="medium" value="1" />
             <enum name="large" value="2" />
         </attr>
-        <attr name="cornerRadius" format="dimension" />
+        <!-- Use system cornerRadius and elevation -->
+        <!-- <attr name="cornerRadius" format="dimension" /> -->
         <attr name="rippleColor" format="color" />
-        <attr name="elevation" format="dimension" />
+        <!-- <attr name="elevation" format="dimension" /> -->
     </declare-styleable>
     
     <!-- 圓角屬性 -->
@@ -170,7 +171,7 @@
         <attr name="topRightRadius" format="dimension" />
         <attr name="bottomLeftRadius" format="dimension" />
         <attr name="bottomRightRadius" format="dimension" />
-        <attr name="radius" format="dimension" />
+        <attr name="breeze_radius" format="dimension" />
     </declare-styleable>
     
     <!-- 邊框屬性 -->

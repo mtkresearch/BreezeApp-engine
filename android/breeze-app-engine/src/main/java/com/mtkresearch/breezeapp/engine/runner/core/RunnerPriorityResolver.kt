@@ -15,11 +15,12 @@ import com.mtkresearch.breezeapp.engine.annotation.RunnerPriority
  * The formula ensures vendor-level grouping with priority-level ordering:
  * 
  * ### Vendor Priority Order (vendor.ordinal × 10):
- * - **MEDIATEK**: 0-9 (highest priority vendor)
- * - **SHERPA**: 10-19  
- * - **OPENROUTER**: 20-29
- * - **EXECUTORCH**: 30-39
- * - **UNKNOWN**: 40-49 (lowest priority vendor)
+ * - **OPENROUTER**: 0-9 (highest priority vendor - default for all devices)
+ * - **MEDIATEK**: 10-19 (available as option on NPU-capable devices)
+ * - **SHERPA**: 20-29  
+ * - **CUSTOM**: 30-39
+ * - **EXECUTORCH**: 40-49
+ * - **UNKNOWN**: 70-79 (lowest priority vendor)
  * 
  * ### Within-Vendor Priority (+ priority.ordinal):
  * - **HIGH**: +0 (highest within vendor)

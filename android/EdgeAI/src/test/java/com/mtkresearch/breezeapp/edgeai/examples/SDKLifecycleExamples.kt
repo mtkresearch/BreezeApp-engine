@@ -4,6 +4,7 @@ import com.mtkresearch.breezeapp.edgeai.*
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.launch
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 import org.junit.Test
 import org.junit.Assert.*
 import org.junit.runner.RunWith
@@ -62,7 +63,7 @@ class SDKLifecycleExamples : EdgeAITestBase() {
     @Test
     fun `01 - initialize with Result`() = runTest {
         val result = EdgeAI.initialize(
-            context = mock()
+            context = mockContext()
         )
 
         result.onSuccess {
@@ -96,7 +97,7 @@ class SDKLifecycleExamples : EdgeAITestBase() {
     fun `02 - initialize and wait`() = runTest {
         try {
             EdgeAI.initializeAndWait(
-                context = mock()
+                context = mockContext()
             )
 
             println("✓ SDK initialized successfully")
@@ -217,7 +218,7 @@ class SDKLifecycleExamples : EdgeAITestBase() {
                     kotlinx.coroutines.Dispatchers.Main
                 ).launch {
                     try {
-                        EdgeAI.initializeAndWait(mock())
+                        EdgeAI.initializeAndWait(mockContext())
                         _isReady.value = true
                     } catch (e: EdgeAIException) {
                         _isReady.value = false
@@ -284,6 +285,18 @@ class SDKLifecycleExamples : EdgeAITestBase() {
     // === HELPER FUNCTIONS ===
 
     private fun mockContext(): android.content.Context {
-        return mock()
+        val mockContext: android.content.Context = mock()
+        val mockPackageManager: android.content.pm.PackageManager = mock()
+        
+        // Return self as application context
+        whenever(mockContext.applicationContext).thenReturn(mockContext)
+        
+        // Return fake package name
+        whenever(mockContext.packageName).thenReturn("com.mtkresearch.breezeapp.edgeai.test")
+        
+        // Return mock package manager
+        whenever(mockContext.packageManager).thenReturn(mockPackageManager)
+        
+        return mockContext
     }
 }
