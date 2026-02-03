@@ -12,6 +12,7 @@ import com.mtkresearch.breezeapp.engine.runner.core.FlowStreamingRunner
 import com.mtkresearch.breezeapp.engine.runner.core.RunnerInfo
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterSchema
 import com.mtkresearch.breezeapp.engine.runner.core.ParameterType
+import com.mtkresearch.breezeapp.engine.runner.core.SelectionOption
 import com.mtkresearch.breezeapp.engine.runner.core.ValidationResult
 import com.mtkresearch.breezeapp.engine.system.NativeLibraryManager
 import kotlinx.coroutines.flow.Flow
@@ -64,6 +65,7 @@ class MTKLLMRunner(
         private const val TAG = "MTKLLMRunner"
         private const val MODEL_NAME = "Breeze2-3B-8W16A-250630-npu"
         private const val RUNNER_VERSION = "1.0.0"
+        private const val DEFAULT_MODEL_ID = "Breeze2-3B-8W16A-250630-npu"
         private val initAttemptCount = AtomicInteger(0)
     }
     
@@ -359,6 +361,24 @@ class MTKLLMRunner(
 
     override fun getParameterSchema(): List<ParameterSchema> {
         return listOf(
+            ParameterSchema(
+                name = "model_id",
+                displayName = "MTK Model",
+                description = "Select the MTK NPU model to use for inference",
+                type = ParameterType.SelectionType(
+                    options = getSupportedModels().map { model ->
+                        SelectionOption(
+                            key = model.id,
+                            displayName = "${model.id} (NPU)",
+                            description = "Backend: mtk_neuron"
+                        )
+                    },
+                    allowMultiple = false
+                ),
+                defaultValue = DEFAULT_MODEL_ID,
+                isRequired = true,
+                category = "Model Configuration"
+            ),
             ParameterSchema(
                 name = "temperature",
                 displayName = "Temperature",
@@ -730,5 +750,25 @@ class MTKLLMRunner(
     private external fun nativeSwapModelImpl(tokenSize: Int): Boolean
     
     // Helper methods for model configuration
-    // Removed ModelConfig helper methods - no longer needed with JSON-based architecture
+    private fun getSupportedModels(): List<ModelDefinition> {
+        // Return models compatible with "mtk" or "mediatek" runner
+        // Fallback to default if registry is null or empty
+        val models = modelRegistry?.getCompatibleModels("mtk")?.plus(
+            modelRegistry.getCompatibleModels("mediatek")
+        ) ?: emptyList()
+        
+        if (models.isNotEmpty()) return models
+        
+        return listOf(
+            ModelDefinition(
+                id = DEFAULT_MODEL_ID,
+                runner = "mtk",
+                backend = "mtk_neuron",
+                ramGB = 4,
+                files = emptyList(),
+                entryPoint = EntryPoint("file", "Breeze2-3B-8W16A.dla"),
+                capabilities = listOf(CapabilityType.LLM)
+            )
+        )
+    }
 } 

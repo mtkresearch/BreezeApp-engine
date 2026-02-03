@@ -104,5 +104,5 @@ If you want to add a new model or AI capability to the engine itself.
 
 Whether you're fixing a bug, improving the docs, or adding a revolutionary new runner, we welcome your contributions!
 
-* **Contribution Guidelines:** Please read our **[Contributing Guide](./docs/guides/contributing.md)**.
+* **Contribution Guidelines:** Please read our **[Contributing Guide](./CONTRIBUTING.md)**.
 * **Have Questions?** Don't hesitate to open an issue! We're happy to help.
