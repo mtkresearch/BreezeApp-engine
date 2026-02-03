@@ -51,6 +51,26 @@ enum class VendorType(
     ),
 
     /**
+    
+     * OpenRouter API service for cloud-based AI.
+     * 
+     * Provides access to multiple AI models through a unified API.
+     * Offers good reliability and model variety as a cloud fallback.
+     * 
+     * **Characteristics:**
+     * - Cloud-based processing
+     * - Multiple model access
+     * - API-based integration
+     * - Reliable fallback option
+     */
+    OPENROUTER(
+        displayName = "OpenRouter",
+        description = "Cloud-based AI API service",
+        requiresSpecialHardware = false,
+        requiresInternet = true
+    ),
+    
+    /**
      * MediaTek NPU and AI acceleration technology.
      * 
      * Provides hardware-accelerated inference using MediaTek's Neural Processing Unit.
@@ -86,25 +106,6 @@ enum class VendorType(
         description = "Local ONNX-based AI processing framework",
         requiresSpecialHardware = false,
         requiresInternet = false
-    ),
-    
-    /**
-     * OpenRouter API service for cloud-based AI.
-     * 
-     * Provides access to multiple AI models through a unified API.
-     * Offers good reliability and model variety as a cloud fallback.
-     * 
-     * **Characteristics:**
-     * - Cloud-based processing
-     * - Multiple model access
-     * - API-based integration
-     * - Reliable fallback option
-     */
-    OPENROUTER(
-        displayName = "OpenRouter",
-        description = "Cloud-based AI API service",
-        requiresSpecialHardware = false,
-        requiresInternet = true
     ),
     
     /**
