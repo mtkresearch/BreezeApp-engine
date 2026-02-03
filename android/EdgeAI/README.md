@@ -115,7 +115,7 @@ override fun onDestroy() {
 }
 ```
 
-**See**: [`EdgeAIUsageExample.kt`](./src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt) for complete examples
+**See**: [`ChatExamples.kt`](./src/test/java/com/mtkresearch/breezeapp/edgeai/examples/ChatExamples.kt) for complete examples
 
 ---
 
@@ -133,12 +133,12 @@ override fun onDestroy() {
 ### Usage Examples
 
 **See unit tests for complete examples**:
-- [`EdgeAITest.kt`](./src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAITest.kt) - Unit tests
-- [`EdgeAIUsageExample.kt`](./src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt) - Usage patterns
+- [`ChatExamples.kt`](./src/test/java/com/mtkresearch/breezeapp/edgeai/examples/ChatExamples.kt) - Usage patterns
+- [`SDKLifecycleExamples.kt`](./src/test/java/com/mtkresearch/breezeapp/edgeai/examples/SDKLifecycleExamples.kt) - Lifecycle Tests
 
 ### API Documentation
 
-**Detailed API docs**: [docs/client-developers/api-reference.md](./docs/client-developers/api-reference.md)
+**Detailed API docs**: [docs/client-developers/usage-guide.md](./docs/client-developers/usage-guide.md)
 - Request/response models
 - All parameters
 - Return types
@@ -185,7 +185,7 @@ override fun onDestroy() {
 ### Example Code
 
 **Unit tests serve as usage examples**:
-- [`EdgeAITest.kt`](./src/test/java/com/mtkresearch/breezeapp/edgeai/EdgeAITest.kt) - All API tests
-- [`EdgeAIUsageExample.kt`](./src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAIUsageExample.kt) - Usage patterns
+- [`ASRExamples.kt`](./src/test/java/com/mtkresearch/breezeapp/edgeai/examples/ASRExamples.kt) - ASR API tests
+- [`TTSExamples.kt`](./src/test/java/com/mtkresearch/breezeapp/edgeai/examples/TTSExamples.kt) - TTS API tests
 
 **See**: [docs/maintainers/testing.md](./docs/maintainers/testing.md) for complete testing guide

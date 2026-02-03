@@ -8,14 +8,14 @@
 3. **Annotate your class with `@AIRunner`**. The engine will discover it automatically.
 4. **Write unit tests** for your runner.
 
-See the detailed [Runner Development Guide](./RUNNER_DEVELOPMENT.md).
+See the detailed [Runner Development Guide](./docs/guides/runner-development.md).
 
 ### For App Developers (Using the Engine)
 1. **Add AIDL dependency**
 2. **Bind to BreezeAppEngineService**
 3. **Handle AIResponse callbacks**
 
-See [API_REFERENCE.md](./API_REFERENCE.md) for complete API documentation.
+See [Usage Guide](./android/EdgeAI/docs/client-developers/usage-guide.md) for complete API documentation.
 
 ## 🏗️ Architecture Principles
 
@@ -84,6 +84,6 @@ src/androidTest/java/    # Integration tests
 
 ## 📞 Getting Help
 
-- **Architecture Questions**: Check [ARCHITECTURE.md](./ARCHITECTURE.md)
-- **Runner Development**: Read [RUNNER_DEVELOPMENT.md](./RUNNER_DEVELOPMENT.md)
+- **Architecture Questions**: Check [ARCHITECTURE.md](./docs/architecture/README.md)
+- **Runner Development**: Read [RUNNER_DEVELOPMENT.md](./docs/guides/runner-development.md)
 - **Issues**: Use GitHub Issues with appropriate labels

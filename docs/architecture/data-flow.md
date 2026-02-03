@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes how requests flow through the engine from EdgeAI SDK to AI runners. The EdgeAI SDK handles all AIDL service binding automatically - clients only need to call [`EdgeAI.initialize()`](../../android/EdgeAI/src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAI.kt#L145-L201) and use the [API](../../android/EdgeAI/docs/API_REFERENCE.md).
+This document describes how requests flow through the engine from EdgeAI SDK to AI runners. The EdgeAI SDK handles all AIDL service binding automatically - clients only need to call [`EdgeAI.initialize()`](../../android/EdgeAI/src/main/java/com/mtkresearch/breezeapp/edgeai/EdgeAI.kt) and use the [API](../../android/EdgeAI/docs/client-developers/usage-guide.md).
 
 ---
 

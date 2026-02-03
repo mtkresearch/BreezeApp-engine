@@ -55,7 +55,7 @@ override fun runAsFlow(request: InferenceRequest): Flow<InferenceResult> = flow 
     emit(InferenceResult.textOutput(text = accumulatedText, partial = false))
 }
 ```
-For more detailed streaming patterns and best practices, refer to: [Streaming Implementation Guide](../android/breeze-app-engine/src/main/java/com/mtkresearch/breezeapp/engine/runner/STREAMING_GUIDE.md)
+For more detailed streaming patterns and best practices, refer to the **[Usage Guide](../../android/EdgeAI/docs/client-developers/usage-guide.md)**.
 
 **That's it!** The engine automatically discovers and integrates your runner.
 
